@@ -1,0 +1,26 @@
+{
+  "name": "tinyflow-web",
+  "version": "1.0.0",
+  "description": "TinyFlow 短链接生成器前端页面",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx http-server . -p 3000 -o",
+    "start": "npx http-server . -p 3000",
+    "build": "echo 'No build process needed for this static site'"
+  },
+  "keywords": [
+    "vue3",
+    "tailwindcss",
+    "short-url",
+    "url-shortener"
+  ],
+  "author": "TinyFlow Team",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "vue": "^3.3.0"
+  }
+}

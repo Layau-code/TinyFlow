@@ -46,7 +46,7 @@ public class ShortUrlService {
         // 先查 Redis
         String longUrl = redisTemplate.opsForValue().get("short:" + shortCode);
         if (longUrl != null) {
-            // 增加点击次数（可选）
+            // 增加点击次数
             redisTemplate.opsForValue().increment("click:" + shortCode);
             return longUrl;
         }
