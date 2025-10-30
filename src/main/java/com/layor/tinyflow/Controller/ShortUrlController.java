@@ -18,6 +18,7 @@ public class ShortUrlController {
 
     // 生成短链
     @PostMapping("/shorten")
+
     public ResponseEntity<String> shorten(@RequestBody String longUrl) {
         if (longUrl == null || longUrl.isBlank()) {
             return ResponseEntity.badRequest().body("URL 不能为空");
