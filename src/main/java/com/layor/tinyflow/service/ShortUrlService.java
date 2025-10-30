@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Random;
 
 @Service
@@ -21,25 +22,42 @@ public class ShortUrlService {
     private static final int CODE_LENGTH = 6;
 
     public String generateShortCode(String longUrl) {
-        // 先查数据库和缓存，避免重复
-        String cached = redisTemplate.opsForValue().get("short:" + longUrl);
-        if (cached != null) {
-            return cached;
+        // 1. 先查缓存：长链接 → 短码
+        String cachedShortCode = redisTemplate.opsForValue().get("short:" + longUrl);
+        if (cachedShortCode != null) {
+            return cachedShortCode;
         }
 
+        // 2. 查数据库：是否已有该长链接的记录？
+        ShortUrl existing = repository.findByLongUrl(longUrl);
+        if (existing != null) {
+            // 2.1 如果已有，更新缓存并返回
+            String shortCode = existing.getShortCode();
+            redisTemplate.opsForValue().set("short:" + longUrl, shortCode, Duration.ofHours(24));
+            redisTemplate.opsForValue().set("short:code:" + shortCode, longUrl, Duration.ofHours(24));
+            return shortCode;
+        }
+
+        // 3. 没有记录，生成新短码
         String shortCode;
+        int attempts = 0;
         do {
-            shortCode = generateRandomCode();
-        } while (repository.findByShortCode(shortCode) != null);
+            shortCode = generateRandomCode(); // 如 Base62 编码 or 随机字符串
+            attempts++;
+            if (attempts > 5) {
+                throw new RuntimeException("Failed to generate unique short code");
+            }
+        } while (repository.existsByShortCode(shortCode)); // 检查短码是否被占用
 
-        ShortUrl shortUrl = new ShortUrl(longUrl, shortCode);
-        repository.save(shortUrl);
+        // 4. 保存到数据库（关键：这里要保证原子性）
+        ShortUrl newShortUrl = new ShortUrl(longUrl, shortCode);
+        ShortUrl saved = repository.save(newShortUrl);
 
-        // 缓存到 Redis
-        redisTemplate.opsForValue().set("short:" + shortCode, longUrl);
-        redisTemplate.opsForValue().set("short:" + longUrl, shortCode);
+        // 5. 写入 Redis 缓存（双向）
+        redisTemplate.opsForValue().set("short:" + longUrl, shortCode, Duration.ofHours(24));
+        redisTemplate.opsForValue().set("short:code:" + shortCode, longUrl, Duration.ofHours(24));
 
-        return shortCode;
+        return saved.getShortCode();
     }
 
     public String getLongUrl(String shortCode) {
