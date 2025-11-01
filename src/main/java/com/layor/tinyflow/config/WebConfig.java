@@ -13,7 +13,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // 👈 允许所有路径
+        registry.addMapping("/**") //  允许所有路径
                 .allowedOrigins("*") // 开发时可用，生产环境请限制域名
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
