@@ -1,36 +1,34 @@
 package com.layor.tinyflow.service;
 
+import com.layor.tinyflow.entity.ShortUrl;
 import com.layor.tinyflow.entity.ShortUrlDTO;
+import com.layor.tinyflow.repository.ShortUrlRepository;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 @Service
 public class ShortUrlService {
+    String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    // 短码长度
+    private static final int CODE_LENGTH = 6;
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
 
-    // 模拟数据库存储（实际项目替换为 JPA/MyBatis）
-    private final Map<String, String> shortCodeToLongUrl = new ConcurrentHashMap<>();
-    private final Map<String, ShortUrlDTO> shortCodeToDto = new ConcurrentHashMap<>();
-
-    // 用于生成随机码的计数器（演示用，实际用更安全的算法）
-    private final AtomicLong counter = new AtomicLong(0);
-
+    @Autowired
+    private ShortUrlRepository shortUrlRepository;
     // 基础短链域名
-    private static final String BASE_URL = "https://go.to";
+    private static final String BASE_URL = "https://localhost:8080";
 
-    @PostConstruct
-    public void init() {
-        // 可以预加载一些数据
-    }
 
-    /**
-     * 生成短链
-     */
     public ShortUrlDTO createShortUrl(String longUrl, String customAlias) throws Exception {
         // 1. 校验长链接
         if (!isValidUrl(longUrl)) {
@@ -43,36 +41,38 @@ public class ShortUrlService {
             // 自动生成随机码
             shortCode = generateRandomCode();
         } else {
-            // 清理非法字符
-            shortCode = sanitizeAlias(shortCode.trim());
-            if (shortCode.isEmpty()) {
-                throw new Exception("别名不能只包含非法字符");
-            }
-            // 检查是否已存在
-            if (shortCodeToLongUrl.containsKey(shortCode)) {
-                throw new Exception("该别名已被占用，请换一个");
-            }
+            //用户自定义了别名
+            shortUrlRepository.existsByShortCode(shortCode);
         }
 
-        // 3. 保存到“数据库”
-        String shortUrl = BASE_URL + "/" + shortCode;
-        shortCodeToLongUrl.put(shortCode, longUrl);
-        ShortUrlDTO dto = new ShortUrlDTO(shortCode, shortUrl, longUrl);
-        shortCodeToDto.put(shortCode, dto);
+        ShortUrl shortUrl = ShortUrl.builder()
+                .longUrl(longUrl)
+                .shortCode(shortCode)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        // 3. 存入数据库
+        shortUrlRepository.save(shortUrl);
+        // 4. 构造返回结果
+        ShortUrlDTO dto = ShortUrlDTO.builder()
+                .shortCode(shortCode)
+                .shortUrl(BASE_URL + "/" + shortCode)
+                .longUrl(longUrl)
+                .createdAt(LocalDateTime.now())
+                .build();
 
         return dto;
     }
 
-    /**
-     * 根据短码获取原始链接
-     */
-    public String getLongUrlByShortCode(String shortCode) {
-        return shortCodeToLongUrl.get(shortCode);
+    private String generateRandomCode() {
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < CODE_LENGTH; i++) {
+            int index = (int) (Math.random() * characters.length());
+            code.append(characters.charAt(index));
+        }
+        return code.toString();
     }
 
-    /**
-     * 校验是否为合法 URL
-     */
     private boolean isValidUrl(String url) {
         try {
             new URI(url).parseServerAuthority();
@@ -82,29 +82,33 @@ public class ShortUrlService {
         }
     }
 
-    /**
-     * 清理别名中的非法字符
-     */
-    private String sanitizeAlias(String alias) {
-        return alias.replaceAll("[/?#&=%<>\"'\\\\]", ""); // 移除危险字符
-    }
 
-    /**
-     * 生成6位随机码（演示用）
-     * 实际项目建议使用 Base62 或雪花算法
-     */
-    private String generateRandomCode() {
-        String chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        StringBuilder sb = new StringBuilder();
-        long num = counter.incrementAndGet();
-        while (num > 0) {
-            sb.append(chars.charAt((int) (num % 62)));
-            num /= 62;
+    public String getLongUrlByShortCode(String shortCode) {
+
+        //查询缓存
+         String cachedLongUrl = redisTemplate.opsForValue().get("short_url:" + shortCode);
+         if (cachedLongUrl != null) {
+             return cachedLongUrl;
+         }
+        //缓存没有，查询数据库
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
+        if (shortUrl == null) {
+            //数据库没有，返回null
+            return null;
         }
-        // 补足6位
-        while (sb.length() < 6) {
-            sb.append('a');
-        }
-        return sb.toString();
+
+        //更新点击次数
+        shortUrl.setClickCount(shortUrl.getClickCount() + 1);
+        shortUrlRepository.save(shortUrl);
+
+        //更新缓存
+        redisTemplate.opsForValue().set(
+                "short_url:" + shortCode,
+                shortUrl.getLongUrl(),
+                Duration.ofHours(24) // 设置 24 小时过期
+        );
+
+        //返回长链接
+        return shortUrl.getLongUrl();
     }
 }

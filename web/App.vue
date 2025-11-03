@@ -78,7 +78,7 @@
           <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div class="min-w-0 flex-1">
               <div class="text-sm mb-1" style="color:#4B5563">已生成短链</div>
-              <a :href="shortUrl" target="_blank" class="underline break-all" style="color:#2B6CEF">{{ shortUrl }}</a>
+              <a :href="shortUrl" @click.prevent="redirectViaApi({ shortUrl })" class="underline break-all" style="color:#2B6CEF">{{ shortUrl }}</a>
               <div class="mt-3 flex gap-3">
                 <button @click="copyShortUrl" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">复制短链</button>
                 <button @click="downloadQrPng" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">下载二维码</button>
@@ -131,7 +131,7 @@
                 />
                 <div class="min-w-0">
                   <div class="flex items-center gap-2 min-w-0">
-                    <a :href="displayShortUrl(item)" target="_blank" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw">{{ displayShortUrl(item) }}</a>
+                    <a :href="displayShortUrl(item)" @click.prevent="redirectViaApi(item)" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw">{{ displayShortUrl(item) }}</a>
                     <span class="tf-code-badge">{{ extractCode(item) }}</span>
                   </div>
                   <div class="mt-0.5 truncate text-[12px]" style="color:#6B7280;max-width:60vw">{{ item.longUrl }}</div>
@@ -306,22 +306,35 @@ export default {
       }
       this.generating = true
       try {
-        // JSON POST /api/v1/shorten，支持自定义别名
-        const res = await axios.post('/api/v1/shorten', { longUrl: url, customAlias: alias || undefined }, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
-        const ok = res?.data?.code === 0
-        const shortUrl = res?.data?.data?.shortUrl ?? ''
-        if (!ok || !shortUrl) throw new Error('生成失败')
-        this.shortUrl = shortUrl
+        // 优先尝试纯文本接口 /shorten，失败则回退到 JSON 接口 /api/v1/shorten
+        let shortRaw = ''
+        try {
+          const qp = alias ? `?alias=${encodeURIComponent(alias)}` : ''
+          const res1 = await api.post(`/shorten${qp}`, url, { headers: { 'Content-Type': 'text/plain' } })
+          shortRaw = res1?.data?.shortUrl ?? res1?.data ?? ''
+          if (!shortRaw) throw new Error('EMPTY_SHORT_URL')
+        } catch (e1) {
+          const res2 = await api.post('/api/v1/shorten', { longUrl: url, customAlias: alias || undefined }, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
+          const ok = res2?.data?.code === 0
+          shortRaw = res2?.data?.data?.shortUrl ?? res2?.data?.shortUrl ?? ''
+          if (!ok || !shortRaw) throw new Error('JSON_SHORTEN_FAILED')
+        }
+
+        const code = this.extractCode({ shortUrl: shortRaw })
+        // 统一展示域名为 http://localhost:8080
+        this.shortUrl = this.buildShortUrl(code)
         this.longUrl = url
         // 本地插入至历史顶部，无需整页刷新
         const newItem = {
-          id: res?.data?.id || res?.data?.code || Date.now(),
-          shortUrl: shortUrl,
+          id: Date.now(),
+          shortUrl: this.shortUrl,
           longUrl: url,
-          code: this.extractCode({ shortUrl }),
+          code,
           createdAt: new Date().toISOString(),
         }
         this.history = [newItem, ...(this.history || [])]
+        // 触发全屏粒子压缩动画（若已挂载背景组件）
+        this.$refs?.qwenBg?.playCompression(this.shortUrl)
       } catch (error) {
         const status = error?.response?.status
         if (status === 400) alert('链接格式无效或请求错误')
@@ -363,6 +376,29 @@ export default {
       if (!this.longUrl) return
       window.open(this.longUrl, '_blank')
     },
+    async redirectViaApi(item) {
+      try {
+        const code = this.extractCode(item)
+        if (!code) return
+        const res = await api.get('/api/v1/' + encodeURIComponent(code))
+        const payload = res?.data
+        let text = typeof payload === 'string' ? payload : (payload?.data ?? payload?.message ?? payload?.msg)
+        let longUrl = ''
+        if (typeof text === 'string') {
+          const m = text.match(/Redirect to:\s*(.+)$/i)
+          longUrl = (m ? m[1] : text).trim()
+        }
+        // 兼容可能的结构字段
+        if (!longUrl) longUrl = payload?.longUrl || payload?.data?.longUrl || ''
+        if (!longUrl) throw new Error('NO_LONG_URL')
+        window.open(longUrl, '_blank')
+      } catch (err) {
+        const code = err?.response?.data?.code
+        if (code === 1004) alert('短链不存在')
+        else alert('跳转失败，请稍后再试')
+        console.error('Redirect error:', err)
+      }
+    },
     extractCode(item) {
       // Prefer explicit code fields from backend, then derive from shortUrl
       const direct = item?.code || item?.shortCode || item?.shortId || item?.alias || item?.slug || item?.key
@@ -380,9 +416,9 @@ export default {
     buildShortUrl(code) {
       if (!code) return ''
       try {
-        return new URL('/' + String(code), API_BASE).href
+        return new URL('/api/v1/' + String(code), API_BASE).href
       } catch {
-        return (API_BASE || '') + '/' + String(code)
+        return (API_BASE || '') + '/api/v1/' + String(code)
       }
     },
     displayShortUrl(item) {
