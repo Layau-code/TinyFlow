@@ -1,15 +1,16 @@
 package com.layor.tinyflow.Controller;
 
-import com.layor.tinyflow.entity.Result;
-import com.layor.tinyflow.entity.ShortUrlDTO;
-import com.layor.tinyflow.entity.ShortenRequest;
+import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.service.ShortUrlService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api")
 public class ShortUrlController {
 
     @Autowired
@@ -33,7 +34,33 @@ public class ShortUrlController {
         if (longUrl == null) {
             return Result.error(1004, "短链不存在");
         }
+
         // 实际应返回 302 重定向，这里演示返回链接
         return Result.success("Redirect to: " + longUrl);
+    }
+
+
+    @GetMapping("/urls")
+    public ResponseEntity<PageResponseDTO<UrlListResponseDTO>> getUrls(
+            Pageable pageable) {  // ← 让 Spring 自动解析 page & size
+
+        Page<UrlListResponseDTO> urls = shortUrlService.getAllUrls(
+                pageable.getPageNumber(),
+                pageable.getPageSize()
+        );
+
+        // 手动转成标准 DTO
+        PageResponseDTO<UrlListResponseDTO> response = new PageResponseDTO<>(
+                urls.getContent(),
+                urls.getTotalElements(),
+                urls.getTotalPages(),
+                urls.getSize(),
+                urls.getNumber(),
+                urls.isFirst(),
+                urls.isLast(),
+                urls.isEmpty()
+        );
+
+        return ResponseEntity.ok(response);
     }
 }

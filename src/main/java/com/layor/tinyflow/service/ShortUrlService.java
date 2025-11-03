@@ -1,10 +1,17 @@
 package com.layor.tinyflow.service;
 
+import com.layor.tinyflow.entity.DailyClick;
 import com.layor.tinyflow.entity.ShortUrl;
 import com.layor.tinyflow.entity.ShortUrlDTO;
+import com.layor.tinyflow.entity.UrlListResponseDTO;
+import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +20,13 @@ import org.springframework.stereotype.Service;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class ShortUrlService {
@@ -22,7 +35,8 @@ public class ShortUrlService {
     private static final int CODE_LENGTH = 6;
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
-
+    @Autowired
+    private DailyClickRepository dailyClickRepo;
     @Autowired
     private ShortUrlRepository shortUrlRepository;
     // 基础短链域名
@@ -100,6 +114,7 @@ public class ShortUrlService {
         //更新点击次数
         shortUrl.setClickCount(shortUrl.getClickCount() + 1);
         shortUrlRepository.save(shortUrl);
+        recordClick(shortCode);
 
         //更新缓存
         redisTemplate.opsForValue().set(
@@ -111,4 +126,46 @@ public class ShortUrlService {
         //返回长链接
         return shortUrl.getLongUrl();
     }
+
+
+    public void recordClick(String shortCode) {
+        LocalDate today = LocalDate.now();
+
+        DailyClick dailyClick = dailyClickRepo.findByShortCodeAndDate(shortCode, today)
+                .orElseGet(() -> DailyClick.builder()
+                        .shortCode(shortCode)
+                        .date(today)
+                        .clicks(0)
+                        .build());
+
+        dailyClick.setClicks(dailyClick.getClicks() + 1);
+        dailyClickRepo.save(dailyClick);
+    }
+    // UrlService.java
+    public Page<UrlListResponseDTO> getAllUrls(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        // 1. 先分页查出 ShortUrl 列表
+        Page<ShortUrl> shortUrlPage = shortUrlRepository.findAll(pageable);
+        List<ShortUrl> shortUrls = shortUrlPage.getContent();
+
+
+        if (shortUrls.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, 0);
+        }
+
+        List<UrlListResponseDTO> urlListResponseDTO= shortUrls.stream()
+                .map(shortUrl -> UrlListResponseDTO.builder()
+                        .shortCode(shortUrl.getShortCode())
+                        .longUrl(shortUrl.getLongUrl())
+                        .totalVisits(Long.valueOf(shortUrl.getClickCount()))
+                        .todayVisits(dailyClickRepo.getTodayClicksByShortCode(shortUrl.getShortCode()))
+                        .createdAt(shortUrl.getCreatedAt())
+                        .build()).toList();
+
+        return new PageImpl<>(urlListResponseDTO, pageable, shortUrlPage.getTotalElements());
+    
+    }
+
+
 }

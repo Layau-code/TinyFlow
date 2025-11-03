@@ -49,7 +49,7 @@ npm run dev
 
 ### 生成短链接
 ```
-POST /api/v1/shorten
+POST /api/shorten
 Content-Type: application/json
 
 {
@@ -111,7 +111,7 @@ web/
 项目使用 Tailwind CSS，可以直接在 HTML 中修改 class 来调整样式。
 
 ### 修改 API 地址
-在 `index.html` 中的 `generateShortUrl` 函数中修改 API 端点。
+在 `index.html` 中的 `generateShortUrl` 函数中修改 API 端点（默认使用 `/shorten` 或 `/api/shorten`）。
 
 ### 自定义配色
 在 `tailwind.config` 中修改颜色配置。
