@@ -78,7 +78,7 @@
           <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div class="min-w-0 flex-1">
               <div class="text-sm mb-1" style="color:#4B5563">已生成短链</div>
-              <a :href="shortUrl" @click.prevent="redirectViaApi({ shortUrl })" class="underline break-all" style="color:#2B6CEF">{{ shortUrl }}</a>
+              <a :href="shortUrl" @click.prevent="redirectViaApi({ shortUrl })" class="underline break-all" style="color:#2B6CEF">{{ decodeUrlText(shortUrl) }}</a>
               <div class="mt-3 flex gap-3">
                 <button @click="copyShortUrl" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">复制短链</button>
                 <button @click="downloadQrPng" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">下载二维码</button>
@@ -131,7 +131,7 @@
                 />
                 <div class="min-w-0">
                   <div class="flex items-center gap-2 min-w-0">
-                    <a :href="displayShortUrl(item)" @click.prevent="redirectViaApi(item)" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw">{{ displayShortUrl(item) }}</a>
+                    <a :href="displayShortUrl(item)" @click.prevent="redirectViaApi(item)" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw">{{ displayShortUrlText(item) }}</a>
                     <span class="tf-code-badge">{{ extractCode(item) }}</span>
                   </div>
                   <div class="mt-0.5 truncate text-[12px]" style="color:#6B7280;max-width:60vw">{{ item.longUrl }}</div>
@@ -416,13 +416,23 @@ export default {
     buildShortUrl(code) {
       if (!code) return ''
       try {
-        return new URL('/api/v1/' + String(code), API_BASE).href
+        return new URL('/' + String(code), API_BASE).href
       } catch {
-        return (API_BASE || '') + '/api/v1/' + String(code)
+        return (API_BASE || '') + '/' + String(code)
       }
     },
     displayShortUrl(item) {
       return item?.shortUrl || this.buildShortUrl(this.extractCode(item))
+    },
+    displayShortUrlText(item) {
+      try {
+        return decodeURI(this.displayShortUrl(item))
+      } catch {
+        return this.displayShortUrl(item)
+      }
+    },
+    decodeUrlText(u) {
+      try { return decodeURI(String(u)) } catch { return String(u) }
     },
     async copyLink(url, id) {
       try {
