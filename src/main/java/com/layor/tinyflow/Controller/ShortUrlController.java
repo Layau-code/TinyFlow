@@ -19,20 +19,9 @@ public class ShortUrlController {
      * 生成短链（支持自定义别名）
      */
     @PostMapping("/shorten")
-    public Result<ShortUrlDTO> shorten(@Valid @RequestBody ShortenRequest request) {
-        try {
+    public Result<ShortUrlDTO> shorten(@Valid @RequestBody ShortenRequest request) throws Exception {
             ShortUrlDTO dto = shortUrlService.createShortUrl(request.getLongUrl(), request.getCustomAlias());
             return Result.success(dto);
-        } catch (Exception e) {
-            String msg = e.getMessage();
-            if (msg.contains("已被占用")) {
-                return Result.error(1002, msg);
-            } else if (msg.contains("格式不正确")) {
-                return Result.error(1003, msg);
-            } else {
-                return Result.error(1000, msg);
-            }
-        }
     }
 
     /**
