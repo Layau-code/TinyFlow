@@ -4,7 +4,12 @@
     <div class="flex items-center justify-between py-4 px-6 md:px-[10%]">
       <div class="font-bold tf-brand" aria-label="TinyFlow"><span class="tf-letter">T</span><span class="tf-letter">i</span><span class="tf-letter">n</span><span class="tf-letter">y</span><span class="tf-letter">F</span><span class="tf-letter">l</span><span class="tf-letter">o</span><span class="tf-letter">w</span></div>
       <div class="flex items-center gap-4">
-        <a :href="apiBase + '/api/history'" target="_blank" class="text-[14px]" style="color:#FFFFFF">历史记录</a>
+        <a
+          href="#"
+          @click.prevent="goToDashboard"
+          class="text-[14px] text-[#6B7280] hover:text-black"
+          title="查看统计看板"
+        >数据统计</a>
         <a
           href="https://github.com/Layau-code/TinyFlow"
           target="_blank"
@@ -31,8 +36,9 @@
   </header>
 
   <!-- Rest of page -->
-  <main class="bg-white min-h-screen">
-    <section class="hero pt-28 pb-16">
+  <router-view v-if="isStatsOrDashboard" />
+  <main class="bg-white min-h-screen" v-show="!isStatsOrDashboard">
+    <section class="hero pt-12 pb-16">
       <div class="hero-inner flex flex-col items-center justify-center px-6">
         <h1 class="text-center font-semibold mb-10" style="color:#1F2329;font-size:clamp(36px,6vw,48px);line-height:1.2">让链接变短，让分享更轻松</h1>
         <p class="text-center mb-10" style="color:#4B5563;font-size:18px;line-height:1.6">一键生成短链，支持自定义别名、访问统计与 API 调用</p>
@@ -100,14 +106,22 @@
           <h2 class="font-semibold" style="color:#1F2329;font-size:24px;margin-top:48px">历史记录</h2>
           <div class="flex items-center gap-3">
             <input v-model="historyQuery" type="text" class="h-9 px-3 rounded-md border outline-none" placeholder="按短码或域名过滤" style="border-color:#E5E7EB" />
-            <button
-              @click="refreshHistory"
-              :disabled="refreshing"
-              class="rounded-[12px] h-9 px-4 text-white font-medium"
-              :style="refreshButtonStyle"
-            >
-              {{ refreshing ? '刷新中…' : '刷新历史' }}
-            </button>
+            <div class="tf-refresh-container" :class="{ 'is-disabled': refreshing }">
+              <div class="hover bt-1"></div>
+              <div class="hover bt-2"></div>
+              <div class="hover bt-3"></div>
+              <div class="hover bt-4"></div>
+              <div class="hover bt-5"></div>
+              <div class="hover bt-6"></div>
+              <button
+                class="tf-refresh-btn text-white font-medium"
+                :style="refreshButtonStyle"
+                :disabled="refreshing"
+                @click="refreshHistory"
+              >
+                {{ refreshing ? '刷新中…' : '刷新历史' }}
+              </button>
+            </div>
           </div>
         </div>
         <div v-if="filteredHistory.length === 0" class="text-[14px]" style="color:#9CA3AF">暂无历史记录</div>
@@ -227,7 +241,11 @@ export default {
   computed: {
     navStyle() {
       return {
-        backgroundColor: '#0F1115'
+        backgroundColor: 'rgba(255,255,255,0.85)',
+        backdropFilter: 'saturate(180%) blur(8px)',
+        WebkitBackdropFilter: 'saturate(180%) blur(8px)',
+        transition: 'background-color 300ms ease, backdrop-filter 300ms ease, box-shadow 300ms ease',
+        boxShadow: '0 1px 0 rgba(0,0,0,0.04)'
       }
     },
     brandTextStyle() {
@@ -241,10 +259,7 @@ export default {
       }
     },
     navAccentStyle() {
-      return {
-        background: 'linear-gradient(90deg, #6B72FF, #8A6BFF, #A66BFF)',
-        opacity: 0.6
-      }
+      return { display: 'none' }
     },
     githubBtnStyle() {
       return {
@@ -254,8 +269,8 @@ export default {
     formCardStyle() {
       return {
         borderColor: '#E5E7EB',
-        background: 'rgba(255,255,255,0.92)',
-        boxShadow: '0 10px 40px rgba(43,108,239,0.08), 0 2px 10px rgba(122,109,255,0.06)'
+        background: '#FFFFFF',
+        boxShadow: 'none'
       }
     },
     resultCardStyle() {
@@ -276,6 +291,10 @@ export default {
       const base = 'linear-gradient(135deg, #6B72FF 0%, #8A6BFF 50%, #A66BFF 100%)'
       const disabled = 'linear-gradient(135deg, #7E6BFF 0%, #9A6BFF 50%, #B66BFF 100%)'
       return { background: this.refreshing ? disabled : base, opacity: this.refreshing ? 0.8 : 1 }
+    },
+    isStatsOrDashboard() {
+      const p = this.$route?.path || ''
+      return p.startsWith('/stats/') || p === '/dashboard'
     },
     filteredHistory() {
       const q = (this.historyQuery || '').trim().toLowerCase()
@@ -306,7 +325,7 @@ export default {
       }
       this.generating = true
       try {
-        // 优先尝试纯文本接口 /shorten，失败则回退到 JSON 接口 /api/v1/shorten
+        // 优先尝试纯文本接口 /shorten，失败则回退到 JSON 接口 /api/shorten
         let shortRaw = ''
         try {
           const qp = alias ? `?alias=${encodeURIComponent(alias)}` : ''
@@ -314,7 +333,7 @@ export default {
           shortRaw = res1?.data?.shortUrl ?? res1?.data ?? ''
           if (!shortRaw) throw new Error('EMPTY_SHORT_URL')
         } catch (e1) {
-          const res2 = await api.post('/api/v1/shorten', { longUrl: url, customAlias: alias || undefined }, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
+          const res2 = await api.post('/api/shorten', { longUrl: url, customAlias: alias || undefined }, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
           const ok = res2?.data?.code === 0
           shortRaw = res2?.data?.data?.shortUrl ?? res2?.data?.shortUrl ?? ''
           if (!ok || !shortRaw) throw new Error('JSON_SHORTEN_FAILED')
@@ -372,6 +391,26 @@ export default {
         console.error('下载二维码失败:', e)
       }
     },
+    goToStatsNav() {
+      // 优先使用最近生成的短码，没有则使用历史第一条
+      let code = ''
+      if (this.shortUrl) {
+        code = this.extractCode({ shortUrl: this.shortUrl }) || ''
+      }
+      if (!code && (this.history && this.history.length)) {
+        code = this.extractCode(this.history[0]) || ''
+      }
+      if (!code) {
+        alert('暂无可统计的短码，请先生成或刷新历史')
+        return
+      }
+      const url = `/stats/${encodeURIComponent(code)}`
+      window.location.href = url
+    },
+    goToDashboard() {
+      if (this.$router) this.$router.push('/dashboard')
+      else window.location.href = '/dashboard'
+    },
     visitOriginal() {
       if (!this.longUrl) return
       window.open(this.longUrl, '_blank')
@@ -380,7 +419,7 @@ export default {
       try {
         const code = this.extractCode(item)
         if (!code) return
-        const res = await api.get('/api/v1/' + encodeURIComponent(code))
+        const res = await api.get('/api/' + encodeURIComponent(code))
         const payload = res?.data
         let text = typeof payload === 'string' ? payload : (payload?.data ?? payload?.message ?? payload?.msg)
         let longUrl = ''
@@ -537,6 +576,67 @@ export default {
   border-radius: 8px;
   cursor: pointer;
 }
+
+/* 强化“刷新历史”按钮的悬停反馈，仅参考结构，保持原配色 */
+.tf-refresh-container {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  grid-template-areas: "bt-1 bt-2 bt-3" "bt-4 bt-5 bt-6";
+  width: 120px;
+  height: 36px;
+  perspective: 800px;
+}
+.tf-refresh-container.is-disabled {
+  pointer-events: none;
+}
+.tf-refresh-container .hover {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+.tf-refresh-container .bt-1 { grid-area: bt-1; }
+.tf-refresh-container .bt-2 { grid-area: bt-2; }
+.tf-refresh-container .bt-3 { grid-area: bt-3; }
+.tf-refresh-container .bt-4 { grid-area: bt-4; }
+.tf-refresh-container .bt-5 { grid-area: bt-5; }
+.tf-refresh-container .bt-6 { grid-area: bt-6; }
+
+.tf-refresh-btn {
+  position: absolute;
+  inset: 0;
+  width: 120px;
+  height: 36px;
+  border: 2px solid #6B72FF;
+  border-radius: 12px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.tf-refresh-btn:active { transform: scale(0.97); }
+.tf-refresh-container.is-disabled .tf-refresh-btn { opacity: 0.7; }
+
+.tf-refresh-container .bt-1:hover ~ .tf-refresh-btn {
+  transform: rotateX(10deg) rotateY(-10deg);
+  box-shadow: -2px -2px 0 rgba(30, 30, 60, 0.3);
+}
+.tf-refresh-container .bt-3:hover ~ .tf-refresh-btn {
+  transform: rotateX(10deg) rotateY(10deg);
+  box-shadow: 2px -2px 0 rgba(30, 30, 60, 0.3);
+}
+.tf-refresh-container .bt-4:hover ~ .tf-refresh-btn {
+  transform: rotateX(-10deg) rotateY(-10deg);
+  box-shadow: -2px 2px 0 rgba(30, 30, 60, 0.3);
+}
+.tf-refresh-container .bt-6:hover ~ .tf-refresh-btn {
+  transform: rotateX(-10deg) rotateY(10deg);
+  box-shadow: 2px 2px 0 rgba(30, 30, 60, 0.3);
+}
 .tf-brand-button::before {
   content: '';
   position: absolute;
@@ -601,6 +701,7 @@ export default {
   align-items: baseline;
   gap: 0;
   line-height: 1;
+  font-size: 24px;
 }
 .tf-letter {
   display: inline-block;
@@ -711,18 +812,18 @@ export default {
   width: 36px;
   height: 36px;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #2B6CEF 0%, #8B7DFF 100%);
-  border: none;
+  background: #ffffff;
+  border: 1px solid #E5E7EB;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   position: relative;
   cursor: pointer;
   transition: background .25s ease, box-shadow .25s ease, transform .2s ease;
-  box-shadow: 0 0 12px rgba(79,157,255,0.22);
+  box-shadow: none;
 }
-.tf-del-btn .tf-del-icon { width: 14px; height: 14px; transition: transform .25s ease, opacity .2s ease; }
-.tf-del-btn .tf-del-icon path { fill: #ffffff; }
+.tf-del-btn .tf-del-icon { width: 14px; height: 14px; transition: transform .25s ease, opacity .2s ease, fill .25s ease; }
+.tf-del-btn .tf-del-icon path { fill: #6B72FF; }
 
 /* 悬停态：红色高亮且展示文字标签，但不改变按钮本体尺寸，避免布局抖动 */
 .tf-del-btn::after {
@@ -738,7 +839,8 @@ export default {
   pointer-events: none;
   transition: opacity .25s ease, transform .25s ease;
 }
-.tf-del-btn:hover { background: linear-gradient(135deg, #4F9DFF 0%, #7A6BFF 100%); box-shadow: 0 6px 20px rgba(79,157,255,0.35); }
+.tf-del-btn:hover { background: linear-gradient(135deg, #4F9DFF 0%, #7A6BFF 100%); border-color: transparent; box-shadow: 0 6px 20px rgba(79,157,255,0.35); }
+.tf-del-btn:hover .tf-del-icon path { fill: #ffffff; }
 .tf-del-btn:hover .tf-del-icon { transform: translateY(1px) scale(1.05); }
 .tf-del-btn:hover::after { opacity: .95; transform: translateX(-50%) translateY(26px); }
 

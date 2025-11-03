@@ -12,6 +12,16 @@
   --tf-divider: #F3F4F6;
   --tf-success: #10B981;
   --tf-footer: #9CA3AF;
+
+  /* Qwen-style brand system */
+  --brand-primary: #4A6FA5; /* 科技蓝/灰蓝 */
+  --brand-success: #66BB6A; /* 柔和绿色 */
+  --brand-warning: #FFA726; /* 克制橙色 */
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --divider: #E0E0E0;
+  --bg-soft: #F8F9FA;
 }
 
 html, body {
@@ -65,9 +75,81 @@ button, a, input {
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }
 
+/* Qwen-style utilities */
+.q-page {
+  background: var(--bg-soft);
+  color: var(--text-primary);
+}
+.q-card {
+  background: #fff;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.q-title { font-size: 24px; font-weight: 500; color: var(--text-primary); }
+.q-card-title { font-size: 16px; font-weight: 500; color: var(--text-primary); }
+.q-number { font-size: 28px; font-weight: 700; color: var(--text-primary); }
+.q-muted { color: var(--text-secondary); font-size: 14px; font-weight: 400; }
+.q-help { color: var(--text-muted); font-size: 12px; }
+.q-divider { border-color: var(--divider); }
+.q-btn {
+  background: #fff;
+  border: 1px solid var(--divider);
+  color: var(--text-primary);
+  border-radius: 8px;
+}
+.q-btn-primary {
+  background: var(--brand-primary);
+  color: #fff;
+  border-radius: 8px;
+}
+.q-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--divider);
+  color: var(--text-primary);
+  border-radius: 8px;
+}
+.q-chip { background: #fff; border: 1px solid var(--divider); border-radius: 999px; }
+
 /* Nav when scrolled */
 .nav-scrolled {
   background: #fff;
   border-bottom: 1px solid var(--tf-divider);
   box-shadow: 0 4px 16px rgba(0,0,0,0.04);
 }
+
+/* Minimal Dark Aesthetic */
+.md-page-dark {
+  background: #0f0f0f;
+  color: #e0e0e0;
+}
+.md-card {
+  background: #1a1a1a;
+  border: 1px solid #2d2d2d;
+  border-radius: 6px;
+}
+.md-divider { border-color: #2d2d2d; }
+.md-label { font-size: 14px; color: #a0a0a0; }
+.md-number {
+  font-size: 24px;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+.md-muted { color: #a0a0a0; }
+.md-text { color: #e0e0e0; }
+.md-btn-text { background: transparent; color: #a0a0a0; border: none; padding: 0; }
+.md-btn-text:hover { text-decoration: underline; color: #e0e0e0; }
+.md-table { width: 100%; border-collapse: collapse; }
+.md-th {
+  font-size: 12px;
+  color: #a0a0a0;
+  text-transform: none;
+  padding: 8px;
+}
+.md-td { font-size: 14px; color: #e0e0e0; padding: 8px; }
+.md-tr { border-top: 1px solid #2d2d2d; }
+.md-tr:hover { background: #161616; }
+.md-nums { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.md-actions { opacity: 0; transition: opacity 0.15s ease; }
+.md-tr:hover .md-actions { opacity: 1; }

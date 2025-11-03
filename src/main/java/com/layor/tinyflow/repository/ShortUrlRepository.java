@@ -11,6 +11,5 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
 
     boolean existsByShortCode(String shortCode);
 
-    ShortUrl findByLongUrl(String longUrl);
     List<ShortUrl> findAllByOrderByCreatedAtDesc();
 }
