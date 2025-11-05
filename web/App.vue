@@ -596,6 +596,8 @@ export default {
   width: 100%;
   height: 100%;
   z-index: 2;
+  /* 允许点击透传到按钮，避免覆盖层拦截点击 */
+  pointer-events: none;
 }
 .tf-refresh-container .bt-1 { grid-area: bt-1; }
 .tf-refresh-container .bt-2 { grid-area: bt-2; }

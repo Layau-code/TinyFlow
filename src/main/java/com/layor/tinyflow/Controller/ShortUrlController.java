@@ -34,8 +34,6 @@ public class ShortUrlController {
         if (longUrl == null) {
             return Result.error(1004, "短链不存在");
         }
-
-        // 实际应返回 302 重定向，这里演示返回链接
         return Result.success("Redirect to: " + longUrl);
     }
 
@@ -49,7 +47,7 @@ public class ShortUrlController {
                 pageable.getPageSize()
         );
 
-        // 手动转成标准 DTO
+
         PageResponseDTO<UrlListResponseDTO> response = new PageResponseDTO<>(
                 urls.getContent(),
                 urls.getTotalElements(),

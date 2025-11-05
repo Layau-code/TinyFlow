@@ -27,9 +27,10 @@
   "dependencies": {
     "@tsparticles/vue3": "^3.0.1",
     "axios": "^1.6.0",
-    "vue-router": "^4.3.0",
+    "echarts": "^6.0.0",
     "qrcode.vue": "^3.6.0",
     "tsparticles": "^3.9.1",
-    "vue": "^3.3.0"
+    "vue": "^3.3.0",
+    "vue-router": "^4.3.0"
   }
 }
