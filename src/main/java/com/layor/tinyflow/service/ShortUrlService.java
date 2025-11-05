@@ -1,9 +1,6 @@
 package com.layor.tinyflow.service;
 
-import com.layor.tinyflow.entity.DailyClick;
-import com.layor.tinyflow.entity.ShortUrl;
-import com.layor.tinyflow.entity.ShortUrlDTO;
-import com.layor.tinyflow.entity.UrlListResponseDTO;
+import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
 import jakarta.annotation.PostConstruct;
@@ -16,16 +13,15 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.AccessDeniedException;
+import java.time.*;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Service
@@ -96,12 +92,13 @@ public class ShortUrlService {
         }
     }
 
-
+@Transactional
     public String getLongUrlByShortCode(String shortCode) {
 
         //查询缓存
          String cachedLongUrl = redisTemplate.opsForValue().get("short_url:" + shortCode);
          if (cachedLongUrl != null) {
+             recordClick(shortCode);
              return cachedLongUrl;
          }
         //缓存没有，查询数据库
@@ -110,11 +107,11 @@ public class ShortUrlService {
             //数据库没有，返回null
             return null;
         }
-
         //更新点击次数
         shortUrl.setClickCount(shortUrl.getClickCount() + 1);
         shortUrlRepository.save(shortUrl);
         recordClick(shortCode);
+
 
         //更新缓存
         redisTemplate.opsForValue().set(
@@ -139,6 +136,9 @@ public class ShortUrlService {
                         .build());
 
         dailyClick.setClicks(dailyClick.getClicks() + 1);
+        //url表也要更新
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
+        shortUrl.setClickCount(shortUrl.getClickCount() + 1);
         dailyClickRepo.save(dailyClick);
     }
     // UrlService.java
@@ -166,6 +166,39 @@ public class ShortUrlService {
         return new PageImpl<>(urlListResponseDTO, pageable, shortUrlPage.getTotalElements());
     
     }
+    public ShortUrlOverviewDTO getOverviewByShortCode(String shortCode) {
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
 
+        LocalDate today = LocalDate.now();
 
-}
+        int todayVisits = dailyClickRepo.findByShortCodeAndDate(shortCode, today)
+
+                .map(DailyClick::getClicks)
+
+                .orElse(0);
+
+        return new ShortUrlOverviewDTO(
+                shortUrl.getClickCount(),
+                todayVisits,
+                shortUrl.getCreatedAt().toInstant(ZoneOffset.UTC)
+        );
+
+    }
+    // ShortUrlService.java
+    public List<DailyVisitTrendDTO> getDailyTrendByShortCode(String shortCode, Integer days) {
+        //1. 获取最近 N 天的日期
+        List<LocalDate> dates = IntStream.range(0, days)
+                .mapToObj(i -> LocalDate.now().minusDays(i))
+                .toList();
+        //2. 查询每个日期的点击次数
+        List<DailyVisitTrendDTO> trendDTOs = dates.stream()
+                .map(date -> {
+                    Integer clicks = dailyClickRepo.findByShortCodeAndDate(shortCode, date)
+                            .map(DailyClick::getClicks)
+                            .orElse(0);
+                    return new DailyVisitTrendDTO(date.toString(), clicks);
+                })
+                .toList();
+        return trendDTOs;
+    }
+    }
