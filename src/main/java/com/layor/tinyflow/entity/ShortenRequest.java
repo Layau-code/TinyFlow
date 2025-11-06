@@ -7,7 +7,9 @@ import lombok.Data;
 @Data
 public class ShortenRequest
 {
-    @NotBlank(message = "长链接不能为空")
+    //短链
+    private String shortCode;
+
     private String longUrl;
 
     // 可选：自定义别名，支持中文

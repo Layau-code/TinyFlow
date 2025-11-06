@@ -4,6 +4,7 @@ import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
 import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -201,4 +202,55 @@ public class ShortUrlService {
                 .toList();
         return trendDTOs;
     }
+
+    public List<UrlClickStatsDTO> getUrlClickStats() {
+        return shortUrlRepository.findAll().stream()
+                .map(shortUrl -> new UrlClickStatsDTO(
+                        shortUrl.getShortCode(),
+                        shortUrl.getClickCount(),
+                        dailyClickRepo.getTodayClicksByShortCode(shortUrl.getShortCode())
+                ))
+                .toList();
     }
+
+    public Map<String, List<DailyVisitTrendDTO>> getVisitTrendsByShortCodes(List<String> shortCodes, Integer days) {
+        return shortCodes.stream()
+                .collect(Collectors.toMap(
+                        shortCode -> shortCode,
+                        shortCode -> getDailyTrendByShortCode(shortCode, days)
+                ));
+    }
+
+    public void updateShortUrl(String shortCode,  String customAlias) {
+        //1. 查询短链是否存在
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
+        if (shortUrl == null) {
+            throw new RuntimeException("短链不存在");
+        }
+        if (customAlias != null && !customAlias.isEmpty()) {
+            //2. 检查自定义别名是否已存在
+            if (shortUrlRepository.existsByShortCode(customAlias)) {
+                throw new RuntimeException("自定义别名已存在");
+            }
+            //3. 更新短链的别名
+            shortUrl.setShortCode(customAlias);
+        }
+        // 更新数据库url表
+        shortUrlRepository.save(shortUrl);
+        
+        //更新数据dailyclick表
+        DailyClick dailyClick = dailyClickRepo.findByShortCode(shortCode);
+       dailyClick.setShortCode(customAlias);
+       dailyClickRepo.save(dailyClick);
+
+        
+        // 更新缓存
+        redisTemplate.delete("short_url:" + shortCode);
+        redisTemplate.opsForValue().set(
+                "short_url:" + customAlias,
+                shortUrl.getLongUrl(),
+                Duration.ofHours(24)
+        );
+
+    }
+}

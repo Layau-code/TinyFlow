@@ -21,5 +21,9 @@ public interface DailyClickRepository extends JpaRepository<DailyClick, Long> {
     List<DailyClick> findRecentTrend(@Param("shortCode") String shortCode,
                                      @Param("startDate") LocalDate startDate);
     @Query("SELECT d.clicks FROM DailyClick d WHERE d.shortCode = :shortCode AND d.date = CURRENT_DATE")
-    Long getTodayClicksByShortCode(String shortCode);
+    Integer getTodayClicksByShortCode(String shortCode);
+
+    DailyClick findByShortCode(String shortCode);
+
+    void deleteByShortCode(String shortCode);
 }

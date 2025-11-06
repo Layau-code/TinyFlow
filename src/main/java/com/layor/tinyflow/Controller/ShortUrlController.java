@@ -9,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api")
 public class ShortUrlController {
@@ -36,6 +38,11 @@ public class ShortUrlController {
         }
         return Result.success("Redirect to: " + longUrl);
     }
+    //修改短链
+    @PutMapping("/{shortCode}")
+    public void updateShortUrl(@Valid @RequestBody ShortenRequest request) {
+        shortUrlService.updateShortUrl( request.getShortCode(),request.getCustomAlias());
+    }
 
 
     @GetMapping("/urls")
@@ -60,5 +67,10 @@ public class ShortUrlController {
         );
 
         return ResponseEntity.ok(response);
+    }
+    @GetMapping("/urls/click-stats")
+    public Result<List<UrlClickStatsDTO>> getUrlClickStats() {
+        List<UrlClickStatsDTO> stats = shortUrlService.getUrlClickStats();
+        return Result.success(stats);
     }
 }
