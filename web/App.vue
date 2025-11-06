@@ -136,19 +136,7 @@
             <div class="flex items-center justify-between gap-3">
               <!-- Left: favicon + domains + code badge -->
               <div class="flex items-center gap-3 min-w-0">
-                <img
-                  v-if="faviconSrc(item)"
-                  :src="faviconSrc(item)"
-                  @error="onFaviconError($event, item)"
-                  alt="icon"
-                  class="w-5 h-5 rounded"
-                  referrerpolicy="no-referrer"
-                  style="flex:none;transition: all 0.2s ease"
-                />
-                <div v-else class="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-600"
-                     style="flex:none;transition: all 0.2s ease">
-                  {{ getHostInitial(item) }}
-                </div>
+                <Favicon :url="resolveLongUrl(item) || item.shortUrl" :size="24" />
                 <div class="min-w-0">
                   <div class="flex items-center gap-2 min-w-0">
                     <button @click="redirectViaApi(item)" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw;background:none;border:none;padding:0;cursor:pointer">{{ displayShortUrlText(item) }}</button>
@@ -221,6 +209,7 @@
 <script>
 import axios from 'axios'
 import LoadingSpinner from './src/components/LoadingSpinner.vue'
+import Favicon from './src/components/Favicon.vue'
 import QrcodeVue from 'qrcode.vue'
 
 const API_BASE = 'http://localhost:8080' // 用于顶部“历史记录”跳转链接
@@ -228,7 +217,7 @@ const api = axios.create({ baseURL: '' }) // 使用 Vite dev 代理转发 /api �
 
 export default {
   name: 'App',
-  components: { LoadingSpinner, QrcodeVue },
+  components: { LoadingSpinner, QrcodeVue, Favicon },
   data() {
     return {
       apiBase: API_BASE,
@@ -253,6 +242,9 @@ export default {
       copyItemTimer: null,
       editingId: null,
       editAlias: '',
+      favCache: new Map(),
+      // 控制是否启用外部 favicon 请求，放在 data 中避免 Vue 对 methods 的警告
+      FAVICONS_ENABLED: true,
     }
   },
   computed: {
@@ -318,7 +310,7 @@ export default {
       if (!q) return this.history
       return (this.history || []).filter((it) => {
         const code = (this.extractCode(it) || '').toLowerCase()
-        const host = (() => { try { return new URL(it.longUrl || it.shortUrl || '').hostname.toLowerCase() } catch { return '' } })()
+        const host = (() => { try { return new URL(this.resolveLongUrl(it) || it.shortUrl || '').hostname.toLowerCase() } catch { return '' } })()
         return code.includes(q) || host.includes(q)
       })
     },
@@ -505,12 +497,19 @@ export default {
       this.refreshing = true
       try {
         const res = await api.get('/api/history/refresh')
-        const list = Array.isArray(res?.data) ? res.data : (res?.data?.items || [])
-        this.history = (list || []).map((it) => {
+        const payload = res?.data ?? null
+        // 兼容后端 Result 包装：{ code, message, data } / { result } / { items }
+        const listRaw = Array.isArray(payload) ? payload : (payload?.data || payload?.items || payload?.result || [])
+        const list = Array.isArray(listRaw) ? listRaw : []
+        this.history = list.map((it) => {
           const code = this.extractCode(it)
           const shortUrl = it?.shortUrl || this.buildShortUrl(code)
-          return { ...it, code, shortUrl }
+          const longUrl = this.resolveLongUrl(it) || it?.longUrl || ''
+          const id = it?.id ?? it?.uuid ?? it?.key ?? it?.shortId ?? Date.now() + Math.random()
+          return { ...it, id, code, shortUrl, longUrl }
         })
+        // 补齐缺失的长链信息，用于站点图标与域名展示
+        await this.hydrateLongUrls()
       } catch (err) {
         alert('获取历史记录失败，请稍后重试')
         console.error('History refresh error:', err)
@@ -586,38 +585,192 @@ export default {
     onScroll() {
       this.scrolled = window.scrollY > 8
     },
-    // 是否启用外部 favicon 请求（如受网络或策略限制，建议关闭）
-    FAVICONS_ENABLED: false,
     faviconSrc(item) {
-      // 全局开关：关闭则不发起任何跨站图标请求
-      if (!this.FAVICONS_ENABLED) return ''
-      const url = item?.longUrl || item?.shortUrl || ''
-      try {
-        const host = new URL(url).hostname
-        const sameOrigin = host === location.hostname
-        // 同源回退到站点自身的 /favicon.ico，否则走 Google S2
-        return sameOrigin ? `${location.origin}/favicon.ico` : `https://www.google.com/s2/favicons?domain=${host}&sz=64`
-      } catch {
-        return ''
+      // 始终返回一个可渲染的 src；优先真实站点图标，贴近地址栏左侧效果
+      const host = this.getHostForItem(item)
+      if (!this.FAVICONS_ENABLED) {
+        return this.placeholderIcon(host || 'site')
       }
+      if (host) {
+        // Google S2 提供统一风格的小图标，接近你提到的左侧效果
+        return `https://www.google.com/s2/favicons?domain=${host}&sz=64`
+      }
+      const raw = this.resolveLongUrl(item)
+      const url = this.normalizeUrl(raw)
+      try {
+        if (url) {
+          const u = new URL(url)
+          return `${u.origin}/favicon.ico`
+        }
+      } catch {}
+      // 没有可解析的长链时，用占位图保证有图标可见
+      return this.placeholderIcon(host || 'site')
     },
     onFaviconError(ev, item) {
       const hide = () => { try { ev.target.style.display = 'none' } catch {} ev.target.onerror = null }
       try {
-        const u = new URL(item?.longUrl || item?.shortUrl)
-        // 二次回退到站点本身的 favicon，如仍失败则隐藏，避免控制台持续报错
+        const u = new URL(this.normalizeUrl(this.resolveLongUrl(item)) || this.normalizeUrl(this.displayShortUrl(item)))
+        const host = u.hostname
+        const origin = u.origin
+        // 第三方服务候选（更接近地址栏左侧效果）
+        const externalCandidates = host ? [
+          `https://www.google.com/s2/favicons?domain=${host}&sz=64`,
+          `https://icons.duckduckgo.com/ip3/${host}.ico`,
+          `https://logo.clearbit.com/${host}`,
+          `https://api.iowen.cn/favicon/${host}.png`,
+          `https://images.weserv.nl/?url=${host}/favicon.ico&w=64&h=64&fit=cover&n=1`,
+          `https://f1.allesedv.com/64/${host}`,
+        ] : []
+        // 本地路径候选（站点自身）
+        const localCandidates = [
+          `${origin}/favicon.ico`,
+          `${origin}/favicon.png`,
+          `${origin}/apple-touch-icon.png`,
+          `${origin}/apple-touch-icon-precomposed.png`,
+          `${origin}/icons/icon-192.png`,
+          `${origin}/icons/icon-64.png`,
+          `${origin}/images/favicon.ico`,
+          `${origin}/assets/favicon.ico`,
+        ]
+        const builtIn = this.builtinIcon(host)
+        const candidates = [...externalCandidates, ...localCandidates, builtIn ? [builtIn] : []].flat()
+        const idx = parseInt(ev.target.dataset.iconIdx || '0', 10)
+        if (idx < candidates.length) {
+          ev.target.dataset.iconIdx = String(idx + 1)
+          ev.target.src = candidates[idx]
+          ev.target.onerror = (e) => this.onFaviconError(e, item)
+          return
+        }
+        // 最终回退：本地生成的占位图，保证有图标
         ev.target.onerror = hide
-        ev.target.src = `${u.origin}/favicon.ico`
+        const ph = this.placeholderIcon(host || this.getHostForItem(item) || 'site')
+        if (host && ph) this.favCache.set(host, { status: 'fail', ts: Date.now() })
+        ev.target.src = ph
       } catch {
-        hide()
+        // 无法解析 URL 时仍显示占位图
+        ev.target.onerror = hide
+        ev.target.src = this.placeholderIcon(this.getHostForItem(item) || 'site')
       }
+    },
+    // 内置热门域的本地图标（不依赖外部网络），以品牌色+首字母近似展示
+    builtinIcon(host) {
+      if (!host) return ''
+      const h = host.toLowerCase()
+      const match = (domain) => h === domain || h.endsWith('.' + domain)
+      // 品牌配色与字母（非官方图形，仅为内置近似识别）
+      if (match('github.com')) return this.svgDataUri('GH', '#24292e', '#ffffff')
+      if (match('bilibili.com')) return this.svgDataUri('Bi', '#fb7299', '#ffffff')
+      if (match('zhihu.com')) return this.svgDataUri('知', '#056de8', '#ffffff')
+      if (match('youtube.com') || match('youtu.be')) return this.svgDataUri('YT', '#ff0000', '#ffffff')
+      if (match('google.com')) return this.svgDataUri('G', '#4285F4', '#ffffff')
+      if (match('twitter.com') || match('x.com')) return this.svgDataUri('X', '#1DA1F2', '#ffffff')
+      if (match('linkedin.com')) return this.svgDataUri('in', '#0A66C2', '#ffffff')
+      if (match('weibo.com')) return this.svgDataUri('微', '#E6162D', '#ffffff')
+      if (match('qq.com')) return this.svgDataUri('QQ', '#12B7F5', '#ffffff')
+      if (match('weixin.qq.com') || match('wechat.com')) return this.svgDataUri('微', '#07C160', '#ffffff')
+      if (match('csdn.net')) return this.svgDataUri('C', '#FC5531', '#ffffff')
+      if (match('juejin.cn')) return this.svgDataUri('掘', '#1E80FF', '#ffffff')
+      if (match('segmentfault.com')) return this.svgDataUri('SF', '#009A61', '#ffffff')
+      if (match('stackoverflow.com')) return this.svgDataUri('SO', '#F48024', '#ffffff')
+      if (match('taobao.com')) return this.svgDataUri('淘', '#FF6A00', '#ffffff')
+      if (match('tmall.com')) return this.svgDataUri('猫', '#FF0036', '#ffffff')
+      if (match('jd.com')) return this.svgDataUri('京', '#E2231A', '#ffffff')
+      return ''
+    },
+    svgDataUri(text, bg, fg) {
+      try {
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>\n  <rect x='0' y='0' width='64' height='64' rx='10' fill='${bg}'/>\n  <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle' font-family='-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif' font-weight='700' font-size='28' fill='${fg}'>${text}</text>\n</svg>`
+        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
+      } catch { return '' }
+    },
+    getHostForItem(item) {
+      try {
+        const url = this.normalizeUrl(this.resolveLongUrl(item)) || this.normalizeUrl(this.displayShortUrl(item))
+        return new URL(url).hostname
+      } catch { return '' }
     },
     getHostInitial(item) {
       try {
-        const url = item?.longUrl || item?.shortUrl || ''
+        const url = this.normalizeUrl(this.resolveLongUrl(item)) || item?.shortUrl || ''
         const host = new URL(url).hostname || ''
         return (host[0] || '?').toUpperCase()
       } catch { return '?' }
+    },
+    normalizeUrl(u) {
+      const s = (u || '').trim()
+      if (!s) return ''
+      // 已有协议直接返回
+      if (/^https?:\/\//i.test(s)) return s
+      // 支持以下裸域/主机形式：
+      // - 常规域名：example.com、sub.example.co.uk
+      // - localhost：localhost、localhost:3000
+      // - IPv4：127.0.0.1、192.168.1.10:8080
+      // - IPv6：[fe80::1]:8080
+      const isDomain = /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(?::\d+)?(?:\/.*)?$/i.test(s)
+      const isLocalhost = /^localhost(?::\d+)?(?:\/.*)?$/i.test(s)
+      const isIPv4 = /^(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?:\/.*)?$/.test(s)
+      const isIPv6 = /^\[[0-9a-fA-F:]+\](?::\d+)?(?:\/.*)?$/.test(s)
+      if (isDomain || isLocalhost || isIPv4 || isIPv6) return 'http://' + s
+      return ''
+    },
+    placeholderIcon(host) {
+      try {
+        const size = 64
+        const canvas = document.createElement('canvas')
+        canvas.width = size; canvas.height = size
+        const ctx = canvas.getContext('2d')
+        // 颜色取自 host hash
+        let hash = 0
+        for (let i = 0; i < host.length; i++) hash = (hash * 31 + host.charCodeAt(i)) >>> 0
+        const hue = hash % 360
+        ctx.fillStyle = `hsl(${hue}, 60%, 80%)`
+        ctx.fillRect(0, 0, size, size)
+        ctx.fillStyle = `hsl(${hue}, 70%, 35%)`
+        ctx.font = 'bold 32px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        const initial = (host[0] || '?').toUpperCase()
+        ctx.fillText(initial, size / 2, size / 2)
+        return canvas.toDataURL('image/png')
+      } catch { return '' }
+    },
+    resolveLongUrl(item) {
+      // 兼容后端不同字段命名：longUrl/url/originalUrl/destinationUrl/targetUrl/target
+      return (
+        item?.longUrl ||
+        item?.url ||
+        item?.originalUrl ||
+        item?.destinationUrl ||
+        item?.destUrl ||
+        item?.targetUrl ||
+        item?.target ||
+        item?.long ||
+        ''
+      )
+    },
+    async hydrateLongUrls() {
+      const items = (this.history || []).filter(it => !it.longUrl)
+      if (items.length === 0) return
+      const tasks = items.map(async (it) => {
+        const code = this.extractCode(it)
+        if (!code) return
+        try {
+          const res = await api.get('/api/' + encodeURIComponent(code))
+          const payload = res?.data
+          let text = typeof payload === 'string' ? payload : (payload?.data ?? payload?.message ?? payload?.msg)
+          let longUrl = ''
+          if (typeof text === 'string') {
+            const m = text.match(/Redirect to:\s*(.+)$/i)
+            longUrl = (m ? m[1] : text).trim()
+          }
+          if (!longUrl) longUrl = payload?.longUrl || payload?.data?.longUrl || ''
+          if (longUrl) it.longUrl = longUrl
+        } catch (e) {
+          // 静默失败，保留占位首字母
+          console.debug('hydrate longUrl failed for', code, e?.message || e)
+        }
+      })
+      await Promise.allSettled(tasks)
     },
   },
   mounted() {
