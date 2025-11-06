@@ -84,7 +84,7 @@
           <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div class="min-w-0 flex-1">
               <div class="text-sm mb-1" style="color:#4B5563">已生成短链</div>
-              <a :href="shortUrl" @click.prevent="redirectViaApi({ shortUrl })" class="underline break-all" style="color:#2B6CEF">{{ decodeUrlText(shortUrl) }}</a>
+              <button @click="redirectViaApi({ shortUrl })" class="underline break-all" style="color:#2B6CEF;background:none;border:none;padding:0;cursor:pointer">{{ decodeUrlText(shortUrl) }}</button>
               <div class="mt-3 flex gap-3">
                 <button @click="copyShortUrl" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">复制短链</button>
                 <button @click="downloadQrPng" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">下载二维码</button>
@@ -137,15 +137,21 @@
               <!-- Left: favicon + domains + code badge -->
               <div class="flex items-center gap-3 min-w-0">
                 <img
-                  :src="getFavicon(item)"
+                  v-if="faviconSrc(item)"
+                  :src="faviconSrc(item)"
                   @error="onFaviconError($event, item)"
                   alt="icon"
                   class="w-5 h-5 rounded"
+                  referrerpolicy="no-referrer"
                   style="flex:none;transition: all 0.2s ease"
                 />
+                <div v-else class="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[10px] text-gray-600"
+                     style="flex:none;transition: all 0.2s ease">
+                  {{ getHostInitial(item) }}
+                </div>
                 <div class="min-w-0">
                   <div class="flex items-center gap-2 min-w-0">
-                    <a :href="displayShortUrl(item)" @click.prevent="redirectViaApi(item)" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw">{{ displayShortUrlText(item) }}</a>
+                    <button @click="redirectViaApi(item)" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw;background:none;border:none;padding:0;cursor:pointer">{{ displayShortUrlText(item) }}</button>
                     <span class="tf-code-badge">{{ extractCode(item) }}</span>
                   </div>
                   <div class="mt-0.5 truncate text-[12px]" style="color:#6B7280;max-width:60vw">{{ item.longUrl }}</div>
@@ -154,6 +160,7 @@
               <!-- Right: actions -->
               <div class="flex items-center gap-2 shrink-0">
                 <button @click="copyLink(displayShortUrl(item), item.id)" class="tf-copy-btn">复制</button>
+                <button @click="startEdit(item)" class="tf-copy-btn">编辑</button>
                 <button
                   @click="deleteHistoryItem(item)"
                   :disabled="deletingIds.has(item.id)"
@@ -171,6 +178,13 @@
               </div>
             </div>
             <div v-if="copiedId===item.id" class="mt-1 text-[12px]" style="color:#10B981">已复制</div>
+            <!-- Inline edit row -->
+            <div v-if="editingId===item.id" class="mt-2 flex items-center gap-2">
+              <input v-model="editAlias" type="text" class="h-9 px-3 rounded-md border outline-none" placeholder="新的短码/别名"
+                     style="border-color:#E5E7EB" />
+              <button @click="saveEdit(item)" :disabled="updatingIds.has(item.id)" class="tf-copy-btn">保存</button>
+              <button @click="cancelEdit" class="tf-copy-btn">取消</button>
+            </div>
           </div>
         </div>
       </div>
@@ -233,9 +247,12 @@ export default {
       historyQuery: '',
       refreshing: false,
       deletingIds: new Set(),
+      updatingIds: new Set(),
       hoverDeleteId: null,
       copiedId: null,
       copyItemTimer: null,
+      editingId: null,
+      editAlias: '',
     }
   },
   computed: {
@@ -501,6 +518,41 @@ export default {
         this.refreshing = false
       }
     },
+    startEdit(item) {
+      this.editingId = item?.id || null
+      const code = this.extractCode(item)
+      this.editAlias = code || ''
+    },
+    cancelEdit() {
+      this.editingId = null
+      this.editAlias = ''
+    },
+    async saveEdit(item) {
+      const id = item?.id
+      const oldCode = this.extractCode(item)
+      const newAlias = (this.editAlias || '').trim()
+      if (!id || !oldCode) return
+      if (!newAlias) { alert('请输入新的短码或别名'); return }
+      this.updatingIds.add(id)
+      try {
+        // 调用后端更新接口：PUT /api/{shortCode}
+        await api.put('/api/' + encodeURIComponent(oldCode), {
+          shortCode: oldCode,
+          customAlias: newAlias,
+        }, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
+        // 本地更新：将展示短码替换为新别名
+        const updated = { ...item }
+        updated.code = newAlias
+        updated.shortUrl = this.buildShortUrl(newAlias)
+        this.history = (this.history || []).map(x => x.id === id ? updated : x)
+        this.cancelEdit()
+      } catch (err) {
+        alert('更新失败，请稍后重试')
+        console.error('Update short url error:', err)
+      } finally {
+        this.updatingIds.delete(id)
+      }
+    },
     async deleteHistoryItem(item) {
       const id = item?.id
       if (!id) return
@@ -534,23 +586,38 @@ export default {
     onScroll() {
       this.scrolled = window.scrollY > 8
     },
-    getFavicon(item) {
+    // 是否启用外部 favicon 请求（如受网络或策略限制，建议关闭）
+    FAVICONS_ENABLED: false,
+    faviconSrc(item) {
+      // 全局开关：关闭则不发起任何跨站图标请求
+      if (!this.FAVICONS_ENABLED) return ''
       const url = item?.longUrl || item?.shortUrl || ''
       try {
         const host = new URL(url).hostname
-        return `https://icons.duckduckgo.com/ip3/${host}.ico`
+        const sameOrigin = host === location.hostname
+        // 同源回退到站点自身的 /favicon.ico，否则走 Google S2
+        return sameOrigin ? `${location.origin}/favicon.ico` : `https://www.google.com/s2/favicons?domain=${host}&sz=64`
       } catch {
         return ''
       }
     },
     onFaviconError(ev, item) {
+      const hide = () => { try { ev.target.style.display = 'none' } catch {} ev.target.onerror = null }
       try {
         const u = new URL(item?.longUrl || item?.shortUrl)
+        // 二次回退到站点本身的 favicon，如仍失败则隐藏，避免控制台持续报错
+        ev.target.onerror = hide
         ev.target.src = `${u.origin}/favicon.ico`
-        ev.target.onerror = null
       } catch {
-        ev.target.style.display = 'none'
+        hide()
       }
+    },
+    getHostInitial(item) {
+      try {
+        const url = item?.longUrl || item?.shortUrl || ''
+        const host = new URL(url).hostname || ''
+        return (host[0] || '?').toUpperCase()
+      } catch { return '?' }
     },
   },
   mounted() {
