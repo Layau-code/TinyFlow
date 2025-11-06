@@ -1,5 +1,6 @@
 package com.layor.tinyflow.Controller;
 
+import com.layor.tinyflow.entity.Result;
 import com.layor.tinyflow.entity.ShortUrl;
 import com.layor.tinyflow.service.HistoryService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,11 +25,9 @@ public class HistoryController
     刷新后的完整历史记录列表
      */
     @GetMapping("/refresh")
-    public
-    ResponseEntity<List<ShortUrl>> refreshHistory() {
+    public Result<List<ShortUrl>> refreshHistory() {
         List<ShortUrl> refreshedHistory = historyService.refreshHistory();
-        return
-                ResponseEntity.ok(refreshedHistory);
+        return Result.success(refreshedHistory);
     }
 
     @DeleteMapping("/{id}")
