@@ -8,8 +8,8 @@
           href="#"
           @click.prevent="goToDashboard"
           class="text-[14px] text-[#6B7280] hover:text-black"
-          title="查看统计看板"
-        >数据统计</a>
+          :title="$t('nav.dashboard')"
+        >{{ $t('nav.dashboard') }}</a>
         <a
           href="https://github.com/Layau-code/TinyFlow"
           target="_blank"
@@ -30,6 +30,7 @@
             <span class="inline-block tabular-nums tracking-wider font-display font-medium text-white">Star</span>
           </div>
         </a>
+        <LanguageSwitcher />
       </div>
     </div>
     <div class="absolute bottom-0 left-0 right-0 h-[2px]" :style="navAccentStyle"></div>
@@ -40,8 +41,8 @@
   <main class="bg-white min-h-screen" v-show="!isStatsOrDashboard">
     <section class="hero pt-12 pb-16">
       <div class="hero-inner flex flex-col items-center justify-center px-6">
-        <h1 class="text-center font-semibold mb-10" style="color:#1F2329;font-size:clamp(36px,6vw,48px);line-height:1.2">让链接变短，让分享更轻松</h1>
-        <p class="text-center mb-10" style="color:#4B5563;font-size:18px;line-height:1.6">一键生成短链，支持自定义别名、访问统计与 API 调用</p>
+        <h1 class="text-center font-semibold mb-10" style="color:#1F2329;font-size:clamp(36px,6vw,48px);line-height:1.2">{{ $t('hero.title') }}</h1>
+        <p class="text-center mb-10" style="color:#4B5563;font-size:18px;line-height:1.6">{{ $t('hero.subtitle') }}</p>
 
         <!-- Input + Button（按钮在右侧） - 卡片化包裹 -->
         <div class="w-full max-w-[720px] flex flex-col gap-3 p-5 md:p-6 rounded-[16px] border" :style="formCardStyle">
@@ -49,7 +50,7 @@
             <input
               v-model="inputUrl"
               type="text"
-              placeholder="粘贴长链接，例如 https://example.com"
+              :placeholder="$t('form.urlPlaceholder')"
               class="flex-1 rounded-[12px] h-14 px-6 outline-none border"
               :style="inputStyle(focusInput)"
               @focus="focusInput = true"
@@ -63,13 +64,13 @@
               @mouseenter="hoverGen=true"
               @mouseleave="hoverGen=false"
             >
-              生成短链
+              {{ $t('form.generate') }}
             </button>
           </div>
           <input
             v-model="customAlias"
             type="text"
-            placeholder="可自定义别名，留空则自动生成"
+            :placeholder="$t('form.aliasPlaceholder')"
             class="w-full rounded-[12px] h-12 px-6 outline-none border bg-white"
             :style="inputStyle(focusAlias)"
             @focus="focusAlias = true"
@@ -83,13 +84,13 @@
         <div v-if="shortUrl" class="w-full max-w-[720px] mt-4 p-5 md:p-6 rounded-[16px] border bg-white" :style="resultCardStyle">
           <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div class="min-w-0 flex-1">
-              <div class="text-sm mb-1" style="color:#4B5563">已生成短链</div>
+              <div class="text-sm mb-1" style="color:#4B5563">{{ $t('result.created') }}</div>
               <button @click="redirectViaApi({ shortUrl })" class="underline break-all" style="color:#2B6CEF;background:none;border:none;padding:0;cursor:pointer">{{ decodeUrlText(shortUrl) }}</button>
               <div class="mt-3 flex gap-3">
-                <button @click="copyShortUrl" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">复制短链</button>
-                <button @click="downloadQrPng" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">下载二维码</button>
+                <button @click="copyShortUrl" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">{{ $t('result.copy') }}</button>
+                <button @click="downloadQrPng" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">{{ $t('result.downloadQr') }}</button>
               </div>
-              <div v-if="copyLabel==='已复制'" class="mt-2 text-[14px]" style="color:#10B981">已复制到剪贴板</div>
+              <div v-if="copyLabel==='已复制'" class="mt-2 text-[14px]" style="color:#10B981">{{ $t('result.copied') }}</div>
             </div>
             <div class="shrink-0">
               <QrcodeVue ref="qrRef" :value="shortUrl" :size="140" level="M" :foreground="'#2B6CEF'" :background="'#ffffff'" />
@@ -103,9 +104,9 @@
     <section class="px-6 mt-6">
       <div class="max-w-[1200px] mx-auto">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="font-semibold" style="color:#1F2329;font-size:24px;margin-top:48px">历史记录</h2>
+          <h2 class="font-semibold" style="color:#1F2329;font-size:24px;margin-top:48px">{{ $t('history.title') }}</h2>
           <div class="flex items-center gap-3">
-            <input v-model="historyQuery" type="text" class="h-9 px-3 rounded-md border outline-none" placeholder="按短码或域名过滤" style="border-color:#E5E7EB" />
+            <input v-model="historyQuery" type="text" class="h-9 px-3 rounded-md border outline-none" :placeholder="$t('history.filterPlaceholder')" style="border-color:#E5E7EB" />
             <div class="tf-refresh-container" :class="{ 'is-disabled': refreshing }">
               <div class="hover bt-1"></div>
               <div class="hover bt-2"></div>
@@ -119,12 +120,12 @@
                 :disabled="refreshing"
                 @click="refreshHistory"
               >
-                {{ refreshing ? '刷新中…' : '刷新历史' }}
+                {{ refreshing ? $t('history.refreshing') : $t('history.refresh') }}
               </button>
             </div>
           </div>
         </div>
-        <div v-if="filteredHistory.length === 0" class="text-[14px]" style="color:#9CA3AF">暂无历史记录</div>
+        <div v-if="filteredHistory.length === 0" class="text-[14px]" style="color:#9CA3AF">{{ $t('history.empty') }}</div>
         <div v-else class="space-y-2">
           <!-- History list item: refined layout to match modern sites -->
           <div
@@ -136,7 +137,7 @@
             <div class="flex items-center justify-between gap-3">
               <!-- Left: favicon + domains + code badge -->
               <div class="flex items-center gap-3 min-w-0">
-                <Favicon :url="resolveLongUrl(item) || item.shortUrl" :size="24" />
+                <Favicon :long-url="normalizeUrl(resolveLongUrl(item)) || (location.origin + (item.shortUrl || ''))" />
                 <div class="min-w-0">
                   <div class="flex items-center gap-2 min-w-0">
                     <button @click="redirectViaApi(item)" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw;background:none;border:none;padding:0;cursor:pointer">{{ displayShortUrlText(item) }}</button>
@@ -147,8 +148,8 @@
               </div>
               <!-- Right: actions -->
               <div class="flex items-center gap-2 shrink-0">
-                <button @click="copyLink(displayShortUrl(item), item.id)" class="tf-copy-btn">复制</button>
-                <button @click="startEdit(item)" class="tf-copy-btn">编辑</button>
+                <button @click="copyLink(displayShortUrl(item), item.id)" class="tf-copy-btn">{{ $t('actions.copy') }}</button>
+                <button @click="startEdit(item)" class="tf-copy-btn">{{ $t('actions.edit') }}</button>
                 <button
                   @click="deleteHistoryItem(item)"
                   :disabled="deletingIds.has(item.id)"
@@ -157,7 +158,7 @@
                   class="tf-del-btn"
                   :class="{ 'is-loading': deletingIds.has(item.id) }"
                   aria-label="删除"
-                  title="删除"
+                  :title="$t('actions.delete')"
                 >
                   <svg viewBox="0 0 448 512" class="tf-del-icon" aria-hidden="true">
                     <path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z" />
@@ -165,13 +166,13 @@
                 </button>
               </div>
             </div>
-            <div v-if="copiedId===item.id" class="mt-1 text-[12px]" style="color:#10B981">已复制</div>
+            <div v-if="copiedId===item.id" class="mt-1 text-[12px]" style="color:#10B981">{{ $t('actions.copied') }}</div>
             <!-- Inline edit row -->
             <div v-if="editingId===item.id" class="mt-2 flex items-center gap-2">
-              <input v-model="editAlias" type="text" class="h-9 px-3 rounded-md border outline-none" placeholder="新的短码/别名"
+              <input v-model="editAlias" type="text" class="h-9 px-3 rounded-md border outline-none" :placeholder="$t('actions.newAlias')"
                      style="border-color:#E5E7EB" />
-              <button @click="saveEdit(item)" :disabled="updatingIds.has(item.id)" class="tf-copy-btn">保存</button>
-              <button @click="cancelEdit" class="tf-copy-btn">取消</button>
+              <button @click="saveEdit(item)" :disabled="updatingIds.has(item.id)" class="tf-copy-btn">{{ $t('actions.save') }}</button>
+              <button @click="cancelEdit" class="tf-copy-btn">{{ $t('actions.cancel') }}</button>
             </div>
           </div>
         </div>
@@ -199,8 +200,8 @@
     <!-- Footer -->
     <footer class="border-t mt-16">
       <div class="text-center py-6 text-[14px]" style="color:#9CA3AF;border-color:#F3F4F6">
-        © 2025 TinyFlow · 开源 · 隐私政策 · 反馈建议 ·
-        <a href="mailto:support@tinyflow.local" style="color:#6B72FF">联系我们</a>
+        {{ $t('footer.suffix') }}
+        <a href="mailto:support@tinyflow.local" style="color:#6B72FF">{{ $t('footer.contactUs') }}</a>
       </div>
     </footer>
   </main>
@@ -208,16 +209,17 @@
 
 <script>
 import axios from 'axios'
-import LoadingSpinner from './src/components/LoadingSpinner.vue'
-import Favicon from './src/components/Favicon.vue'
+import LoadingSpinner from '/src/components/LoadingSpinner.vue'
 import QrcodeVue from 'qrcode.vue'
+import LanguageSwitcher from '/src/components/LanguageSwitcher.vue'
+import Favicon from '/src/components/Favicon.vue'
 
 const API_BASE = 'http://localhost:8080' // 用于顶部“历史记录”跳转链接
 const api = axios.create({ baseURL: '' }) // 使用 Vite dev 代理转发 /api 与 /shorten
 
 export default {
   name: 'App',
-  components: { LoadingSpinner, QrcodeVue, Favicon },
+  components: { LoadingSpinner, QrcodeVue, LanguageSwitcher, Favicon },
   data() {
     return {
       apiBase: API_BASE,
@@ -242,9 +244,6 @@ export default {
       copyItemTimer: null,
       editingId: null,
       editAlias: '',
-      favCache: new Map(),
-      // 控制是否启用外部 favicon 请求，放在 data 中避免 Vue 对 methods 的警告
-      FAVICONS_ENABLED: true,
     }
   },
   computed: {
@@ -585,109 +584,44 @@ export default {
     onScroll() {
       this.scrolled = window.scrollY > 8
     },
+    // 是否启用外部 favicon 请求（如受网络或策略限制，建议关闭）
+    FAVICONS_ENABLED: true,
     faviconSrc(item) {
-      // 始终返回一个可渲染的 src；优先真实站点图标，贴近地址栏左侧效果
-      const host = this.getHostForItem(item)
-      if (!this.FAVICONS_ENABLED) {
-        return this.placeholderIcon(host || 'site')
-      }
-      if (host) {
-        // Google S2 提供统一风格的小图标，接近你提到的左侧效果
-        return `https://www.google.com/s2/favicons?domain=${host}&sz=64`
-      }
+      // 全局开关：关闭则不发起任何跨站图标请求
+      if (!this.FAVICONS_ENABLED) return ''
       const raw = this.resolveLongUrl(item)
       const url = this.normalizeUrl(raw)
+      if (!url) return ''
       try {
-        if (url) {
-          const u = new URL(url)
-          return `${u.origin}/favicon.ico`
-        }
-      } catch {}
-      // 没有可解析的长链时，用占位图保证有图标可见
-      return this.placeholderIcon(host || 'site')
+        const u = new URL(url)
+        // 首选站点自身的 favicon
+        return `${u.origin}/favicon.ico`
+      } catch { return '' }
     },
     onFaviconError(ev, item) {
-      const hide = () => { try { ev.target.style.display = 'none' } catch {} ev.target.onerror = null }
+      const hide = () => { try { ev.target.style.display = 'none' } catch {} ev.target.onerror = null; try { item.__iconFailed = true } catch {} }
       try {
-        const u = new URL(this.normalizeUrl(this.resolveLongUrl(item)) || this.normalizeUrl(this.displayShortUrl(item)))
+        const u = new URL(this.normalizeUrl(this.resolveLongUrl(item)) || item?.shortUrl)
         const host = u.hostname
-        const origin = u.origin
-        // 第三方服务候选（更接近地址栏左侧效果）
-        const externalCandidates = host ? [
-          `https://www.google.com/s2/favicons?domain=${host}&sz=64`,
-          `https://icons.duckduckgo.com/ip3/${host}.ico`,
-          `https://logo.clearbit.com/${host}`,
-          `https://api.iowen.cn/favicon/${host}.png`,
-          `https://images.weserv.nl/?url=${host}/favicon.ico&w=64&h=64&fit=cover&n=1`,
-          `https://f1.allesedv.com/64/${host}`,
-        ] : []
-        // 本地路径候选（站点自身）
-        const localCandidates = [
-          `${origin}/favicon.ico`,
-          `${origin}/favicon.png`,
-          `${origin}/apple-touch-icon.png`,
-          `${origin}/apple-touch-icon-precomposed.png`,
-          `${origin}/icons/icon-192.png`,
-          `${origin}/icons/icon-64.png`,
-          `${origin}/images/favicon.ico`,
-          `${origin}/assets/favicon.ico`,
-        ]
-        const builtIn = this.builtinIcon(host)
-        const candidates = [...externalCandidates, ...localCandidates, builtIn ? [builtIn] : []].flat()
-        const idx = parseInt(ev.target.dataset.iconIdx || '0', 10)
-        if (idx < candidates.length) {
-          ev.target.dataset.iconIdx = String(idx + 1)
-          ev.target.src = candidates[idx]
-          ev.target.onerror = (e) => this.onFaviconError(e, item)
-          return
+        // 逐级回退：DuckDuckGo -> Google S2 -> Clearbit -> iowen -> 隐藏
+        ev.target.onerror = () => {
+          ev.target.onerror = () => {
+            ev.target.onerror = () => {
+              ev.target.onerror = () => {
+                // 最终回退到本地生成的占位图，以保证视觉一致
+                ev.target.onerror = hide
+                ev.target.src = this.placeholderIcon(host)
+              }
+              ev.target.src = `https://api.iowen.cn/favicon/${host}.png`
+            }
+            ev.target.src = `https://logo.clearbit.com/${host}`
+          }
+          ev.target.src = `https://www.google.com/s2/favicons?domain=${host}&sz=64`
         }
-        // 最终回退：本地生成的占位图，保证有图标
-        ev.target.onerror = hide
-        const ph = this.placeholderIcon(host || this.getHostForItem(item) || 'site')
-        if (host && ph) this.favCache.set(host, { status: 'fail', ts: Date.now() })
-        ev.target.src = ph
+        ev.target.src = `https://icons.duckduckgo.com/ip3/${host}.ico`
       } catch {
-        // 无法解析 URL 时仍显示占位图
-        ev.target.onerror = hide
-        ev.target.src = this.placeholderIcon(this.getHostForItem(item) || 'site')
+        hide()
       }
-    },
-    // 内置热门域的本地图标（不依赖外部网络），以品牌色+首字母近似展示
-    builtinIcon(host) {
-      if (!host) return ''
-      const h = host.toLowerCase()
-      const match = (domain) => h === domain || h.endsWith('.' + domain)
-      // 品牌配色与字母（非官方图形，仅为内置近似识别）
-      if (match('github.com')) return this.svgDataUri('GH', '#24292e', '#ffffff')
-      if (match('bilibili.com')) return this.svgDataUri('Bi', '#fb7299', '#ffffff')
-      if (match('zhihu.com')) return this.svgDataUri('知', '#056de8', '#ffffff')
-      if (match('youtube.com') || match('youtu.be')) return this.svgDataUri('YT', '#ff0000', '#ffffff')
-      if (match('google.com')) return this.svgDataUri('G', '#4285F4', '#ffffff')
-      if (match('twitter.com') || match('x.com')) return this.svgDataUri('X', '#1DA1F2', '#ffffff')
-      if (match('linkedin.com')) return this.svgDataUri('in', '#0A66C2', '#ffffff')
-      if (match('weibo.com')) return this.svgDataUri('微', '#E6162D', '#ffffff')
-      if (match('qq.com')) return this.svgDataUri('QQ', '#12B7F5', '#ffffff')
-      if (match('weixin.qq.com') || match('wechat.com')) return this.svgDataUri('微', '#07C160', '#ffffff')
-      if (match('csdn.net')) return this.svgDataUri('C', '#FC5531', '#ffffff')
-      if (match('juejin.cn')) return this.svgDataUri('掘', '#1E80FF', '#ffffff')
-      if (match('segmentfault.com')) return this.svgDataUri('SF', '#009A61', '#ffffff')
-      if (match('stackoverflow.com')) return this.svgDataUri('SO', '#F48024', '#ffffff')
-      if (match('taobao.com')) return this.svgDataUri('淘', '#FF6A00', '#ffffff')
-      if (match('tmall.com')) return this.svgDataUri('猫', '#FF0036', '#ffffff')
-      if (match('jd.com')) return this.svgDataUri('京', '#E2231A', '#ffffff')
-      return ''
-    },
-    svgDataUri(text, bg, fg) {
-      try {
-        const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>\n  <rect x='0' y='0' width='64' height='64' rx='10' fill='${bg}'/>\n  <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle' font-family='-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif' font-weight='700' font-size='28' fill='${fg}'>${text}</text>\n</svg>`
-        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
-      } catch { return '' }
-    },
-    getHostForItem(item) {
-      try {
-        const url = this.normalizeUrl(this.resolveLongUrl(item)) || this.normalizeUrl(this.displayShortUrl(item))
-        return new URL(url).hostname
-      } catch { return '' }
     },
     getHostInitial(item) {
       try {
