@@ -6,6 +6,12 @@
       <div class="flex items-center gap-4">
         <a
           href="#"
+          @click.prevent="$router.push('/')"
+          class="text-[14px] text-[#6B7280] hover:text-black"
+          :title="$t('common.home')"
+        >{{ $t('common.home') }}</a>
+        <a
+          href="#"
           @click.prevent="goToDashboard"
           class="text-[14px] text-[#6B7280] hover:text-black"
           :title="$t('nav.dashboard')"
@@ -59,7 +65,7 @@
             />
             <button
               @click="shortenUrl"
-              class="rounded-[12px] h-14 px-6 text-white font-medium whitespace-nowrap"
+              class="rounded-[12px] h-14 px-6 font-medium whitespace-nowrap"
               :style="buttonStyle"
               @mouseenter="hoverGen=true"
               @mouseleave="hoverGen=false"
@@ -115,9 +121,11 @@
               <div class="hover bt-5"></div>
               <div class="hover bt-6"></div>
               <button
-                class="tf-refresh-btn text-white font-medium"
+                class="tf-refresh-btn font-medium"
                 :style="refreshButtonStyle"
                 :disabled="refreshing"
+                @mouseenter="hoverRefresh=true"
+                @mouseleave="hoverRefresh=false"
                 @click="refreshHistory"
               >
                 {{ refreshing ? $t('history.refreshing') : $t('history.refresh') }}
@@ -250,6 +258,7 @@ export default {
       histPageSize: 10,
       histTotal: 0,
       refreshing: false,
+      hoverRefresh: false,
       deletingIds: new Set(),
       updatingIds: new Set(),
       hoverDeleteId: null,
@@ -301,17 +310,25 @@ export default {
       return { borderColor: '#E5E7EB', color: '#2B6CEF', background: '#fff' }
     },
     buttonStyle() {
-      const base = 'linear-gradient(135deg, #6B72FF 0%, #8A6BFF 50%, #A66BFF 100%)'
-      const hover = 'linear-gradient(135deg, #7E6BFF 0%, #9A6BFF 50%, #B66BFF 100%)'
-      return { background: this.hoverGen ? hover : base, transform: this.hoverGen ? 'translateY(-2px) scale(1.02)' : 'none' }
+      const hasInput = !!(this.inputUrl && this.inputUrl.trim())
+      const deep = 'linear-gradient(135deg, #2B6CEF 0%, #8A6BFF 100%)' // 深蓝紫
+      const light = '#EAE8FF' // 默认浅紫色
+      const color = hasInput ? '#FFFFFF' : '#6B72FF'
+      return {
+        background: hasInput ? deep : light,
+        color,
+        transform: hasInput ? 'translateY(-2px) scale(1.02)' : 'none'
+      }
     },
     copyBtnStyle() {
       return { color: this.copyLabel === '已复制' ? '#10B981' : '#6B72FF' }
     },
     refreshButtonStyle() {
-      const base = 'linear-gradient(135deg, #6B72FF 0%, #8A6BFF 50%, #A66BFF 100%)'
-      const disabled = 'linear-gradient(135deg, #7E6BFF 0%, #9A6BFF 50%, #B66BFF 100%)'
-      return { background: this.refreshing ? disabled : base, opacity: this.refreshing ? 0.8 : 1 }
+      const deep = 'linear-gradient(135deg, #2B6CEF 0%, #8A6BFF 100%)'
+      const light = '#EAE8FF'
+      const useDeep = this.hoverRefresh && !this.refreshing
+      const color = useDeep ? '#FFFFFF' : '#6B72FF'
+      return { background: useDeep ? deep : light, color, opacity: this.refreshing ? 0.8 : 1 }
     },
     isStatsOrDashboard() {
       const p = this.$route?.path || ''
