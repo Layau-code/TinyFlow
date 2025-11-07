@@ -175,6 +175,16 @@
               <button @click="cancelEdit" class="tf-copy-btn">{{ $t('actions.cancel') }}</button>
             </div>
           </div>
+          <!-- Pagination for history -->
+          <div class="flex items-center justify-between mt-3">
+            <div class="text-[13px]" style="color:#6B7280">
+              {{ $t('historyPagination.total', { count: histTotal, page: histPage, pages: Math.max(1, Math.ceil(histTotal / histPageSize)) }) }}
+            </div>
+            <div class="flex items-center gap-3">
+              <button @click="prevHist" class="tf-copy-btn">{{ $t('historyPagination.prev') }}</button>
+              <button @click="nextHist" class="tf-copy-btn">{{ $t('historyPagination.next') }}</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -236,6 +246,9 @@ export default {
       copyTimer: null,
       history: [],
       historyQuery: '',
+      histPage: 1,
+      histPageSize: 10,
+      histTotal: 0,
       refreshing: false,
       deletingIds: new Set(),
       updatingIds: new Set(),
@@ -495,26 +508,54 @@ export default {
       if (this.refreshing) return
       this.refreshing = true
       try {
-        const res = await api.get('/api/history/refresh')
+        const params = {
+          page: Math.max(0, (this.histPage || 1) - 1),
+          size: this.histPageSize
+        }
+        const res = await api.get('/api/urls', { params })
         const payload = res?.data ?? null
-        // 兼容后端 Result 包装：{ code, message, data } / { result } / { items }
-        const listRaw = Array.isArray(payload) ? payload : (payload?.data || payload?.items || payload?.result || [])
-        const list = Array.isArray(listRaw) ? listRaw : []
-        this.history = list.map((it) => {
-          const code = this.extractCode(it)
-          const shortUrl = it?.shortUrl || this.buildShortUrl(code)
-          const longUrl = this.resolveLongUrl(it) || it?.longUrl || ''
-          const id = it?.id ?? it?.uuid ?? it?.key ?? it?.shortId ?? Date.now() + Math.random()
-          return { ...it, id, code, shortUrl, longUrl }
+        const listRaw = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload?.content)
+              ? payload.content
+              : Array.isArray(payload?.data?.items)
+                ? payload.data.items
+                : Array.isArray(payload?.data?.content)
+                  ? payload.data.content
+                  : []
+        const total = (
+          payload?.total ??
+          payload?.totalElements ??
+          payload?.data?.total ??
+          payload?.data?.totalElements ??
+          listRaw.length
+        ) || 0
+        this.histTotal = Number(total) || 0
+        this.history = (listRaw || []).map((it) => {
+          const code = it?.shortCode || this.extractCode(it)
+          const shortUrl = this.buildShortUrl(code)
+          const longUrl = it?.longUrl || this.resolveLongUrl(it) || ''
+          const id = it?.id ?? code ?? (Date.now() + Math.random())
+          const createdAt = it?.createdAt
+          return { ...it, id, code, shortUrl, longUrl, createdAt }
         })
-        // 补齐缺失的长链信息，用于站点图标与域名展示
-        await this.hydrateLongUrls()
       } catch (err) {
         alert('获取历史记录失败，请稍后重试')
         console.error('History refresh error:', err)
       } finally {
         this.refreshing = false
       }
+    },
+    prevHist() {
+      this.histPage = Math.max(1, this.histPage - 1)
+      this.refreshHistory()
+    },
+    nextHist() {
+      const pages = Math.max(1, Math.ceil(this.histTotal / this.histPageSize))
+      this.histPage = Math.min(pages, this.histPage + 1)
+      this.refreshHistory()
     },
     startEdit(item) {
       this.editingId = item?.id || null
@@ -553,19 +594,21 @@ export default {
     },
     async deleteHistoryItem(item) {
       const id = item?.id
-      if (!id) return
-      this.deletingIds.add(id)
+      const code = this.extractCode(item)
+      if (!code) return
+      if (id) this.deletingIds.add(id)
       try {
-        const res = await api.delete(`/api/history/${id}`)
+        // 改为按短码删除：DELETE /api/{shortCode}
+        const res = await api.delete('/api/' + encodeURIComponent(code))
         if (res?.status === 204 || res?.status === 200) {
-          // 成功后本地移除项，无需刷新
-          this.history = (this.history || []).filter(x => x?.id !== id)
+          // 成功后本地移除相同短码的项，无需刷新
+          this.history = (this.history || []).filter(x => this.extractCode(x) !== code)
         }
       } catch (err) {
         alert('删除失败，请稍后重试')
         console.error('History delete error:', err)
       } finally {
-        this.deletingIds.delete(id)
+        if (id) this.deletingIds.delete(id)
       }
     },
     deleteBtnStyle(id) {

@@ -202,6 +202,16 @@ public class ShortUrlService {
                 .toList();
         return trendDTOs;
     }
+    @Transactional
+    public void deleteByShortCode(String shortCode) {
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
+        if (shortUrl == null) {
+            throw new NoSuchElementException("Short URL not found");
+        }
+        shortUrlRepository.deleteByShortCode(shortCode);
+
+        dailyClickRepo.deleteByShortCode(shortCode);
+    }
 
     public List<UrlClickStatsDTO> getUrlClickStats() {
         return shortUrlRepository.findAll().stream()
