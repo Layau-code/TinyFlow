@@ -2,6 +2,7 @@ package com.layor.tinyflow.Controller;
 
 import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.service.ShortUrlService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -27,7 +28,7 @@ public class ShortUrlController {
     }
 
     /**
-     * 短链跳转（实际使用时用 Nginx 或 WebFlux 实现更高效）
+     * 获取长链
      */
     @GetMapping("/{shortCode}")
     public Result<String> redirect(@PathVariable String shortCode) {
@@ -35,7 +36,7 @@ public class ShortUrlController {
         if (longUrl == null) {
             return Result.error(1004, "短链不存在");
         }
-        return Result.success("Redirect to: " + longUrl);
+        return Result.success( longUrl);
     }
     //修改短链
     @PutMapping("/{shortCode}")
@@ -76,6 +77,12 @@ public class ShortUrlController {
     public Result<List<UrlClickStatsDTO>> getUrlClickStats() {
         List<UrlClickStatsDTO> stats = shortUrlService.getUrlClickStats();
         return Result.success(stats);
+    }
+
+    //重定向
+    @GetMapping ("/redirect/{shortCode}")
+    public void redirect(@PathVariable String shortCode, HttpServletResponse response) {
+        shortUrlService.redirectCode(shortCode, response);
     }
 
 }

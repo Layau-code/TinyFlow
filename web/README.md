@@ -1,121 +1,262 @@
-# TinyFlow - 短链接生成器
+# TinyFlow
 
-一个基于 Vue 3 和 Tailwind CSS 的现代化短链接生成器，采用极简主义设计风格。
+一款现代化的短链接生成与统计系统，前端基于 Vue 3 + Vite + Tailwind CSS，后端推荐使用 Spring Boot（可替换为任意语言栈）。UI 参考多款优秀开源项目与主流网站的交互与视觉风格，提供极简流畅的使用体验。
+
+> 当前前端已统一使用后端重定向接口：`GET /api/redirect/{code}` 进行跳转与二维码生成。
+
+---
+
+## 目录
+
+- 概览
+- 功能特性
+- 技术栈与架构
+- 项目结构
+- 快速开始
+- 配置说明
+- API 参考
+- 开发与调试
+- 常见问题
+- 贡献指南
+- 许可证
+
+---
+
+## 概览
+
+TinyFlow 旨在提供一个轻量、可靠的短链接平台：
+
+- 生成可自定义别名的短链接
+- 一键复制与二维码生成
+- 历史记录管理（分页、筛选、编辑、删除）
+- 数据统计页面（点击趋势、来源分布等，接口规划中）
+
+---
 
 ## 功能特性
 
-- 🎨 **极简设计** - 参考 Vercel、Linear 和 Apple 官网的设计风格
-- 📱 **响应式布局** - 完美适配桌面和移动设备
-- ⚡ **Vue 3 Composition API** - 使用最新的 Vue 3 技术栈
-- 🎯 **实时验证** - 输入时即时验证 URL 格式
-- 📋 **一键复制** - 支持复制生成的短链接
-- 📱 **二维码生成** - 自动生成短链接二维码
-- 🔄 **粘贴检测** - 自动检测粘贴的链接格式
-- 💫 **微交互动画** - 流畅的用户交互体验
+- 现代化 UI 与交互：极简卡片化布局、响应式适配、细致的悬停与动效
+- 统一跳转端点：前端所有点击、复制、二维码均使用 `GET /api/redirect/{code}`
+- 历史记录：支持分页刷新、筛选、编辑别名与删除条目
+- 多语言支持：内置 i18n，可在导航栏切换语言
+- 开发体验：Vite 快速热更新、结构化代码与组件拆分
 
-## 技术栈
+---
 
-- **Vue 3** - 使用 Composition API 和 `<script setup>` 语法
-- **Tailwind CSS** - 通过 CDN 引入，无需构建过程
-- **Axios** - HTTP 客户端用于 API 调用
-- **Google Charts API** - 生成二维码
+## 技术栈与架构
 
-## 快速开始
+- 前端：
+  - `Vue 3`（Composition API）
+  - `Vite 5`
+  - `Tailwind CSS`
+  - `Axios`
 
-### 1. 克隆项目
-```bash
-git clone <repository-url>
-cd tiny-flow/web
-```
+- 后端（推荐方案，亦可替换）：
+  - `Spring Boot`
+  - `Spring Data JPA`（可选）
+  - RDBMS 或 KV 存储（MySQL、PostgreSQL、Redis 等）
 
-### 2. 安装依赖
-```bash
-npm install
-```
+- 运行拓扑（开发环境）：
+  - 前端 dev server：`http://localhost:5173`（或 5174/5175，取决于端口占用）
+  - 后端 API：`http://localhost:8080`
+  - 前端通过 `vite.config.js` 代理 `/api` 到后端
 
-### 3. 启动开发服务器
-```bash
-npm run dev
-```
-
-项目将在 `http://localhost:3000` 启动并自动打开浏览器。
-
-### 4. 直接打开 HTML 文件
-由于项目使用 CDN 引入依赖，你也可以直接在浏览器中打开 `index.html` 文件。
-
-## API 接口
-
-项目需要后端提供以下 API 接口：
-
-### 生成短链接
-```
-POST /api/shorten
-Content-Type: application/json
-
-{
-  "url": "https://example.com/very-long-url"
-}
-```
-
-**成功响应：**
-```json
-{
-  "shortUrl": "https://yourdomain.com/Abc123"
-}
-```
-
-**错误响应：**
-- `400` - 链接格式无效
-- `409` - 短码已被占用
-- `500` - 服务器内部错误
+---
 
 ## 项目结构
 
 ```
 web/
-├── index.html          # 主页面文件
-├── App.vue            # Vue 单文件组件（可选）
-├── package.json       # 项目配置
-└── README.md         # 项目说明
+├── src/
+│   ├── components/           # 通用组件（加载、二维码、图标、统计卡片等）
+│   ├── pages/                # 页面（Dashboard、Stats）
+│   ├── router/               # 前端路由
+│   ├── composables/          # 组合式工具（API、统计等）
+│   ├── assets/               # 静态资源
+│   ├── i18n.js               # 国际化配置
+│   ├── main.js               # 入口文件
+│   └── style.css             # 全局样式
+├── App.vue                   # 首页与顶栏
+├── vite.config.js            # Dev 代理与构建配置
+├── package.json
+└── README.md
 ```
 
-## 设计特色
+> 注：`backend/` 目录为后端示例/占位，请根据实际后端工程位置与构建方案进行调整。
 
-### 配色方案
-- **主色调：** 蓝色 (#3b82f6)
-- **错误色：** 红色 (#ef4444)
-- **文字色：** 深灰色系
-- **背景色：** 浅灰色 (#f9fafb)
+---
 
-### 交互动画
-- 按钮 hover 时轻微缩放效果
-- 输入框聚焦时的阴影效果
-- 加载状态的旋转动画
-- 复制成功的状态反馈
+## 快速开始
 
-### 响应式设计
-- 桌面端：最大宽度 600px 居中布局
-- 移动端：全宽度适配，优化触摸交互
-- 按钮在小屏幕上垂直排列
+### 前置条件
 
-## 浏览器兼容性
+- Node.js `>= 18`
+- 推荐安装包管理器：`npm` 或 `pnpm`
+- 后端服务（示例：Spring Boot）运行在 `http://localhost:8080`
 
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
+### 安装与启动（前端）
 
-## 开发说明
+```bash
+git clone <your-repo-url>
+cd TinyFlow/web
+npm install
+npm run dev
+```
 
-### 修改样式
-项目使用 Tailwind CSS，可以直接在 HTML 中修改 class 来调整样式。
+浏览器打开提示的本地地址（如 `http://localhost:5173/`）。
 
-### 修改 API 地址
-在 `index.html` 中的 `generateShortUrl` 函数中修改 API 端点（默认使用 `/shorten` 或 `/api/shorten`）。
+### 构建生产包
 
-### 自定义配色
-在 `tailwind.config` 中修改颜色配置。
+```bash
+npm run build
+```
+
+产物输出到 `web/dist` 目录。
+
+---
+
+## 配置说明
+
+- API 地址：
+  - 开发环境默认通过 `vite.config.js` 代理 `/api` 到 `http://localhost:8080`
+  - 在 `App.vue` 中有常量 `API_BASE = 'http://localhost:8080'`，用于构造短链展示地址（如二维码、复制用）。生产环境请按实际域名修改。
+
+- 跳转端点：
+  - 前端所有短链均指向 `GET /api/redirect/{code}`，由后端返回 `302` 到原始长链，并进行点击日志记录（推荐）。
+
+---
+
+## API 参考（约定）
+
+> 具体字段以后端实现为准，以下为推荐/示例约定。
+
+### 生成短链
+
+- 文本接口（便于 curl/直传）：
+
+```http
+POST /shorten
+Content-Type: text/plain
+
+https://example.com/very-long-url
+```
+
+- JSON 接口（更常用）：
+
+```http
+POST /api/shorten
+Content-Type: application/json
+
+{
+  "longUrl": "https://example.com/very-long-url",
+  "customAlias": "my-alias" // 可选
+}
+```
+
+响应（示例）：
+
+```json
+{
+  "code": 0,
+  "data": {
+    "shortCode": "Abc123",
+    "shortUrl": "http://localhost:8080/api/redirect/Abc123"
+  }
+}
+```
+
+### 跳转短链
+
+```http
+GET /api/redirect/{code}
+```
+
+- 返回 `302` 到长链；
+- 记录点击日志（IP、UA、Referer 等，视实现而定）。
+
+### 获取短链列表
+
+```http
+GET /api/urls?q=&sort=createdAt&order=desc&page=0&size=10
+```
+
+- 返回分页列表（示例）：
+
+```json
+{
+  "code": 0,
+  "data": {
+    "items": [
+      { "shortCode": "Abc123", "longUrl": "https://example.com", "createdAt": "2025-01-01T10:00:00Z" }
+    ],
+    "total": 1
+  }
+}
+```
+
+### 获取点击统计（示例）
+
+```http
+GET /api/urls/click-stats?code=Abc123&range=7d
+```
+
+### 更新别名
+
+```http
+PUT /api/{shortCode}
+Content-Type: application/json
+
+{
+  "customAlias": "new-alias"
+}
+```
+
+### 删除短链
+
+```http
+DELETE /api/{shortCode}
+```
+
+---
+
+## 开发与调试
+
+- 常用脚本：
+  - `npm run dev`：启动前端开发服务器
+  - `npm run build`：构建生产包
+
+- 页面导航：
+  - 首页生成短链与历史记录管理
+  - `Dashboard`：集中管理与操作列表
+  - `Stats`：查看某短码的访问统计（接口完善中）
+
+- 调试提示：
+  - 首页 favicon 加载可能出现跨站错误（如 `net::ERR_BLOCKED_BY_ORB`），不影响核心功能；
+  - 若点击短链仍走旧端点，请强制刷新缓存（Ctrl+F5）或检查 `App.vue` 的 `buildShortUrl` 与 `redirectViaApi` 实现是否已更新。
+
+---
+
+## 常见问题
+
+- 前端短链地址与后端域名不一致？
+  - 请在 `App.vue` 中调整 `API_BASE` 为线上域名，或在构建时注入环境变量并使用 `import.meta.env`。
+
+- 后端未提供纯文本接口 `/shorten`？
+  - 前端会回退到 `/api/shorten`，无需修改。你也可以移除文本接口的调用逻辑。
+
+---
+
+## 贡献指南
+
+欢迎提交 Issue 或 PR 来改进项目：
+
+1. Fork 仓库并创建特性分支
+2. 保持代码风格一致，避免无关修改
+3. 编写必要的说明与测试（如适用）
+4. 提交 PR 并描述改动动机与效果
+
+---
 
 ## 许可证
 
-MIT License
+本项目采用 MIT License。
