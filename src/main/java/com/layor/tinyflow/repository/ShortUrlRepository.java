@@ -14,4 +14,5 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
     List<ShortUrl> findAllByOrderByCreatedAtDesc();
 
     void deleteByShortCode(String shortCode);
+
 }

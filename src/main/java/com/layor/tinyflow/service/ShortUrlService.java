@@ -3,27 +3,23 @@ package com.layor.tinyflow.service;
 import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
-import jakarta.annotation.PostConstruct;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.AccessDeniedException;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 @Service
 public class ShortUrlService {
@@ -93,13 +89,11 @@ public class ShortUrlService {
         }
     }
 
-@Transactional
-    public String getLongUrlByShortCode(String shortCode) {
 
+    public String getLongUrlByShortCode(String shortCode) {
         //查询缓存
          String cachedLongUrl = redisTemplate.opsForValue().get("short_url:" + shortCode);
          if (cachedLongUrl != null) {
-             recordClick(shortCode);
              return cachedLongUrl;
          }
         //缓存没有，查询数据库
@@ -108,24 +102,17 @@ public class ShortUrlService {
             //数据库没有，返回null
             return null;
         }
-        //更新点击次数
-        shortUrl.setClickCount(shortUrl.getClickCount() + 1);
-        shortUrlRepository.save(shortUrl);
-        recordClick(shortCode);
-
-
         //更新缓存
         redisTemplate.opsForValue().set(
                 "short_url:" + shortCode,
                 shortUrl.getLongUrl(),
                 Duration.ofHours(24) // 设置 24 小时过期
         );
-
         //返回长链接
         return shortUrl.getLongUrl();
     }
 
-
+@Async
     public void recordClick(String shortCode) {
         LocalDate today = LocalDate.now();
 
@@ -262,5 +249,22 @@ public class ShortUrlService {
                 Duration.ofHours(24)
         );
 
+    }
+
+    public void redirectCode(String code, HttpServletResponse response) {
+        //1.查询短链是否存在
+        ShortUrl shortCode = shortUrlRepository.findByShortCode(code);
+        String longUrl = shortCode.getLongUrl();
+
+
+        //2.异步记录点击事件
+        recordClick(code);
+
+        //3.重定向到长链
+        response.setStatus(HttpServletResponse.SC_FOUND);
+
+        response.setHeader("Location", longUrl);
+
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     }
 }

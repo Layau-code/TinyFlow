@@ -457,22 +457,10 @@ export default {
       try {
         const code = this.extractCode(item)
         if (!code) return
-        const res = await api.get('/api/' + encodeURIComponent(code))
-        const payload = res?.data
-        let text = typeof payload === 'string' ? payload : (payload?.data ?? payload?.message ?? payload?.msg)
-        let longUrl = ''
-        if (typeof text === 'string') {
-          const m = text.match(/Redirect to:\s*(.+)$/i)
-          longUrl = (m ? m[1] : text).trim()
-        }
-        // 兼容可能的结构字段
-        if (!longUrl) longUrl = payload?.longUrl || payload?.data?.longUrl || ''
-        if (!longUrl) throw new Error('NO_LONG_URL')
-        window.open(longUrl, '_blank')
+        const url = this.buildShortUrl(code)
+        window.open(url, '_blank')
       } catch (err) {
-        const code = err?.response?.data?.code
-        if (code === 1004) alert('短链不存在')
-        else alert('跳转失败，请稍后再试')
+        alert('跳转失败，请稍后再试')
         console.error('Redirect error:', err)
       }
     },
@@ -493,9 +481,9 @@ export default {
     buildShortUrl(code) {
       if (!code) return ''
       try {
-        return new URL('/' + String(code), API_BASE).href
+        return new URL('/api/redirect/' + encodeURIComponent(String(code)), API_BASE).href
       } catch {
-        return (API_BASE || '') + '/' + String(code)
+        return (API_BASE || '') + '/api/redirect/' + encodeURIComponent(String(code))
       }
     },
     displayShortUrl(item) {
