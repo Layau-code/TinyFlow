@@ -6,11 +6,9 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api")
@@ -44,10 +42,15 @@ public class ShortUrlController {
     public void updateShortUrl(@Valid @RequestBody ShortenRequest request) {
         shortUrlService.updateShortUrl( request.getShortCode(),request.getCustomAlias());
     }
+    @DeleteMapping("/{shortCode}")
+    public void deleteHistory(@PathVariable String shortCode) {
+        shortUrlService.deleteByShortCode(shortCode);
+
+    }
 
 
     @GetMapping("/urls")
-    public ResponseEntity<PageResponseDTO<UrlListResponseDTO>> getUrls(
+    public Result<PageResponseDTO<UrlListResponseDTO>> getUrls(
             Pageable pageable) {  // ← 让 Spring 自动解析 page & size
 
         Page<UrlListResponseDTO> urls = shortUrlService.getAllUrls(
@@ -67,13 +70,12 @@ public class ShortUrlController {
                 urls.isEmpty()
         );
 
-        return ResponseEntity.ok(response);
+        return Result.success(response);
     }
     @GetMapping("/urls/click-stats")
     public Result<List<UrlClickStatsDTO>> getUrlClickStats() {
         List<UrlClickStatsDTO> stats = shortUrlService.getUrlClickStats();
         return Result.success(stats);
     }
-
 
 }
