@@ -86,6 +86,29 @@ web/
 
 ---
 
+## 后端代码结构（参考）
+
+后端包路径示例：`com.layor.tinyflow`，核心分层如下：
+
+- Controller
+  - `ShortUrlController`：短链生成、维护与重定向相关接口
+  - `StatsController`：统计相关查询接口
+- entity（含 DTO/VO）
+  - `ShortUrl`、`ShortUrlDTO`、`ShortUrlOverviewDTO`
+  - `ShortenRequest`、`PageResponseDTO`、`Result`
+  - `DailyClick`、`DailyVisitTrendDTO`、`UrlClickStatsDTO`、`UrlListResponseDTO`
+- repository
+  - `ShortUrlRepository`：短链数据访问
+  - `DailyClickRepository`：点击统计数据访问
+- service
+  - `ShortUrlService`：短链核心业务（生成、查询、重定向、更新别名、删除等）
+- 应用入口
+  - `TinyFlowApplication`
+
+> 命名以实际代码为准，以上为截图中的目录结构概览，便于理解分层职责。
+
+---
+
 ## 快速开始
 
 ### 前置条件
@@ -194,10 +217,36 @@ GET /api/urls?q=&sort=createdAt&order=desc&page=0&size=10
 }
 ```
 
+过滤与排序参数：
+
+- `q`：按短码或域名搜索（后端实现可用 LIKE/全文搜索）
+- `sort`：排序字段，推荐 `createdAt` 或 `clickCount`
+- `order`：`asc` / `desc`
+- `page`、`size`：分页参数（从 0 开始）
+
 ### 获取点击统计（示例）
 
 ```http
 GET /api/urls/click-stats?code=Abc123&range=7d
+```
+
+响应示例：
+
+```json
+{
+  "code": 0,
+  "data": {
+    "total": 42,
+    "daily": [
+      { "date": "2025-01-01", "count": 5 },
+      { "date": "2025-01-02", "count": 8 }
+    ],
+    "sources": [
+      { "ref": "direct", "count": 22 },
+      { "ref": "example.com", "count": 20 }
+    ]
+  }
+}
 ```
 
 ### 更新别名
@@ -233,6 +282,40 @@ DELETE /api/{shortCode}
 - 调试提示：
   - 首页 favicon 加载可能出现跨站错误（如 `net::ERR_BLOCKED_BY_ORB`），不影响核心功能；
   - 若点击短链仍走旧端点，请强制刷新缓存（Ctrl+F5）或检查 `App.vue` 的 `buildShortUrl` 与 `redirectViaApi` 实现是否已更新。
+
+---
+
+## 后续拓展计划（Roadmap）
+
+- 安全与稳定性
+  - 访问速率限制（Rate Limit）、防刷与机器人识别
+  - 短码唯一性保障与冲突检测优化（含自定义别名策略）
+  - 审计日志与操作留痕（更新/删除）
+
+- 统计与分析
+  - 细化点击日志结构（UA、IP、Referer、UTM、地理位置等）
+  - 趋势图与来源分布（按天、周、月、时间段）
+  - 导出报表 CSV/JSON、分享统计页的只读链接
+
+- 管理能力
+  - 批量导入/导出短链
+  - 标签/分组管理与筛选
+  - 权限模型与多租户（个人/团队/企业）
+  - 管理后台（Admin）与审核流程
+
+- 使用体验
+  - 自定义域名与多域支持（如 `s.yourbrand.com`）
+  - 二维码定制（颜色、LOGO、容错率）
+  - 失效策略与到期提醒（TTL、软删除恢复）
+  - 跳转前提示页（如合规警示/安全验证）
+
+- 开发运维
+  - 缓存与热点优化（本地缓存/Redis/LRU）
+  - 观察性与告警（Metrics/Tracing/Logging）
+  - Webhook/事件订阅（点击通知、到期通知）
+  - 完整测试体系（单测/集成/端到端）与 CI/CD 流程
+
+> 如需优先推进其中某一项，请在 Issue 中告知场景与需求，我会按优先级完善。
 
 ---
 
