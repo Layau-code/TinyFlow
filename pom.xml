@@ -40,7 +40,11 @@
         </dependency>
 
 
-
+        <dependency>
+            <groupId>org.hashids</groupId>
+            <artifactId>hashids</artifactId>
+            <version>1.0.3</version>
+        </dependency>
             <!-- Lombok（可选，简化代码） -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
