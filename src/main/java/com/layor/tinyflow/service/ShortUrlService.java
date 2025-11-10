@@ -1,13 +1,11 @@
 package com.layor.tinyflow.service;
 
-import com.layor.tinyflow.Controller.IdGenerator;
-import com.layor.tinyflow.Strategy.ShortCodeStrategy;
+import com.layor.tinyflow.Strategy.HashidsStrategy;
 import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.hashids.Hashids;
-import org.hibernate.validator.cfg.defs.CodePointLengthDef;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -25,8 +23,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static java.text.Normalizer.normalize;
-
 @Service
 public class ShortUrlService {
     // 短码长度
@@ -39,15 +35,14 @@ public class ShortUrlService {
     private ShortUrlRepository shortUrlRepository;
     @Autowired
     private Hashids hashids;
-    private final IdGenerator idGenerator;
-    private final ShortCodeStrategy codeStrategy;
+    @Autowired
+    private SegmentIdGenerator idGenerator;
+    @Autowired
+    HashidsStrategy codeStrategy;
     // 基础短链域名
     private static final String BASE_URL = "https://localhost:8080";
 
-    public ShortUrlService( IdGenerator idGenerator, ShortCodeStrategy codeStrategy) {
-        this.idGenerator = idGenerator;
-        this.codeStrategy = codeStrategy;
-    }
+
 
 
     public ShortUrlDTO createShortUrl(String longUrl, String customAlias) throws Exception {
