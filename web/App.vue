@@ -177,8 +177,17 @@
             <div v-if="copiedId===item.id" class="mt-1 text-[12px]" style="color:#10B981">{{ $t('actions.copied') }}</div>
             <!-- Inline edit row -->
             <div v-if="editingId===item.id" class="mt-2 flex items-center gap-2">
-              <input v-model="editAlias" type="text" class="h-9 px-3 rounded-md border outline-none" :placeholder="$t('actions.newAlias')"
-                     style="border-color:#E5E7EB" />
+              <input
+                v-model="editAlias"
+                type="text"
+                class="h-9 px-3 rounded-md border outline-none"
+                :placeholder="$t('actions.newAlias')"
+                style="border-color:#E5E7EB"
+                @keydown.enter.prevent
+                @keyup.enter="!editingComposing && saveEdit(item)"
+                @compositionstart="editingComposing = true"
+                @compositionend="editingComposing = false"
+              />
               <button @click="saveEdit(item)" :disabled="updatingIds.has(item.id)" class="tf-copy-btn">{{ $t('actions.save') }}</button>
               <button @click="cancelEdit" class="tf-copy-btn">{{ $t('actions.cancel') }}</button>
             </div>
@@ -253,6 +262,7 @@ export default {
       scrolled: false,
       copyTimer: null,
       history: [],
+      clickStats: [],
       historyQuery: '',
       histPage: 1,
       histPageSize: 10,
@@ -266,6 +276,7 @@ export default {
       copyItemTimer: null,
       editingId: null,
       editAlias: '',
+      editingComposing: false,
     }
   },
   computed: {
@@ -334,14 +345,38 @@ export default {
       const p = this.$route?.path || ''
       return p.startsWith('/stats/') || p === '/dashboard'
     },
+    statsMap() {
+      const map = {}
+      ;(this.clickStats || []).forEach(s => {
+        const k = s?.shortCode
+        if (!k) return
+        map[k] = {
+          totalVisits: Number(s?.totalVisits || 0),
+          todayVisits: Number(s?.todayVisits || 0)
+        }
+      })
+      return map
+    },
     filteredHistory() {
       const q = (this.historyQuery || '').trim().toLowerCase()
-      if (!q) return this.history
-      return (this.history || []).filter((it) => {
-        const code = (this.extractCode(it) || '').toLowerCase()
-        const host = (() => { try { return new URL(this.resolveLongUrl(it) || it.shortUrl || '').hostname.toLowerCase() } catch { return '' } })()
-        return code.includes(q) || host.includes(q)
+      const source = this.history || []
+      const base = q
+        ? source.filter((it) => {
+            const code = (this.extractCode(it) || '').toLowerCase()
+            const host = (() => { try { return new URL(this.resolveLongUrl(it) || it.shortUrl || '').hostname.toLowerCase() } catch { return '' } })()
+            return code.includes(q) || host.includes(q)
+          })
+        : [...source]
+      const merged = base.map(it => {
+        const code = this.extractCode(it)
+        const stat = this.statsMap[code] || {}
+        return {
+          ...it,
+          totalVisits: stat.totalVisits ?? Number(it.totalVisits || 0),
+          todayVisits: stat.todayVisits ?? Number(it.todayVisits || 0)
+        }
       })
+      return merged.sort((a,b) => Number(b.totalVisits||0) - Number(a.totalVisits||0))
     },
   },
   methods: {
@@ -349,6 +384,28 @@ export default {
       return {
         borderColor: active ? '#8A6BFF' : '#E5E7EB',
         boxShadow: active ? '0 0 0 4px rgba(138,107,255,0.1)' : 'none',
+      }
+    },
+    async refreshClickStats() {
+      try {
+        const res = await api.get('/api/urls/click-stats')
+        const payload = res?.data ?? null
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload?.items)
+              ? payload.items
+              : Array.isArray(payload?.content)
+                ? payload.content
+                : []
+        this.clickStats = list.map(x => ({
+          shortCode: x?.shortCode,
+          totalVisits: Number(x?.totalVisits ?? 0),
+          todayVisits: Number(x?.todayVisits ?? 0)
+        }))
+      } catch (err) {
+        console.error('Click stats refresh error:', err)
       }
     },
     
@@ -766,6 +823,7 @@ export default {
   },
   mounted() {
     this.refreshHistory()
+    this.refreshClickStats()
   }
 }
 </script>
