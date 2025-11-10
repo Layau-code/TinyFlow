@@ -2,6 +2,7 @@ spring:
   application:  
     name: TinyFlow
 
+
   datasource:
     url: jdbc:mysql://localhost:3306/tiny-flow?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: root
@@ -29,3 +30,7 @@ server:
 
 app:
   domain: http://localhost:8080
+
+shortcode:
+  minLen: 5
+  mask: 0x9E3779B97F4A7C15

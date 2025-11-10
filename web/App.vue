@@ -486,8 +486,17 @@ export default {
         return (API_BASE || '') + '/api/redirect/' + encodeURIComponent(String(code))
       }
     },
+    buildDisplayShortUrl(code) {
+      if (!code) return ''
+      try {
+        return new URL('/' + encodeURIComponent(String(code)), API_BASE).href
+      } catch {
+        return (API_BASE || '') + '/' + encodeURIComponent(String(code))
+      }
+    },
     displayShortUrl(item) {
-      return item?.shortUrl || this.buildShortUrl(this.extractCode(item))
+      const code = this.extractCode(item)
+      return this.buildDisplayShortUrl(code)
     },
     displayShortUrlText(item) {
       try {
