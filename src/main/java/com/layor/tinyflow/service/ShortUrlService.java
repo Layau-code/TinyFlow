@@ -228,6 +228,8 @@ public class ShortUrlService {
                 ));
     }
 
+
+    @Transactional
     public void updateShortUrl(String shortCode,  String customAlias) {
         //1. 查询短链是否存在
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
@@ -247,10 +249,11 @@ public class ShortUrlService {
         
         //更新数据dailyclick表
         DailyClick dailyClick = dailyClickRepo.findByShortCode(shortCode);
+        if(dailyClick != null){
        dailyClick.setShortCode(customAlias);
-       dailyClickRepo.save(dailyClick);
+        dailyClickRepo.save(dailyClick);}
 
-        
+
         // 更新缓存
         redisTemplate.delete("short_url:" + shortCode);
         redisTemplate.opsForValue().set(

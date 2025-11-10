@@ -11,7 +11,7 @@ public class HashidsConfig {
     @Value("${shortcode.salt:mySecretSalt2025}") // 建议配置到 application.yml
     private String salt;
 
-    @Value("${shortcode.minLength:6}")
+    @Value("${shortcode.minLength:4}")
     private int minLength;
 
     @Bean
