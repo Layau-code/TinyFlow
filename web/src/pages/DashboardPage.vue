@@ -36,7 +36,14 @@
         </div>
       </div>
       <div v-else class="q-card p-6 mb-8" style="box-shadow: 0 2px 12px rgba(0,0,0,0.04)">
-        <div class="q-card-title mb-4">{{ $t('dashboard.toggleShowTrend') }}（Top 5）</div>
+        <div class="q-card-title mb-4 flex items-center justify-between">
+          <span>{{ $t('dashboard.toggleShowTrend') }}（Top 5 / {{ selectedDays }}天）</span>
+          <div class="flex items-center gap-2">
+            <button class="md-btn-text" :class="{ 'font-semibold': selectedDays===7 }" @click="selectDays(7)">7天</button>
+            <button class="md-btn-text" :class="{ 'font-semibold': selectedDays===14 }" @click="selectDays(14)">14天</button>
+            <button class="md-btn-text" :class="{ 'font-semibold': selectedDays===30 }" @click="selectDays(30)">30天</button>
+          </div>
+        </div>
         <div class="relative" style="height:280px;background:#fafafa;border:1px dashed #ddd;border-radius:8px">
           <Suspense>
             <TrendChart v-if="trendLabelsDash.length && compareTrends.length" :multi="true" :series="compareTrends" :labels="trendLabelsDash" />
@@ -44,7 +51,7 @@
           </Suspense>
         </div>
         <div v-if="!trendLabelsDash.length || !compareTrends.length" class="q-muted text-center mt-2">{{ $t('dashboard.noDataOrNone') }}</div>
-        <div class="q-help mt-3">{{ $t('dashboard.descTop5Trend') }}</div>
+        <div class="q-help mt-3">{{ $t('dashboard.descTop5Trend') }}（{{ selectedDays }}天）</div>
       </div>
 
       <!-- 合并后的统一表格（紫白配色） -->
@@ -173,6 +180,7 @@ function buildPieData(arr, field){
 
 // 近七天趋势切换与数据（Top5 多折线，对齐日期）
 const showTrend7 = ref(false)
+const selectedDays = ref(7)
 const trendLabelsDash = ref([])
 const compareTrends = ref([])
 const { data: compareDataRef, refresh: refreshCompareApi } = useCompareTrend()
@@ -180,7 +188,7 @@ async function refreshDashboardTrend7(){
   try {
     const topKeys = [...(list.value||[])].sort((a,b)=> (b.totalVisits||0)-(a.totalVisits||0)).slice(0,5).map(it=> it.shortCode)
     if (!topKeys.length) { trendLabelsDash.value = []; compareTrends.value = []; return }
-    await refreshCompareApi(topKeys, 7)
+    await refreshCompareApi(topKeys, selectedDays.value)
     const data = compareDataRef.value || {}
     // 统一日期标签（升序），并为每个短码补齐缺失日期的0值
     const labelSet = new Set()
@@ -202,6 +210,14 @@ async function refreshDashboardTrend7(){
 function toggleShowTrend7(){
   showTrend7.value = !showTrend7.value
   if (showTrend7.value && !trendLabelsDash.value.length) { refreshDashboardTrend7() }
+}
+
+function selectDays(d){
+  if (selectedDays.value === d) return
+  selectedDays.value = d
+  if (showTrend7.value) {
+    refreshDashboardTrend7()
+  }
 }
 
 // 移除概览解析函数（已改为 compare 接口）

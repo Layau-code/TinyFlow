@@ -43,7 +43,7 @@ const messages = {
     common: { home: '首页', unknown: '未知', loading: '加载中…', noData: '暂无数据' },
     dashboard: {
       title: '我的短链统计', backHome: '返回首页', searchPlaceholder: '搜索短码或域名', refresh: '刷新',
-      overview: '全局概览', toggleShowPie: '显示饼图', toggleShowTrend: '近七天趋势',
+      overview: '全局概览', toggleShowPie: '显示饼图', toggleShowTrend: '近期趋势',
       todayDist: '今日点击分布', totalDist: '总点击分布', noDataOrNone: '暂无数据或暂无短链',
       descTop5Trend: '展示近7天点击总数前五短链的趋势并按日期对齐',
       table: { shortCode: 'Short Code', url: 'URL', total: 'Total', today: 'Today', share: '占总点击比例', createdAt: 'Created At', actions: '操作' },
