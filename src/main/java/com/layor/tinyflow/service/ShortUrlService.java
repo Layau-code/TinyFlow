@@ -34,8 +34,6 @@ public class ShortUrlService {
     @Autowired
     private ShortUrlRepository shortUrlRepository;
     @Autowired
-    private Hashids hashids;
-    @Autowired
     private SegmentIdGenerator idGenerator;
     @Autowired
     HashidsStrategy codeStrategy;
@@ -49,6 +47,16 @@ public class ShortUrlService {
         // 1. 校验长链接
         if (!isValidUrl(longUrl)) {
             throw new Exception("长链接格式不正确");
+        }
+        //1.1如果长链接已经存在，直接返回对应的短链
+        if (shortUrlRepository.existsByLongUrl(longUrl)) {
+            ShortUrl shortUrl = shortUrlRepository.findByLongUrl(longUrl);
+            return ShortUrlDTO.builder()
+                    .shortCode(shortUrl.getShortCode())
+                    .shortUrl(BASE_URL + "/" + shortUrl.getShortCode())
+                    .longUrl(shortUrl.getLongUrl())
+                    .createdAt(shortUrl.getCreatedAt())
+                    .build();
         }
 
         // 2. 处理别名
