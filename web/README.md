@@ -343,3 +343,24 @@ DELETE /api/{shortCode}
 ## 许可证
 
 本项目采用 MIT License。
+## 性能压测与可视化优化（快速上手）
+
+前提：已安装 Docker Desktop、k6、Java 17 与 Maven。
+
+1. 启动后端（默认端口 `8080`）
+   - `cd backend`
+   - `mvn spring-boot:run`
+
+2. 启动观测栈（Prometheus + Grafana）
+   - `docker compose -f infra/observability/docker-compose.yml up -d`
+   - 打开 Grafana：`http://localhost:3000`（默认账号密码 `admin/admin`）
+   - 添加数据源：Prometheus，URL 填 `http://prometheus:9090`
+   - 导入仪表：`infra/observability/dashboards/shortener-overview.json`
+
+3. 运行压测（可设定 BASE_URL）
+   - `k6 run infra/load/k6/shortener.js`
+   - 或 `BASE_URL=http://localhost:8080 k6 run infra/load/k6/shortener.js`
+
+4. 观察与优化
+   - 在 Grafana 看 RPS、p95 延迟与错误率，形成优化迭代。
+   - 参考文档：`docs/perf-optimization.md`

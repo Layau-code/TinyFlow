@@ -32,5 +32,27 @@ app:
   domain: http://localhost:8080
 
 shortcode:
-  minLen: 5
+  minLen: 4
   mask: 0x9E3779B97F4A7C15
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: tinyflow
+    distribution:
+      percentiles-histogram:
+        http:
+          server:
+            requests: true
+      percentiles:
+        http:
+          server:
+            requests: 0.95, 0.99
