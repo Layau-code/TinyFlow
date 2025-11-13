@@ -435,8 +435,8 @@ export default {
         }
 
         const code = this.extractCode({ shortUrl: shortRaw })
-        // 统一展示域名为 http://localhost:8080
-        this.shortUrl = this.buildShortUrl(code)
+        // 统一展示域名为 http://localhost:8080（外部短链形式）
+        this.shortUrl = this.buildDisplayShortUrl(code)
         this.longUrl = url
         // 本地插入至历史顶部，无需整页刷新
         const newItem = {
@@ -522,17 +522,17 @@ export default {
       }
     },
     extractCode(item) {
-      // Prefer explicit code fields from backend, then derive from shortUrl
       const direct = item?.code || item?.shortCode || item?.shortId || item?.alias || item?.slug || item?.key
       if (direct) return String(direct)
       const url = item?.shortUrl || ''
       try {
         const u = new URL(url)
-        const path = u.pathname.replace(/^\//, '')
-        return path || ''
+        const raw = u.pathname.replace(/^\//, '')
+        return raw ? decodeURIComponent(raw) : ''
       } catch {
         const parts = url.split('/')
-        return parts[parts.length - 1] || ''
+        const last = parts[parts.length - 1] || ''
+        try { return decodeURIComponent(last) } catch { return last }
       }
     },
     buildShortUrl(code) {

@@ -52,7 +52,7 @@ public class ShortUrlController {
 
     @GetMapping("/urls")
     public Result<PageResponseDTO<UrlListResponseDTO>> getUrls(
-            Pageable pageable) {  // ← 让 Spring 自动解析 page & size
+            Pageable pageable) {
 
         Page<UrlListResponseDTO> urls = shortUrlService.getAllUrls(
                 pageable.getPageNumber(),
