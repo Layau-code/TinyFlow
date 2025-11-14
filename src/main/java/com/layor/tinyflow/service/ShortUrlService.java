@@ -273,19 +273,15 @@ public class ShortUrlService {
     }
 
     public void redirectCode(String code, HttpServletResponse response) {
-        //1.查询短链是否存在
         ShortUrl shortCode = shortUrlRepository.findByShortCode(code);
+        if (shortCode == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
         String longUrl = shortCode.getLongUrl();
-
-
-        //2.异步记录点击事件
         recordClick(code);
-
-        //3.重定向到长链
         response.setStatus(HttpServletResponse.SC_FOUND);
-
         response.setHeader("Location", longUrl);
-
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     }
 }
