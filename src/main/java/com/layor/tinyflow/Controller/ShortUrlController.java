@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api")
 public class ShortUrlController {
 
     @Autowired
@@ -21,36 +20,29 @@ public class ShortUrlController {
     /**
      * 生成短链（支持自定义别名）
      */
-    @PostMapping("/shorten")
+    @PostMapping("/api/shorten")
     public Result<ShortUrlDTO> shorten(@Valid @RequestBody ShortenRequest request) throws Exception {
             ShortUrlDTO dto = shortUrlService.createShortUrl(request.getLongUrl(), request.getCustomAlias());
             return Result.success(dto);
     }
-
-    /**
-     * 获取长链
-     */
+    // 根路径重定向（外部短链）
     @GetMapping("/{shortCode}")
-    public Result<String> redirect(@PathVariable String shortCode) {
-        String longUrl = shortUrlService.getLongUrlByShortCode(shortCode);
-        if (longUrl == null) {
-            return Result.error(1004, "短链不存在");
-        }
-        return Result.success( longUrl);
+    public void redirectRoot(@PathVariable String shortCode, HttpServletResponse response) {
+        shortUrlService.redirectCode(shortCode, response);
     }
     //修改短链
-    @PutMapping("/{shortCode}")
+    @PutMapping("/api/{shortCode}")
     public void updateShortUrl(@Valid @RequestBody ShortenRequest request) {
         shortUrlService.updateShortUrl( request.getShortCode(),request.getCustomAlias());
     }
-    @DeleteMapping("/{shortCode}")
+    @DeleteMapping("/api/{shortCode}")
     public void deleteHistory(@PathVariable String shortCode) {
         shortUrlService.deleteByShortCode(shortCode);
 
     }
 
 
-    @GetMapping("/urls")
+    @GetMapping("/api/urls")
     public Result<PageResponseDTO<UrlListResponseDTO>> getUrls(
             Pageable pageable) {
 
@@ -73,14 +65,14 @@ public class ShortUrlController {
 
         return Result.success(response);
     }
-    @GetMapping("/urls/click-stats")
+    @GetMapping("/api/urls/click-stats")
     public Result<List<UrlClickStatsDTO>> getUrlClickStats() {
         List<UrlClickStatsDTO> stats = shortUrlService.getUrlClickStats();
         return Result.success(stats);
     }
 
-    //重定向
-    @GetMapping ("/redirect/{shortCode}")
+    //内部使用，内部跳转，压测监控
+    @GetMapping ("/api/redirect/{shortCode}")
     public void redirect(@PathVariable String shortCode, HttpServletResponse response) {
         shortUrlService.redirectCode(shortCode, response);
     }

@@ -84,6 +84,7 @@
             @keydown.enter="shortenUrl"
           />
           <LoadingSpinner v-if="generating" />
+          <div v-if="clearTip" class="text-[14px]" style="color:#10B981">已清空</div>
         </div>
 
         <!-- Inline Result: show under input -->
@@ -92,11 +93,13 @@
             <div class="min-w-0 flex-1">
               <div class="text-sm mb-1" style="color:#4B5563">{{ $t('result.created') }}</div>
               <button @click="redirectViaApi({ shortUrl })" class="underline break-all" style="color:#2B6CEF;background:none;border:none;padding:0;cursor:pointer">{{ decodeUrlText(shortUrl) }}</button>
-              <div class="mt-3 flex gap-3">
-                <button @click="copyShortUrl" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">{{ $t('result.copy') }}</button>
-                <button @click="downloadQrPng" class="text-[14px] px-3 py-1.5 rounded-md border" :style="minorBtnStyle">{{ $t('result.downloadQr') }}</button>
-              </div>
+          <div class="mt-3 flex gap-3">
+            <button @click="copyShortUrl" class="text-[14px] px-3 py-1.5 rounded-md border tf-action-btn" :class="{ 'is-pressed': pressedCopy }" :style="minorBtnStyle">{{ $t('result.copy') }}</button>
+            <button @click="downloadQrPng" class="text-[14px] px-3 py-1.5 rounded-md border tf-action-btn" :class="{ 'is-pressed': pressedDownload }" :style="minorBtnStyle">{{ $t('result.downloadQr') }}</button>
+            <button @click="confirmClearAll" class="text-[14px] px-3 py-1.5 rounded-md border tf-action-btn" :class="{ 'is-pressed': pressedConfirm }" :style="minorBtnStyle">确认</button>
+          </div>
               <div v-if="copyLabel==='已复制'" class="mt-2 text-[14px]" style="color:#10B981">{{ $t('result.copied') }}</div>
+              <div v-if="downloadTip" class="mt-2 text-[14px]" style="color:#10B981">二维码已保存</div>
             </div>
             <div class="shrink-0">
               <QrcodeVue ref="qrRef" :value="shortUrl" :size="140" level="M" :foreground="'#2B6CEF'" :background="'#ffffff'" />
@@ -256,6 +259,8 @@ export default {
       longUrl: '',
       shortUrl: '',
       copyLabel: '复制链接',
+      downloadTip: false,
+      clearTip: false,
       focusInput: false,
       hoverGen: false,
       generating: false,
@@ -277,6 +282,9 @@ export default {
       editingId: null,
       editAlias: '',
       editingComposing: false,
+      pressedCopy: false,
+      pressedDownload: false,
+      pressedConfirm: false,
     }
   },
   computed: {
@@ -466,8 +474,34 @@ export default {
         this.copyLabel = '已复制'
         clearTimeout(this.copyTimer)
         this.copyTimer = setTimeout(() => { this.copyLabel = '复制链接' }, 2000)
+        this.pressedCopy = true
+        setTimeout(() => { this.pressedCopy = false }, 180)
       } catch (e) {
         console.error('复制失败:', e)
+      }
+    },
+    confirmClearAll() {
+      try {
+        this.inputUrl = ''
+        this.customAlias = ''
+        this.longUrl = ''
+        this.shortUrl = ''
+        this.copyLabel = '复制链接'
+        this.focusInput = false
+        this.focusAlias = false
+        clearTimeout(this.copyTimer)
+        this.copyTimer = null
+        this.copiedId = null
+        clearTimeout(this.copyItemTimer)
+        this.copyItemTimer = null
+        this.editingId = null
+        this.editAlias = ''
+        this.clearTip = true
+        this.pressedConfirm = true
+        setTimeout(() => { this.pressedConfirm = false }, 180)
+        setTimeout(() => { this.clearTip = false }, 2000)
+      } catch (e) {
+        console.error('清空失败:', e)
       }
     },
     downloadQrPng() {
@@ -482,6 +516,10 @@ export default {
         a.href = url
         a.download = 'short-url-qr.png'
         a.click()
+        this.pressedDownload = true
+        setTimeout(() => { this.pressedDownload = false }, 180)
+        this.downloadTip = true
+        setTimeout(() => { this.downloadTip = false }, 2000)
       } catch (e) {
         console.error('下载二维码失败:', e)
       }
@@ -514,7 +552,7 @@ export default {
       try {
         const code = this.extractCode(item)
         if (!code) return
-        const url = this.buildShortUrl(code)
+        const url = this.buildDisplayShortUrl(code)
         window.open(url, '_blank')
       } catch (err) {
         alert('跳转失败，请稍后再试')
@@ -606,7 +644,7 @@ export default {
         this.histTotal = Number(total) || 0
         this.history = (listRaw || []).map((it) => {
           const code = it?.shortCode || this.extractCode(it)
-          const shortUrl = this.buildShortUrl(code)
+          const shortUrl = this.buildDisplayShortUrl(code)
           const longUrl = it?.longUrl || this.resolveLongUrl(it) || ''
           const id = it?.id ?? code ?? (Date.now() + Math.random())
           const createdAt = it?.createdAt
@@ -907,6 +945,13 @@ export default {
 .tf-refresh-container .bt-6:hover ~ .tf-refresh-btn {
   transform: rotateX(-10deg) rotateY(10deg);
   box-shadow: 2px 2px 0 rgba(30, 30, 60, 0.3);
+}
+.tf-action-btn {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.tf-action-btn.is-pressed {
+  transform: scale(0.97);
+  box-shadow: 0 0 0 3px rgba(43,108,239,0.15);
 }
 .tf-brand-button::before {
   content: '';

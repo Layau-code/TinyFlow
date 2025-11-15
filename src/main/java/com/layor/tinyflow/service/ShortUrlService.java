@@ -271,7 +271,7 @@ public class ShortUrlService {
         );
 
     }
-
+//短链跳转
     public void redirectCode(String code, HttpServletResponse response) {
         ShortUrl shortCode = shortUrlRepository.findByShortCode(code);
         if (shortCode == null) {
