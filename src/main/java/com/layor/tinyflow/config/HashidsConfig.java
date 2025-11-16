@@ -8,15 +8,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class HashidsConfig {
 
-    @Value("${shortcode.salt:mySecretSalt2025}") // 建议配置到 application.yml
-    private String salt;
-
-    @Value("${shortcode.minLength:4}")
-    private int minLength;
-
     @Bean
-    public Hashids hashids() {
-        return new Hashids(salt, minLength,
-                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890");
+    public Hashids hashids(@Value("${shortcode.minLen:4}") int minLen) {
+        return new Hashids("tinyflow", minLen);
     }
 }

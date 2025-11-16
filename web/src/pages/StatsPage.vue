@@ -28,12 +28,18 @@
             </svg>
             <span>{{ $t('stats.copyShort') }}</span>
           </a>
+          <button @click="openFilter" class="md-btn" style="background:linear-gradient(135deg,#2B6CEF 0%, #8A6BFF 100%); color:#fff">筛选</button>
         </div>
+      </div>
+
+      <!-- 顶部筛选卡片已移除，改为弹窗按钮 -->
+      <div class="flex justify-end">
+        <button @click="openFilter" class="md-btn" style="background:linear-gradient(135deg,#2B6CEF 0%, #8A6BFF 100%); color:#fff">筛选</button>
       </div>
 
       <!-- 近七天访问趋势（折线图） -->
       <div class="grid grid-cols-1 gap-8">
-        <div class="q-card p-5">
+      <div v-if="false" class="q-card p-5">
           <div class="q-card-title mb-3 flex items-center gap-2">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <path d="M4 17l6-6 4 4 6-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -42,7 +48,7 @@
           </div>
           <div class="relative" style="height:260px;background:#fafafa;border:1px dashed #ddd;border-radius:8px">
             <Suspense>
-              <TrendChart v-if="trendLabels.length" :values="trendValues" :labels="trendLabels" :showValues="true" />
+              <TrendChart :values="trendValues" :labels="trendLabels" :showValues="true" />
               <template #fallback><div class="h-[220px] q-card"></div></template>
             </Suspense>
           </div>
@@ -50,60 +56,107 @@
         </div>
       </div>
 
-      <!-- 单饼图：来源渠道占比 -->
-      <div class="grid grid-cols-1 gap-8">
+      <!-- 来源横条 / 设备饼图 / 城市分布 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div class="q-card p-5">
-          <div class="q-card-title mb-3 flex items-center gap-2">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0" stroke="currentColor" stroke-width="1.5" />
-              <path d="M12 3v9l8 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <span>{{ $t('stats.referrerShare') }}</span>
-          </div>
+          <div class="q-card-title mb-3">来源渠道占比</div>
           <Suspense>
-            <DistributionChart :type="'pie'" :data="refererData" :engine="'echarts'" />
+            <SourceHBarChart :data="refererBars" />
             <template #fallback><div class="h-[240px] q-card"></div></template>
           </Suspense>
-          <div v-if="!refererData.length && !loadingDist" class="q-muted">{{ $t('common.noData') }}</div>
+          <div v-if="!refererBars.length && !loadingDist" class="q-muted">{{ $t('common.noData') }}</div>
+        </div>
+        <div class="q-card p-5">
+          <div class="q-card-title mb-3">设备占比</div>
+          <Suspense>
+            <DistributionChart :type="'pie'" :data="deviceChartData" :engine="'echarts'" />
+            <template #fallback><div class="h-[240px] q-card"></div></template>
+          </Suspense>
+          <div v-if="!hasDeviceChartData && !loadingDist" class="q-muted">{{ $t('common.noData') }}</div>
+        </div>
+        <div class="q-card p-5">
+          <div class="q-card-title mb-3">城市分布</div>
+          <Suspense>
+            <CityBarChart :data="cityBars" />
+            <template #fallback><div class="h-[240px] q-card"></div></template>
+          </Suspense>
+          <div v-if="!cityBars.length && !loadingDist" class="q-muted">{{ $t('common.noData') }}</div>
         </div>
       </div>
 
-      <!-- 详细统计数据表单（白+蓝紫科技风，舒适排版） -->
-      <div class="q-card p-6">
-        <div class="q-card-title mb-4">{{ $t('stats.details') }}</div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label class="q-muted text-[13px]">{{ $t('stats.labels.shortCode') }}</label>
-            <input class="q-input mt-1 w-full" :value="shortCode" readonly disabled />
-          </div>
-          <div>
-            <label class="q-muted text-[13px]">{{ $t('stats.labels.shortUrl') }}</label>
-            <input class="q-input mt-1 w-full" :value="shortUrl" readonly disabled />
-          </div>
-          <div>
-            <label class="q-muted text-[13px]">{{ $t('stats.labels.totalVisits') }}</label>
-            <input class="q-input mt-1 w-full" :value="overview?.totalVisits ?? '-'" readonly disabled />
-          </div>
-          <div>
-            <label class="q-muted text-[13px]">{{ $t('stats.labels.todayVisits') }}</label>
-            <input class="q-input mt-1 w-full" :value="overview?.todayVisits ?? '-'" readonly disabled />
-          </div>
-          <div>
-            <label class="q-muted text-[13px]">{{ $t('stats.labels.createdAt') }}</label>
-            <input class="q-input mt-1 w-full" :value="formatDate(overview?.createdAt)" readonly disabled />
-          </div>
-          <div>
-            <label class="q-muted text-[13px]">{{ $t('stats.labels.topCities') }}</label>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <span v-for="c in cityData" :key="c.label" class="q-chip">{{ c.label }}（{{ c.value }}）</span>
-              <span v-if="!cityData.length" class="q-muted">{{ $t('common.noData') }}</span>
+      
+
+      <!-- 筛选弹窗 -->
+      <div v-if="showFilter" class="tf-modal-backdrop">
+        <div class="tf-modal">
+          <div class="tf-modal-header">筛选条件</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="q-muted text-[13px]">开始日期</label>
+              <input v-model="start" type="date" class="q-input mt-1 w-full" />
+            </div>
+            <div>
+              <label class="q-muted text-[13px]">结束日期</label>
+              <input v-model="end" type="date" class="q-input mt-1 w-full" />
+            </div>
+            <div>
+              <label class="q-muted text-[13px]">来源</label>
+              <input v-model="source" type="text" placeholder="不填为全部" class="q-input mt-1 w-full" />
+            </div>
+            <div>
+              <label class="q-muted text-[13px]">设备</label>
+              <select v-model="device" class="q-input mt-1 w-full">
+                <option value="">全部</option>
+                <option value="mobile">移动</option>
+                <option value="desktop">桌面</option>
+                <option value="tablet">平板</option>
+                <option value="bot">爬虫</option>
+              </select>
+            </div>
+            <div>
+              <label class="q-muted text-[13px]">城市</label>
+              <input v-model="city" type="text" placeholder="不填为全部" class="q-input mt-1 w-full" />
             </div>
           </div>
-          <div class="md:col-span-2">
-            <label class="q-muted text-[13px]">{{ $t('stats.labels.devices') }}</label>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <span v-for="d in deviceData" :key="d.label" class="q-chip">{{ d.label }}（{{ d.value }}）</span>
-              <span v-if="!deviceData.length" class="q-muted">{{ $t('common.noData') }}</span>
+          <div class="mt-6 flex items-center justify-end gap-3">
+            <button class="q-btn-ghost px-3 py-1" @click="resetFilters">重置</button>
+            <button class="md-btn" style="background:linear-gradient(135deg,#2B6CEF 0%, #8A6BFF 100%); color:#fff" @click="confirmFilters">应用筛选</button>
+            <button class="q-btn-ghost px-3 py-1" @click="closeFilter">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 详情模块（精简版） -->
+      <div class="q-card p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          <div>
+            <div class="q-muted text-[13px]">短码</div>
+            <div class="mt-1 q-strong">{{ shortCode }}</div>
+          </div>
+          <div>
+            <div class="q-muted text-[13px]">短链</div>
+            <a :href="shortUrl" target="_blank" class="mt-1 q-link">{{ shortUrl }}</a>
+          </div>
+          <div>
+            <div class="q-muted text-[13px]">创建时间</div>
+            <div class="mt-1 q-strong">{{ formatDate(overview?.createdAt) }}</div>
+          </div>
+          <div>
+            <div class="q-muted text-[13px]">总访问量</div>
+            <div class="mt-1 q-nums">{{ overview?.totalVisits ?? '-' }}</div>
+          </div>
+          <div>
+            <div class="q-muted text-[13px]">今日访问量</div>
+            <div class="mt-1 q-nums">{{ overview?.todayVisits ?? '-' }}</div>
+          </div>
+          <div>
+            <div class="q-muted text-[13px]">Top 城市</div>
+            <div class="mt-2 space-y-1">
+              <div v-for="c in cityData" :key="c.label" class="flex items-center justify-between">
+                <span class="q-muted">{{ c.label }}</span>
+                <span class="q-nums">{{ c.value }}</span>
+              </div>
+              <div v-if="!cityData.length" class="q-muted">{{ $t('common.noData') }}</div>
             </div>
           </div>
         </div>
@@ -113,18 +166,23 @@
       <div v-if="errorMsg" class="p-4 rounded q-card">
         {{ errorMsg }}
         <button class="ml-3 q-btn-ghost px-3 py-1" @click="refreshAll">{{ $t('stats.retry') }}</button>
+        <button class="ml-3 q-btn-ghost px-3 py-1" @click="exportCsv">导出 CSV</button>
+        <button class="ml-3 q-btn-ghost px-3 py-1" @click="exportJson">导出 JSON</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, defineAsyncComponent } from 'vue'
+import { ref, onMounted, defineAsyncComponent, computed } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import { useFetchOverview, useFetchDistribution, useFetchTrend } from '../composables/useStats'
+import { useFetchOverview, useFetchDistribution, useFetchTrend, exportStats } from '../composables/useStats'
   import { SHORT_BASE } from '../composables/shortBase'
 const DistributionChart = defineAsyncComponent(() => import('../components/DistributionChart.vue'))
 const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
+const SourceHBarChart = defineAsyncComponent(() => import('../components/charts/SourceHBarChart.vue'))
+/* DevicePieChart removed in favor of unified DistributionChart pie */
+const CityBarChart = defineAsyncComponent(() => import('../components/charts/CityBarChart.vue'))
 
 import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '../composables/useStats'
@@ -136,13 +194,18 @@ const { copy } = useClipboard()
 const { t } = useI18n()
 
 const { data: overviewRef, loading: loadingOverview, error: errorOverview, refresh: refreshOverview } = useFetchOverview(shortCode)
-const { data: distRef, loading: loadingDistRef, error: errorDist, refresh: refreshDist } = useFetchDistribution(shortCode)
+const filters = ref({ start: '', end: '', source: '', device: '', city: '', page: 0, size: 20 })
+const { data: distRef, loading: loadingDistRef, error: errorDist, refresh: refreshDist } = useFetchDistribution(shortCode, filters)
 const { data: trendRef, loading: loadingTrendRef, error: errorTrend, refresh: refreshTrend } = useFetchTrend(shortCode, 7)
 
 const overview = overviewRef
 const deviceData = ref([])
 const cityData = ref([])
 const refererData = ref([])
+const refererBars = ref([])
+const deviceChartData = ref([])
+const hasDeviceChartData = computed(() => (deviceChartData.value || []).reduce((a,b)=> a + Number(b.value||0), 0) > 0)
+const cityBars = ref([])
 const errorMsg = ref('')
 
 const loadingDist = loadingDistRef
@@ -159,9 +222,19 @@ async function refreshAll(){
     errorMsg.value = t('stats.errorNotFound')
   }
   const dist = distRef.value || {}
-  deviceData.value = (dist.device||[]).map(kv => ({ label: kv.label || kv.name || kv.key || kv.device || t('common.unknown'), value: kv.value || kv.count || 0 }))
-  cityData.value = (dist.city||[]).slice(0,5).map(kv => ({ label: kv.city || kv.label || kv.name || t('common.unknown'), value: kv.count || kv.value || 0 }))
-  refererData.value = (dist.referer||[]).map(kv => ({ label: kv.referer || kv.label || kv.name || t('common.unknown'), value: kv.count || kv.value || 0 }))
+  refererBars.value = (dist.referer||[]).map(kv => ({ source: kv.referer || kv.label || kv.name || t('common.unknown'), count: Number(kv.count || kv.value || 0) }))
+  const devArr = (dist.device||[]).map(kv => ({ key: String(kv.device || kv.label || kv.name || 'unknown').toLowerCase(), count: Number(kv.count || kv.value || 0) }))
+  const mobile = devArr.filter(d => d.key.includes('mobile') || d.key.includes('phone') || d.key.includes('ios') || d.key.includes('android')).reduce((a,b)=>a+b.count,0)
+  const desktop = devArr.filter(d => d.key.includes('desktop') || d.key.includes('pc')).reduce((a,b)=>a+b.count,0)
+  const tablet = devArr.filter(d => d.key.includes('tablet') || d.key.includes('pad')).reduce((a,b)=>a+b.count,0)
+  deviceChartData.value = [
+    { label: '移动', value: mobile },
+    { label: '平板', value: tablet },
+    { label: '桌面', value: desktop }
+  ]
+  cityBars.value = (dist.city||[]).slice(0,10).map(kv => ({ city: kv.city || kv.label || kv.name || t('common.unknown'), count: Number(kv.count || kv.value || 0) }))
+  deviceData.value = (dist.device||[]).map(kv => ({ label: kv.label || kv.name || kv.key || t('common.unknown'), value: Number(kv.count || kv.value || 0) }))
+  cityData.value = (dist.city||[]).slice(0,5).map(kv => ({ label: kv.city || kv.label || kv.name || t('common.unknown'), value: Number(kv.count || kv.value || 0) }))
 
   // 构建近7天趋势数据（labels 升序对齐，values 与 labels 一一对应）
   const trendList = Array.isArray(trendRef.value) ? trendRef.value : []
@@ -176,9 +249,54 @@ function goDashboard(){ router.push('/dashboard') }
 
 // 移除图标与渐变，采用纯文本信息结构
 
+function applyFilters(){
+  filters.value = { start: start.value, end: end.value, source: source.value, device: device.value, city: city.value, page: 0, size: 20 }
+  refreshAll()
+}
+
+async function exportCsv(){ await doExport('csv') }
+async function exportJson(){ await doExport('json') }
+async function doExport(fmt){
+  const params = { start: start.value, end: end.value, source: source.value, device: device.value, city: city.value }
+  await exportStats(shortCode, params, fmt)
+}
+
+const start = ref('')
+const end = ref('')
+const source = ref('')
+const device = ref('')
+const city = ref('')
+
+const showFilter = ref(false)
+function openFilter(){ showFilter.value = true }
+function closeFilter(){ showFilter.value = false }
+function confirmFilters(){ showFilter.value = false; applyFilters() }
+function resetFilters(){ source.value=''; device.value=''; city.value='' }
+
 onMounted(refreshAll)
+
+;(function initDefaultDates(){
+  try {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth()
+    const startDate = new Date(y, m, 1)
+    const endDate = new Date(y, m + 1, 0)
+    const fmt = (d) => {
+      const yy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return `${yy}-${mm}-${dd}`
+    }
+    start.value = fmt(startDate)
+    end.value = fmt(endDate)
+  } catch {}
+})()
 </script>
 
 <style scoped>
 svg { width: 20px; height: 20px; }
+.tf-modal-backdrop { position: fixed; inset: 0; background: rgba(4,16,40,0.35); display: flex; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(2px); }
+.tf-modal { width: 680px; max-width: 92vw; border-radius: 16px; padding: 24px; background: linear-gradient(135deg,#ffffff 0%, #f7f9ff 100%); box-shadow: 0 12px 40px rgba(43,108,239,0.25); border: 1px solid rgba(138,107,255,0.25); }
+.tf-modal-header { font-size: 16px; font-weight: 600; color: #2B6CEF; margin-bottom: 16px; }
 </style>
