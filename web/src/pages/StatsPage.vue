@@ -32,14 +32,11 @@
         </div>
       </div>
 
-      <!-- 顶部筛选卡片已移除，改为弹窗按钮 -->
-      <div class="flex justify-end">
-        <button @click="openFilter" class="md-btn" style="background:linear-gradient(135deg,#2B6CEF 0%, #8A6BFF 100%); color:#fff">筛选</button>
-      </div>
+      
 
       <!-- 近七天访问趋势（折线图） -->
       <div class="grid grid-cols-1 gap-8">
-      <div v-if="false" class="q-card p-5">
+      <div class="q-card p-5">
           <div class="q-card-title mb-3 flex items-center gap-2">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <path d="M4 17l6-6 4 4 6-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -56,8 +53,8 @@
         </div>
       </div>
 
-      <!-- 来源横条 / 设备饼图 / 城市分布 -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- 顶部：设备饼图 + 来源分布 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div class="q-card p-5">
           <div class="q-card-title mb-3">来源渠道占比</div>
           <Suspense>
@@ -74,14 +71,7 @@
           </Suspense>
           <div v-if="!hasDeviceChartData && !loadingDist" class="q-muted">{{ $t('common.noData') }}</div>
         </div>
-        <div class="q-card p-5">
-          <div class="q-card-title mb-3">城市分布</div>
-          <Suspense>
-            <CityBarChart :data="cityBars" />
-            <template #fallback><div class="h-[240px] q-card"></div></template>
-          </Suspense>
-          <div v-if="!cityBars.length && !loadingDist" class="q-muted">{{ $t('common.noData') }}</div>
-        </div>
+        
       </div>
 
       
