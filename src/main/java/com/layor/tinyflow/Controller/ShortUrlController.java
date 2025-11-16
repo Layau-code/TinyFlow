@@ -2,6 +2,7 @@ package com.layor.tinyflow.Controller;
 
 import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.service.ShortUrlService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +28,8 @@ public class ShortUrlController {
     }
     // 根路径重定向（外部短链）
     @GetMapping("/{shortCode}")
-    public void redirectRoot(@PathVariable String shortCode, HttpServletResponse response) {
-        shortUrlService.redirectCode(shortCode, response);
+    public void redirectRoot(@PathVariable String shortCode, HttpServletRequest request, HttpServletResponse response) {
+        shortUrlService.redirectCode(shortCode, request, response);
     }
     //修改短链
     @PutMapping("/api/{shortCode}")
@@ -73,8 +74,8 @@ public class ShortUrlController {
 
     //内部使用，内部跳转，压测监控
     @GetMapping ("/api/redirect/{shortCode}")
-    public void redirect(@PathVariable String shortCode, HttpServletResponse response) {
-        shortUrlService.redirectCode(shortCode, response);
+    public void redirect(@PathVariable String shortCode, HttpServletRequest request, HttpServletResponse response) {
+        shortUrlService.redirectCode(shortCode, request, response);
     }
 
 }

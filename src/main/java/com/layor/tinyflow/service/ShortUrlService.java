@@ -4,6 +4,7 @@ import com.layor.tinyflow.Strategy.HashidsStrategy;
 import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.hashids.Hashids;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,8 @@ public class ShortUrlService {
     private DailyClickRepository dailyClickRepo;
     @Autowired
     private ShortUrlRepository shortUrlRepository;
+    @Autowired
+    private com.layor.tinyflow.repository.ClickEventRepository clickEventRepository;
     @Autowired
     private SegmentIdGenerator idGenerator;
     @Autowired
@@ -147,6 +150,54 @@ public class ShortUrlService {
         shortUrl.setClickCount(shortUrl.getClickCount() + 1);
         dailyClickRepo.save(dailyClick);
     }
+
+    @Async
+    public void recordClickEvent(String shortCode, HttpServletRequest request) {
+        //提取请求相关信息
+        String referer = request.getHeader("Referer");
+        String ua = request.getHeader("User-Agent");
+        String ip = extractIp(request);
+        String host = extractHost(referer);
+        String device = detectDevice(ua);
+//        封装
+        com.layor.tinyflow.entity.ClickEvent ev = com.layor.tinyflow.entity.ClickEvent.builder()
+                .shortCode(shortCode)
+                .ts(java.time.LocalDateTime.now())
+                .referer(referer)
+                .ua(ua)
+                .ip(ip)
+                .sourceHost(host)
+                .deviceType(device)
+                .city("")
+                .country("")
+                .build();
+//        保存
+        clickEventRepository.save(ev);
+    }
+
+    private String extractIp(HttpServletRequest req) {
+        String xff = req.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isEmpty()) {
+            int idx = xff.indexOf(',');
+            return idx >= 0 ? xff.substring(0, idx).trim() : xff.trim();
+        }
+        String rip = req.getHeader("X-Real-IP");
+        if (rip != null && !rip.isEmpty()) return rip.trim();
+        return req.getRemoteAddr();
+    }
+
+    private String extractHost(String referer) {
+        if (referer == null || referer.isEmpty()) return null;
+        try { return new java.net.URI(referer).getHost(); } catch (Exception e) { return null; }
+    }
+
+    private String detectDevice(String ua) {
+        String s = ua == null ? "" : ua.toLowerCase();
+        if (s.contains("bot") || s.contains("spider") || s.contains("crawl")) return "bot";
+        if (s.contains("ipad") || s.contains("tablet") || s.contains("pad")) return "tablet";
+        if (s.contains("android") || s.contains("iphone") || s.contains("mobile")) return "mobile";
+        return "desktop";
+    }
     // UrlService.java
     public Page<UrlListResponseDTO> getAllUrls(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
@@ -207,6 +258,107 @@ public class ShortUrlService {
                 .toList();
         return trendDTOs;
     }
+
+
+    /**
+     * 获取短链接的访问分布统计信息
+     * 
+     * @param shortCode 短链接码
+     * @param startStr 开始日期字符串，格式为 yyyy-MM-dd
+     * @param endStr 结束日期字符串，格式为 yyyy-MM-dd
+     * @param source 来源主机过滤条件
+     * @param device 设备类型过滤条件
+     * @param city 城市过滤条件
+     * @return 包含来源、设备、城市分布统计的DistributionDTO对象
+     */
+    public DistributionDTO getDistribution(String shortCode, String startStr, String endStr, String source,String device,String city) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        List<Object[]> src = clickEventRepository.countBySource(shortCode, start, end, emptyToNull(source));
+        List<Object[]> dev = clickEventRepository.countByDevice(shortCode, start, end, emptyToNull(device));
+        List<Object[]> ct = clickEventRepository.countByCity(shortCode, start, end, emptyToNull(city));
+        List<KeyCountDTO> referer = src.stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
+        List<KeyCountDTO> deviceList = dev.stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
+        List<KeyCountDTO> cityList = ct.stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
+        return new DistributionDTO(referer, deviceList, cityList);
+    }
+
+
+    /**
+     * 获取指定短链接的点击事件列表
+     *
+     * @param shortCode 短链接码
+     * @param startStr  开始日期字符串，格式为 yyyy-MM-dd
+     * @param endStr    结束日期字符串，格式为 yyyy-MM-dd
+     * @param source    来源主机过滤条件
+     * @param device    设备类型过滤条件
+     * @param city      城市过滤条件
+     * @param page      页码（从0开始）
+     * @param size      每页大小
+     * @return 点击事件列表
+     */
+    public List<ClickEventDTO> getEvents(String shortCode, String startStr, String endStr, String source, String device, String city, Integer page, Integer size) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        Pageable pageable = PageRequest.of(Math.max(0, page == null ? 0 : page), Math.max(1, size == null ? 20 : size));
+        Page<com.layor.tinyflow.entity.ClickEvent> p = clickEventRepository.findEvents(shortCode, start, end, emptyToNull(source), emptyToNull(device), emptyToNull(city), pageable);
+        return p.getContent().stream().map(e -> new ClickEventDTO(e.getTs(), e.getIp(), e.getSourceHost(), e.getDeviceType(), e.getCity(), e.getCountry(), e.getUa(), e.getReferer())).toList();
+    }
+
+    public byte[] exportStats(String shortCode, String startStr, String endStr, String source, String device, String city, String format) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        List<com.layor.tinyflow.entity.ClickEvent> list = clickEventRepository.findEvents(shortCode, start, end, emptyToNull(source), emptyToNull(device), emptyToNull(city), PageRequest.of(0, 100000)).getContent();
+        if ("json".equalsIgnoreCase(format)) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("[");
+            for (int i=0;i<list.size();i++) {
+                var e = list.get(i);
+                sb.append("{")
+                        .append("\"ts\":\"").append(e.getTs()).append("\",")
+                        .append("\"ip\":\"").append(nullToEmpty(e.getIp())).append("\",")
+                        .append("\"source_host\":\"").append(nullToEmpty(e.getSourceHost())).append("\",")
+                        .append("\"device_type\":\"").append(nullToEmpty(e.getDeviceType())).append("\",")
+                        .append("\"city\":\"").append(nullToEmpty(e.getCity())).append("\",")
+                        .append("\"country\":\"").append(nullToEmpty(e.getCountry())).append("\",")
+                        .append("\"ua\":\"").append(escapeJson(nullToEmpty(e.getUa()))).append("\",")
+                        .append("\"referer\":\"").append(escapeJson(nullToEmpty(e.getReferer()))).append("\"}");
+                if (i < list.size()-1) sb.append(",");
+            }
+            sb.append("]");
+            return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("ts,ip,source_host,device_type,city,country,ua,referer\n");
+        for (var e : list) {
+            sb.append(e.getTs()).append(',')
+              .append(csv(nullToEmpty(e.getIp()))).append(',')
+              .append(csv(nullToEmpty(e.getSourceHost()))).append(',')
+              .append(csv(nullToEmpty(e.getDeviceType()))).append(',')
+              .append(csv(nullToEmpty(e.getCity()))).append(',')
+              .append(csv(nullToEmpty(e.getCountry()))).append(',')
+              .append(csv(nullToEmpty(e.getUa()))).append(',')
+              .append(csv(nullToEmpty(e.getReferer()))).append('\n');
+        }
+        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private LocalDateTime parseEnd(String endStr) {
+        if (endStr == null || endStr.isEmpty()) return LocalDateTime.now();
+        try { return LocalDate.parse(endStr).atTime(23,59,59); } catch (Exception e) { return LocalDateTime.now(); }
+    }
+
+    private LocalDateTime parseStart(String startStr, LocalDateTime end) {
+        if (startStr == null || startStr.isEmpty()) return end.minusDays(7);
+        try { return LocalDate.parse(startStr).atStartOfDay(); } catch (Exception e) { return end.minusDays(7); }
+    }
+
+    private String emptyToNull(String s) { return (s == null || s.isEmpty()) ? null : s; }
+    private long n(Object o) { return o == null ? 0L : ((Number)o).longValue(); }
+    private String s(Object o) { return o == null ? "" : String.valueOf(o); }
+    private String csv(String s) { String t = s.replace("\"", "\"\""); return '"' + t + '"'; }
+    private String nullToEmpty(String s) { return s == null ? "" : s; }
+    private String escapeJson(String s) { return s.replace("\\", "\\\\").replace("\"", "\\\""); }
     @Transactional
     public void deleteByShortCode(String shortCode) {
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
@@ -272,7 +424,7 @@ public class ShortUrlService {
 
     }
 //短链跳转
-    public void redirectCode(String code, HttpServletResponse response) {
+    public void redirectCode(String code, HttpServletRequest request, HttpServletResponse response) {
         ShortUrl shortCode = shortUrlRepository.findByShortCode(code);
         if (shortCode == null) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -280,6 +432,7 @@ public class ShortUrlService {
         }
         String longUrl = shortCode.getLongUrl();
         recordClick(code);
+        try { recordClickEvent(code, request); } catch (Exception ignored) {}
         response.setStatus(HttpServletResponse.SC_FOUND);
         response.setHeader("Location", longUrl);
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

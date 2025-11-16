@@ -81,13 +81,14 @@ export function useFetchTrend(shortCode, days = 7) {
   return { ...state, refresh }
 }
 
-export function useFetchDistribution(shortCode) {
+export function useFetchDistribution(shortCode, filtersRef) {
   const state = createApiState()
   const refresh = async () => {
     state.loading.value = true
     state.error.value = null
     try {
-      const res = await axios.get(`/api/stats/distribution/${encodeURIComponent(shortCode)}`)
+      const body = { code: shortCode, ...(filtersRef && filtersRef.value ? filtersRef.value : {}) }
+      const res = await axios.post('/api/stats/distribution', body, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
       const payload = res?.data ?? null
       const dist = payload?.data ?? payload?.result ?? payload ?? {}
       state.data.value = {
@@ -168,4 +169,21 @@ export function useFetchClickStats() {
     }
   }
   return { ...state, refresh }
+}
+
+// 导出 CSV/JSON（直接触发浏览器下载）
+export async function exportStats(shortCode, params = {}, format = 'csv') {
+  const url = `/api/stats/export?format=${encodeURIComponent(format)}`
+  const body = { code: shortCode, ...(params || {}) }
+  const res = await axios.post(url, body, { responseType: 'blob', headers: { 'Content-Type': 'application/json;charset=utf-8' } })
+  const blob = res.data
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `stats-${shortCode}-${format}.` + (format === 'csv' ? 'csv' : 'json')
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => {
+    URL.revokeObjectURL(a.href)
+    document.body.removeChild(a)
+  }, 100)
 }

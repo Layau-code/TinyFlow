@@ -22,18 +22,7 @@ public class TinyFlowApplication {
     public static void main(String[] args) {
         SpringApplication.run(TinyFlowApplication.class, args);
     }
-    @Service
-    public static class LogService {
-        @Async("taskExecutor")
-        public void recordVisit(String code) {
-        }
-    }
 
-        @Bean("taskExecutor")
-        public Executor taskExecutor() {
-            ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-            //配置参数...省略
-            executor.initialize();
-            return executor;
-        }
+
+
 }
