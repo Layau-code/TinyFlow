@@ -10,25 +10,18 @@
           <span>{{ $t('stats.breadcrumb', { code: shortCode }) }}</span>
         </div>
         <div class="flex items-center gap-3">
-          <button @click="goHome" class="q-btn-ghost px-3 py-1 flex items-center gap-1">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-            </svg>
-            <span>{{ $t('stats.backHome') }}</span>
+          <button @click="goHome" class="fx-btn fx-gray">
+            <span></span><span></span><span></span><span></span><span></span><span class="btn-text">返回首页</span>
           </button>
-          <button @click="goDashboard" class="q-btn-ghost px-3 py-1 flex items-center gap-1">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M4 4h7v7H4V4Zm9 0h7v5h-7V4ZM4 13h5v7H4v-7Zm9 7v-9h7v9h-7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-            </svg>
-            <span>{{ $t('stats.backDashboard') }}</span>
+          <button @click="goDashboard" class="fx-btn fx-gray">
+            <span></span><span></span><span></span><span></span><span></span><span class="btn-text">返回看板</span>
           </button>
-          <a :href="shortUrl" @click.prevent="copy(shortUrl)" class="q-btn-ghost px-3 py-1 flex items-center gap-1">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M9 7a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2V7Zm-5 4a2 2 0 0 1 2-2h1v9a3 3 0 0 0 3 3h7v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-            </svg>
-            <span>{{ $t('stats.copyShort') }}</span>
-          </a>
-          <button @click="openFilter" class="md-btn" style="background:linear-gradient(135deg,#2B6CEF 0%, #8A6BFF 100%); color:#fff">筛选</button>
+          <button @click="copy(shortUrl)" class="fx-btn fx-gray">
+            <span></span><span></span><span></span><span></span><span></span><span class="btn-text">复制短链</span>
+          </button>
+          <button @click="openFilter" class="fx-btn fx-purple">
+            <span></span><span></span><span></span><span></span><span></span><span class="btn-text">筛选</span>
+          </button>
         </div>
       </div>
 
@@ -41,7 +34,11 @@
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <path d="M4 17l6-6 4 4 6-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            <span>{{ $t('dashboard.toggleShowTrend') }}</span>
+            <span>访问趋势</span>
+            <div class="ml-auto flex items-center gap-2">
+              <button class="fx-btn fx-gray fx-sm" :class="{ 'font-semibold': selectedDays===7 }" @click="selectDays(7)"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">7天</span></button>
+              <button class="fx-btn fx-purple fx-sm" :class="{ 'font-semibold': selectedDays===30 }" @click="selectDays(30)"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">30天</span></button>
+            </div>
           </div>
           <div class="relative" style="height:260px;background:#fafafa;border:1px dashed #ddd;border-radius:8px">
             <Suspense>
@@ -109,9 +106,9 @@
             </div>
           </div>
           <div class="mt-6 flex items-center justify-end gap-3">
-            <button class="q-btn-ghost px-3 py-1" @click="resetFilters">重置</button>
-            <button class="md-btn" style="background:linear-gradient(135deg,#2B6CEF 0%, #8A6BFF 100%); color:#fff" @click="confirmFilters">应用筛选</button>
-            <button class="q-btn-ghost px-3 py-1" @click="closeFilter">取消</button>
+            <button class="fx-btn fx-gray fx-sm" @click="resetFilters"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">重置</span></button>
+            <button class="fx-btn fx-purple fx-sm" @click="confirmFilters"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">应用筛选</span></button>
+            <button class="fx-btn fx-gray fx-sm" @click="closeFilter"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">取消</span></button>
           </div>
         </div>
       </div>
@@ -164,7 +161,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineAsyncComponent, computed } from 'vue'
+import { ref, onMounted, defineAsyncComponent, computed, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
 import { useFetchOverview, useFetchDistribution, useFetchTrend, exportStats } from '../composables/useStats'
   import { SHORT_BASE } from '../composables/shortBase'
@@ -186,7 +183,8 @@ const { t } = useI18n()
 const { data: overviewRef, loading: loadingOverview, error: errorOverview, refresh: refreshOverview } = useFetchOverview(shortCode)
 const filters = ref({ start: '', end: '', source: '', device: '', city: '', page: 0, size: 20 })
 const { data: distRef, loading: loadingDistRef, error: errorDist, refresh: refreshDist } = useFetchDistribution(shortCode, filters)
-const { data: trendRef, loading: loadingTrendRef, error: errorTrend, refresh: refreshTrend } = useFetchTrend(shortCode, 7)
+const selectedDays = ref(7)
+const { data: trendRef, loading: loadingTrendRef, error: errorTrend, refresh: refreshTrend } = useFetchTrend(shortCode, selectedDays)
 
 const overview = overviewRef
 const deviceData = ref([])
@@ -238,6 +236,13 @@ function goHome(){ router.push('/') }
 function goDashboard(){ router.push('/dashboard') }
 
 // 移除图标与渐变，采用纯文本信息结构
+function selectDays(d){ selectedDays.value = d }
+
+watch(selectedDays, async () => {
+  console.debug('[watch] selectedDays ->', selectedDays.value)
+  await refreshTrend()
+  await refreshAll()
+})
 
 function applyFilters(){
   filters.value = { start: start.value, end: end.value, source: source.value, device: device.value, city: city.value, page: 0, size: 20 }
@@ -289,4 +294,23 @@ svg { width: 20px; height: 20px; }
 .tf-modal-backdrop { position: fixed; inset: 0; background: rgba(4,16,40,0.35); display: flex; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(2px); }
 .tf-modal { width: 680px; max-width: 92vw; border-radius: 16px; padding: 24px; background: linear-gradient(135deg,#ffffff 0%, #f7f9ff 100%); box-shadow: 0 12px 40px rgba(43,108,239,0.25); border: 1px solid rgba(138,107,255,0.25); }
 .tf-modal-header { font-size: 16px; font-weight: 600; color: #2B6CEF; margin-bottom: 16px; }
+
+.fx-btn { font-family: Arial, Helvetica, sans-serif; font-weight: bold; color: #2b2b2b; background-color: #f5f6fa; padding: 0.75em 1.4em; border: 1px solid rgba(138,107,255,0.2); border-radius: 0.6rem; position: relative; cursor: pointer; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; }
+.fx-btn span:not(.btn-text) { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); height: 26px; width: 26px; background-color: #8A6BFF; border-radius: 50%; transition: .6s ease; }
+.fx-btn span:nth-child(1) { transform: translate(-3.3em, -4em); }
+.fx-btn span:nth-child(2) { transform: translate(-6em, 1.3em); }
+.fx-btn span:nth-child(3) { transform: translate(-.2em, 1.8em); }
+.fx-btn span:nth-child(4) { transform: translate(3.5em, 1.4em); }
+.fx-btn span:nth-child(5) { transform: translate(3.5em, -3.8em); }
+.fx-btn:hover span:not(.btn-text) { transform: translate(-50%, -50%) scale(4); transition: 1.5s ease; }
+.fx-btn .btn-text { position: relative; z-index: 1; }
+.fx-purple { background-color: #f0f1f7; }
+.fx-gray { background-color: #f7f8fc; }
+.fx-sm { padding: 0.4em 0.9em; }
+.fx-sm span:not(.btn-text) { height: 18px; width: 18px; }
 </style>
+function selectDays(d){ selectedDays.value = d; refreshTrend() }
+watch(selectedDays, async () => {
+  await refreshTrend()
+  await refreshAll()
+})

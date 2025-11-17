@@ -53,13 +53,18 @@ export function useFetchOverview(shortCode) {
   return { ...state, refresh }
 }
 
-export function useFetchTrend(shortCode, days = 7) {
+export function useFetchTrend(shortCode, daysSource = 7) {
   const state = createApiState()
+  const getDays = () => (typeof daysSource === 'object' && daysSource !== null && 'value' in daysSource)
+    ? (daysSource.value ?? 7)
+    : daysSource
   const refresh = async () => {
     state.loading.value = true
     state.error.value = null
     try {
-      const res = await axios.get(`/api/stats/trend/${encodeURIComponent(shortCode)}`, { params: { days } })
+      const d = getDays()
+      console.debug('[trend] GET /api/stats/trend', { shortCode, days: d })
+      const res = await axios.get(`/api/stats/trend/${encodeURIComponent(shortCode)}`, { params: { days: d } })
       const payload = res?.data ?? null
       // 兼容多种列表结构：数组 / { items } / { data } / { content }
       const list = Array.isArray(payload)
@@ -73,6 +78,7 @@ export function useFetchTrend(shortCode, days = 7) {
               : []
       state.data.value = list
     } catch (e) {
+      console.error('[trend] request failed', e)
       state.error.value = e
     } finally {
       state.loading.value = false
@@ -87,7 +93,8 @@ export function useFetchDistribution(shortCode, filtersRef) {
     state.loading.value = true
     state.error.value = null
     try {
-      const body = { code: shortCode, ...(filtersRef && filtersRef.value ? filtersRef.value : {}) }
+      const raw = (filtersRef && filtersRef.value) ? { ...filtersRef.value } : {}
+      const body = { code: shortCode, ...Object.fromEntries(Object.entries(raw).filter(([k,v]) => v !== undefined && v !== null && String(v).trim() !== '')) }
       const res = await axios.post('/api/stats/distribution', body, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
       const payload = res?.data ?? null
       const dist = payload?.data ?? payload?.result ?? payload ?? {}
@@ -174,7 +181,7 @@ export function useFetchClickStats() {
 // 导出 CSV/JSON（直接触发浏览器下载）
 export async function exportStats(shortCode, params = {}, format = 'csv') {
   const url = `/api/stats/export?format=${encodeURIComponent(format)}`
-  const body = { code: shortCode, ...(params || {}) }
+  const body = { code: shortCode, ...Object.fromEntries(Object.entries(params||{}).filter(([k,v]) => v !== undefined && v !== null && String(v).trim() !== '')) }
   const res = await axios.post(url, body, { responseType: 'blob', headers: { 'Content-Type': 'application/json;charset=utf-8' } })
   const blob = res.data
   const a = document.createElement('a')
