@@ -122,7 +122,7 @@
           </div>
           <div>
             <div class="q-muted text-[13px]">短链</div>
-            <a :href="shortUrl" target="_blank" class="mt-1 q-link">{{ shortUrl }}</a>
+            <a :href="shortUrl" target="_blank" class="mt-1 q-link">{{ shortLabel }}</a>
           </div>
           <div>
             <div class="q-muted text-[13px]">创建时间</div>
@@ -177,6 +177,7 @@ const route = useRoute()
 const router = useRouter()
 const shortCode = route.params.shortCode
 const shortUrl = `${SHORT_BASE}/${encodeURIComponent(shortCode)}`
+const shortLabel = `${SHORT_BASE}/${String(shortCode)}`
 const { copy } = useClipboard()
 const { t } = useI18n()
 
