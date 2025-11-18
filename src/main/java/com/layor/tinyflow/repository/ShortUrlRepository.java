@@ -3,8 +3,10 @@ package com.layor.tinyflow.repository;
 
 import com.layor.tinyflow.entity.ShortUrl;
 import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
     ShortUrl findByShortCode(String shortCode);
@@ -16,4 +18,11 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
     boolean existsByLongUrl(String longUrl);
 
     ShortUrl findByLongUrl(String longUrl);
+
+    @Transactional
+    @Modifying(clearAutomatically = false, flushAutomatically = false)
+    @Query("update ShortUrl s set s.clickCount = s.clickCount + 1 where s.shortCode = :shortCode")
+    void incrementClickCount(@Param("shortCode") String shortCode);
+
+
 }

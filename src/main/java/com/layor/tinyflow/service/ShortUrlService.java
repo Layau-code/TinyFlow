@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.*;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -29,7 +30,7 @@ public class ShortUrlService {
     // 短码长度
     private static final int CODE_LENGTH = 6;
     @Autowired
-    private RedisTemplate<String, String> redisTemplate;
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     @Autowired
     private DailyClickRepository dailyClickRepo;
     @Autowired
@@ -111,68 +112,30 @@ public class ShortUrlService {
     }
 
 
-    public String getLongUrlByShortCode(String shortCode) {
-        //查询缓存
-         String cachedLongUrl = redisTemplate.opsForValue().get("short_url:" + shortCode);
-         if (cachedLongUrl != null) {
-             return cachedLongUrl;
-         }
-        //缓存没有，查询数据库
-        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
-        if (shortUrl == null) {
-            //数据库没有，返回null
-            return null;
-        }
-        //更新缓存
-        redisTemplate.opsForValue().set(
-                "short_url:" + shortCode,
-                shortUrl.getLongUrl(),
-                Duration.ofHours(24) // 设置 24 小时过期
-        );
-        //返回长链接
-        return shortUrl.getLongUrl();
+    private static final java.util.concurrent.ConcurrentHashMap<String, CacheEntry> localCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long LOCAL_TTL_MS = 60_000;
+
+    private static class CacheEntry {
+        final String v; final long exp;
+        CacheEntry(String v, long exp){ this.v=v; this.exp=exp; }
     }
 
-@Async
+
+
+    @Autowired
+    private ClickRecorderService clickRecorderService;
+
     public void recordClick(String shortCode) {
-        LocalDate today = LocalDate.now();
-
-        DailyClick dailyClick = dailyClickRepo.findByShortCodeAndDate(shortCode, today)
-                .orElseGet(() -> DailyClick.builder()
-                        .shortCode(shortCode)
-                        .date(today)
-                        .clicks(0)
-                        .build());
-
-        dailyClick.setClicks(dailyClick.getClicks() + 1);
-        //url表也要更新
-        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
-        shortUrl.setClickCount(shortUrl.getClickCount() + 1);
-        dailyClickRepo.save(dailyClick);
+        clickRecorderService.recordClick(shortCode);
     }
 
-    @Async
     public void recordClickEvent(String shortCode, HttpServletRequest request) {
-        //提取请求相关信息
         String referer = request.getHeader("Referer");
         String ua = request.getHeader("User-Agent");
         String ip = extractIp(request);
         String host = extractHost(referer);
         String device = detectDevice(ua);
-//        封装
-        com.layor.tinyflow.entity.ClickEvent ev = com.layor.tinyflow.entity.ClickEvent.builder()
-                .shortCode(shortCode)
-                .ts(java.time.LocalDateTime.now())
-                .referer(referer)
-                .ua(ua)
-                .ip(ip)
-                .sourceHost(host)
-                .deviceType(device)
-                .city("")
-                .country("")
-                .build();
-//        保存
-        clickEventRepository.save(ev);
+        clickRecorderService.recordClickEvent(shortCode, referer, ua, ip, host, device);
     }
 
     private String extractIp(HttpServletRequest req) {
@@ -223,6 +186,29 @@ public class ShortUrlService {
         return new PageImpl<>(urlListResponseDTO, pageable, shortUrlPage.getTotalElements());
     
     }
+    public String getLongUrlByShortCode(String shortCode) {
+        CacheEntry ce = localCache.get(shortCode);
+        if (ce != null && ce.exp > System.currentTimeMillis()) return ce.v;
+        String cachedLongUrl = null;
+        try { cachedLongUrl = redisTemplate.opsForValue().get("short_url:" + shortCode); } catch (Exception ignored) {}
+        if (cachedLongUrl != null) {
+            localCache.put(shortCode, new CacheEntry(cachedLongUrl, System.currentTimeMillis()+LOCAL_TTL_MS));
+            return cachedLongUrl;
+        }
+
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
+        if (shortUrl == null) {
+            //数据库没有，返回null
+            return null;
+        }
+        //更新缓存
+        try {
+            redisTemplate.opsForValue().set("short_url:" + shortCode, shortUrl.getLongUrl(), java.time.Duration.ofHours(24));
+        } catch (Exception ignored) {}
+        localCache.put(shortCode, new CacheEntry(shortUrl.getLongUrl(), System.currentTimeMillis()+LOCAL_TTL_MS));
+        //返回长链接
+        return shortUrl.getLongUrl();
+    }
     public ShortUrlOverviewDTO getOverviewByShortCode(String shortCode) {
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
 
@@ -259,56 +245,44 @@ public class ShortUrlService {
         return trendDTOs;
     }
 
-
-    /**
-     * 获取短链接的访问分布统计信息
-     * 
-     * @param shortCode 短链接码
-     * @param startStr 开始日期字符串，格式为 yyyy-MM-dd
-     * @param endStr 结束日期字符串，格式为 yyyy-MM-dd
-     * @param source 来源主机过滤条件
-     * @param device 设备类型过滤条件
-     * @param city 城市过滤条件
-     * @return 包含来源、设备、城市分布统计的DistributionDTO对象
-     */
-    public DistributionDTO getDistribution(String shortCode, String startStr, String endStr, String source,String device,String city) {
-        LocalDateTime end = parseEnd(endStr);
-        LocalDateTime start = parseStart(startStr, end);
-        List<Object[]> src = clickEventRepository.countBySource(shortCode, start, end, emptyToNull(source));
-        List<Object[]> dev = clickEventRepository.countByDevice(shortCode, start, end, emptyToNull(device));
-        List<Object[]> ct = clickEventRepository.countByCity(shortCode, start, end, emptyToNull(city));
+    public DistributionDTO getDistribution(String shortCode, com.layor.tinyflow.dto.StatsQuery q) {
+        LocalDateTime end = parseEnd(q.getEnd());
+        LocalDateTime start = parseStart(q.getStart(), end);
+        List<Object[]> src = clickEventRepository.countBySource(shortCode, start, end, emptyToNull(q.getSource()));
+        List<Object[]> dev = clickEventRepository.countByDevice(shortCode, start, end, emptyToNull(q.getDevice()));
+        List<Object[]> ct = clickEventRepository.countByCity(shortCode, start, end, emptyToNull(q.getCity()));
         List<KeyCountDTO> referer = src.stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
         List<KeyCountDTO> deviceList = dev.stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
         List<KeyCountDTO> cityList = ct.stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
         return new DistributionDTO(referer, deviceList, cityList);
     }
 
+    // Backward-compatible overloads to satisfy existing callers
+    public DistributionDTO getDistribution(String shortCode, String startStr, String endStr, String source, String device, String city, Integer page, Integer size) {
+        com.layor.tinyflow.dto.StatsQuery q = new com.layor.tinyflow.dto.StatsQuery();
+        q.setStart(startStr); q.setEnd(endStr); q.setSource(source); q.setDevice(device); q.setCity(city); q.setPage(page); q.setSize(size);
+        return getDistribution(shortCode, q);
+    }
 
-    /**
-     * 获取指定短链接的点击事件列表
-     *
-     * @param shortCode 短链接码
-     * @param startStr  开始日期字符串，格式为 yyyy-MM-dd
-     * @param endStr    结束日期字符串，格式为 yyyy-MM-dd
-     * @param source    来源主机过滤条件
-     * @param device    设备类型过滤条件
-     * @param city      城市过滤条件
-     * @param page      页码（从0开始）
-     * @param size      每页大小
-     * @return 点击事件列表
-     */
-    public List<ClickEventDTO> getEvents(String shortCode, String startStr, String endStr, String source, String device, String city, Integer page, Integer size) {
-        LocalDateTime end = parseEnd(endStr);
-        LocalDateTime start = parseStart(startStr, end);
-        Pageable pageable = PageRequest.of(Math.max(0, page == null ? 0 : page), Math.max(1, size == null ? 20 : size));
-        Page<com.layor.tinyflow.entity.ClickEvent> p = clickEventRepository.findEvents(shortCode, start, end, emptyToNull(source), emptyToNull(device), emptyToNull(city), pageable);
+    public List<ClickEventDTO> getEvents(String shortCode, com.layor.tinyflow.dto.StatsQuery q) {
+        LocalDateTime end = parseEnd(q.getEnd());
+        LocalDateTime start = parseStart(q.getStart(), end);
+        Pageable pageable = PageRequest.of(Math.max(0, q.getPage() == null ? 0 : q.getPage()), Math.max(1, q.getSize() == null ? 20 : q.getSize()));
+        Page<com.layor.tinyflow.entity.ClickEvent> p = clickEventRepository.findEvents(shortCode, start, end, emptyToNull(q.getSource()), emptyToNull(q.getDevice()), emptyToNull(q.getCity()), pageable);
         return p.getContent().stream().map(e -> new ClickEventDTO(e.getTs(), e.getIp(), e.getSourceHost(), e.getDeviceType(), e.getCity(), e.getCountry(), e.getUa(), e.getReferer())).toList();
     }
 
-    public byte[] exportStats(String shortCode, String startStr, String endStr, String source, String device, String city, String format) {
-        LocalDateTime end = parseEnd(endStr);
-        LocalDateTime start = parseStart(startStr, end);
-        List<com.layor.tinyflow.entity.ClickEvent> list = clickEventRepository.findEvents(shortCode, start, end, emptyToNull(source), emptyToNull(device), emptyToNull(city), PageRequest.of(0, 100000)).getContent();
+    // Backward-compatible overload
+    public List<ClickEventDTO> getEvents(String shortCode, String startStr, String endStr, String source, String device, String city, Integer page, Integer size) {
+        com.layor.tinyflow.dto.StatsQuery q = new com.layor.tinyflow.dto.StatsQuery();
+        q.setStart(startStr); q.setEnd(endStr); q.setSource(source); q.setDevice(device); q.setCity(city); q.setPage(page); q.setSize(size);
+        return getEvents(shortCode, q);
+    }
+
+    public byte[] exportStats(String shortCode, com.layor.tinyflow.dto.StatsQuery q, String format) {
+        LocalDateTime end = parseEnd(q.getEnd());
+        LocalDateTime start = parseStart(q.getStart(), end);
+        List<com.layor.tinyflow.entity.ClickEvent> list = clickEventRepository.findEvents(shortCode, start, end, emptyToNull(q.getSource()), emptyToNull(q.getDevice()), emptyToNull(q.getCity()), PageRequest.of(0, 100000)).getContent();
         if ("json".equalsIgnoreCase(format)) {
             StringBuilder sb = new StringBuilder();
             sb.append("[");
@@ -343,14 +317,33 @@ public class ShortUrlService {
         return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
+    // Backward-compatible overload
+    public byte[] exportStats(String shortCode, String startStr, String endStr, String source, String device, String city, String format) {
+        com.layor.tinyflow.dto.StatsQuery q = new com.layor.tinyflow.dto.StatsQuery();
+        q.setStart(startStr); q.setEnd(endStr); q.setSource(source); q.setDevice(device); q.setCity(city); q.setPage(0); q.setSize(100000);
+        return exportStats(shortCode, q, format);
+    }
+
     private LocalDateTime parseEnd(String endStr) {
-        if (endStr == null || endStr.isEmpty()) return LocalDateTime.now();
-        try { return LocalDate.parse(endStr).atTime(23,59,59); } catch (Exception e) { return LocalDateTime.now(); }
+        if (endStr == null || endStr.isEmpty()) {
+            LocalDate mEnd = LocalDate.now().with(TemporalAdjusters.lastDayOfMonth());
+            return mEnd.atTime(23, 59, 59);
+        }
+        try { return LocalDate.parse(endStr).atTime(23,59,59); } catch (Exception e) {
+            LocalDate mEnd = LocalDate.now().with(TemporalAdjusters.lastDayOfMonth());
+            return mEnd.atTime(23, 59, 59);
+        }
     }
 
     private LocalDateTime parseStart(String startStr, LocalDateTime end) {
-        if (startStr == null || startStr.isEmpty()) return end.minusDays(7);
-        try { return LocalDate.parse(startStr).atStartOfDay(); } catch (Exception e) { return end.minusDays(7); }
+        if (startStr == null || startStr.isEmpty()) {
+            LocalDate mStart = LocalDate.now().with(TemporalAdjusters.firstDayOfMonth());
+            return mStart.atStartOfDay();
+        }
+        try { return LocalDate.parse(startStr).atStartOfDay(); } catch (Exception e) {
+            LocalDate mStart = LocalDate.now().with(TemporalAdjusters.firstDayOfMonth());
+            return mStart.atStartOfDay();
+        }
     }
 
     private String emptyToNull(String s) { return (s == null || s.isEmpty()) ? null : s; }
@@ -425,12 +418,11 @@ public class ShortUrlService {
     }
 //短链跳转
     public void redirectCode(String code, HttpServletRequest request, HttpServletResponse response) {
-        ShortUrl shortCode = shortUrlRepository.findByShortCode(code);
-        if (shortCode == null) {
+        String longUrl = getLongUrlByShortCode(code);
+        if (longUrl == null) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
-        String longUrl = shortCode.getLongUrl();
         recordClick(code);
         try { recordClickEvent(code, request); } catch (Exception ignored) {}
         response.setStatus(HttpServletResponse.SC_FOUND);
