@@ -56,7 +56,7 @@ public class StatsController {
     @PostMapping("/distribution")
     public ResponseEntity<DistributionDTO> getDistribution(
             @RequestBody StatsQuery q) {
-        DistributionDTO dto = shortUrlService.getDistribution(q.getCode(), q.getStart(), q.getEnd(), q.getSource(), q.getDevice(), q.getCity());
+        DistributionDTO dto = shortUrlService.getDistribution(q.getCode(), q.getStart(), q.getEnd(), q.getSource(), q.getDevice(), q.getCity(), q.getPage(), q.getSize());
         return ResponseEntity.ok(dto);
     }
 
