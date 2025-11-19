@@ -11,13 +11,18 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     database-platform: org.hibernate.dialect.MySQL8Dialect
   data:
     redis:
-      host: localhost
-      port: 6379
-      timeout: 1000ms
+      timeout: 100ms  # 改成 100ms，避免长时间等待
+      lettuce:
+          pool:
+            max-active: 20
+
+            max-idle: 10
+
+            max-wait: 100ms
 
 
 server:
@@ -56,3 +61,6 @@ management:
         http:
           server:
             requests: 0.95, 0.99
+
+events:
+  sampleRate: 0.0
