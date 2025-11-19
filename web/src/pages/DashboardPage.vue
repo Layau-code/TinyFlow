@@ -122,6 +122,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useFetchList, useFetchClickStats, useFetchOverview, useFetchTrend, useCompareTrend } from '../composables/useStats'
 import axios from 'axios'
+import { API_BASE } from '../composables/shortBase'
 import { SHORT_BASE } from '../composables/shortBase'
 const DistributionChart = defineAsyncComponent(() => import('../components/DistributionChart.vue'))
 const TrendLineChart = defineAsyncComponent(() => import('../components/charts/TrendLineChart.vue'))
@@ -309,7 +310,7 @@ function copy(text){
 async function remove(code){
   if (!code) return
   try {
-    await axios.delete('/api/' + encodeURIComponent(code))
+    await axios.delete((API_BASE || '') + '/api/' + encodeURIComponent(code))
     await Promise.all([refresh(), refreshClickStats()])
   } catch (e) {
     console.log('remove failed', e)

@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import axios from 'axios'
+import { API_BASE } from './shortBase'
 
 function createApiState() {
   return { data: ref(null), loading: ref(false), error: ref(null) }
@@ -11,7 +12,7 @@ export function useFetchList() {
     state.loading.value = true
     state.error.value = null
     try {
-      const res = await axios.get('/api/urls')
+      const res = await axios.get(API_BASE ? API_BASE + '/api/urls' : '/api/urls')
       const payload = res?.data ?? null
       // 兼容后端分页返回结构：PageResponseDTO { content, totalElements, ... }
       const list = Array.isArray(payload)
@@ -23,7 +24,18 @@ export function useFetchList() {
             : Array.isArray(payload?.data?.content)
               ? payload.data.content
               : []
-      state.data.value = list
+      try {
+        const { SHORT_BASE } = await import('../composables/shortBase')
+        state.data.value = (list || []).map((it) => {
+          const raw = String(it?.shortUrl || '')
+          const last = (raw.split('/').pop() || '').split('?')[0]
+          const code = String(it?.shortCode || last || '')
+          const fixed = code ? `${SHORT_BASE}/${encodeURIComponent(code)}` : raw
+          return { ...it, shortUrl: fixed }
+        })
+      } catch {
+        state.data.value = list
+      }
     } catch (e) {
       state.error.value = e
     } finally {
@@ -39,7 +51,7 @@ export function useFetchOverview(shortCode) {
     state.loading.value = true
     state.error.value = null
     try {
-      const res = await axios.get(`/api/stats/overview/${encodeURIComponent(shortCode)}`)
+      const res = await axios.get((API_BASE || '') + `/api/stats/overview/${encodeURIComponent(shortCode)}`)
       const payload = res?.data ?? null
       // 兼容后端 envelope：{ data: {...} } / { result: {...} }
       const overview = payload?.data ?? payload?.result ?? payload
@@ -64,7 +76,7 @@ export function useFetchTrend(shortCode, daysSource = 7) {
     try {
       const d = getDays()
       console.debug('[trend] GET /api/stats/trend', { shortCode, days: d })
-      const res = await axios.get(`/api/stats/trend/${encodeURIComponent(shortCode)}`, { params: { days: d } })
+      const res = await axios.get((API_BASE || '') + `/api/stats/trend/${encodeURIComponent(shortCode)}`, { params: { days: d } })
       const payload = res?.data ?? null
       // 兼容多种列表结构：数组 / { items } / { data } / { content }
       const list = Array.isArray(payload)
@@ -95,7 +107,7 @@ export function useFetchDistribution(shortCode, filtersRef) {
     try {
       const raw = (filtersRef && filtersRef.value) ? { ...filtersRef.value } : {}
       const body = { code: shortCode, ...Object.fromEntries(Object.entries(raw).filter(([k,v]) => v !== undefined && v !== null && String(v).trim() !== '')) }
-      const res = await axios.post('/api/stats/distribution', body, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
+      const res = await axios.post((API_BASE || '') + '/api/stats/distribution', body, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
       const payload = res?.data ?? null
       const dist = payload?.data ?? payload?.result ?? payload ?? {}
       state.data.value = {
@@ -118,7 +130,7 @@ export function useCompareTrend() {
     state.loading.value = true
     state.error.value = null
     try {
-      const res = await axios.get('/api/stats/compare', { params: { trends: codes.join(','), days } })
+      const res = await axios.get((API_BASE || '') + '/api/stats/compare', { params: { trends: codes.join(','), days } })
       state.data.value = res?.data || {}
     } catch (e) {
       state.error.value = e
@@ -180,7 +192,7 @@ export function useFetchClickStats() {
 
 // 导出 CSV/JSON（直接触发浏览器下载）
 export async function exportStats(shortCode, params = {}, format = 'csv') {
-  const url = `/api/stats/export?format=${encodeURIComponent(format)}`
+  const url = (API_BASE || '') + `/api/stats/export?format=${encodeURIComponent(format)}`
   const body = { code: shortCode, ...Object.fromEntries(Object.entries(params||{}).filter(([k,v]) => v !== undefined && v !== null && String(v).trim() !== '')) }
   const res = await axios.post(url, body, { responseType: 'blob', headers: { 'Content-Type': 'application/json;charset=utf-8' } })
   const blob = res.data
