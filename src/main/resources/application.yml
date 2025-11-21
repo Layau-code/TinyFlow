@@ -15,7 +15,10 @@ spring:
     database-platform: org.hibernate.dialect.MySQL8Dialect
   data:
     redis:
-      timeout: 100ms  # 改成 100ms，避免长时间等待
+      host: 47.97.110.128   # ← 改成你的云服务器公网 IP
+      port: 6379
+      password: 123456
+      timeout: 1000ms  # 改成 100ms，避免长时间等待
       lettuce:
           pool:
             max-active: 20

@@ -57,7 +57,7 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 import QrcodeVue from 'qrcode.vue'
 import { useI18n } from 'vue-i18n'
-import { SHORT_BASE, API_BASE } from '../composables/shortBase'
+import { SHORT_BASE } from '../composables/shortBase'
 
 // UI 风格：通义千问蓝紫
 const BLUE = '#2B6CEF'
@@ -114,7 +114,7 @@ async function submit() {
   loading.value = true
   shortUrl.value = ''
   try {
-    const res = await axios.post((API_BASE || '') + '/api/shorten', {
+    const res = await axios.post('/api/shorten', {
       longUrl: url,
       customAlias: alias || undefined
     }, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
