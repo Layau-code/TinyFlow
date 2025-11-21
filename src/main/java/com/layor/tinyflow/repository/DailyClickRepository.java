@@ -34,4 +34,12 @@ public interface DailyClickRepository extends JpaRepository<DailyClick, Long> {
     ON DUPLICATE KEY UPDATE clicks = clicks + 1
     """, nativeQuery = true)
     void incrementClick(@Param("shortCode") String shortCode);
+
+    @Modifying
+    @Query(value = """
+    INSERT INTO daily_click (short_code, date, clicks)
+    VALUES (:shortCode, CURDATE(), :delta)
+    ON DUPLICATE KEY UPDATE clicks = clicks + :delta
+    """, nativeQuery = true)
+    void incrementClickBy(@Param("shortCode") String shortCode, @Param("delta") long delta);
 }
