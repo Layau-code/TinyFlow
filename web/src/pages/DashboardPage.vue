@@ -124,6 +124,7 @@ import { useFetchList, useFetchClickStats, useFetchOverview, useFetchTrend, useC
 import axios from 'axios'
 import { API_BASE } from '../composables/shortBase'
 import { SHORT_BASE } from '../composables/shortBase'
+try { if (API_BASE) { axios.defaults.baseURL = API_BASE } } catch {}
 const DistributionChart = defineAsyncComponent(() => import('../components/DistributionChart.vue'))
 const TrendLineChart = defineAsyncComponent(() => import('../components/charts/TrendLineChart.vue'))
 const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
@@ -310,7 +311,7 @@ function copy(text){
 async function remove(code){
   if (!code) return
   try {
-    await axios.delete((API_BASE || '') + '/api/' + encodeURIComponent(code))
+    await axios.delete('/api/' + encodeURIComponent(code))
     await Promise.all([refresh(), refreshClickStats()])
   } catch (e) {
     console.log('remove failed', e)
