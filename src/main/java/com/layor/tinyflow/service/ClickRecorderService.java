@@ -35,14 +35,16 @@ public class ClickRecorderService {
     public void recordClick(String shortCode) {
         String totalKey = "tf:clicks:total";
         String dayKey = "tf:clicks:day:" + LocalDate.now();
-        redisTemplate.executePipelined(new org.springframework.data.redis.core.SessionCallback<Object>() {
-            @Override
-            public Object execute(org.springframework.data.redis.core.RedisOperations operations) {
-                operations.opsForHash().increment(dayKey, shortCode, 1L);
-                operations.opsForHash().increment(totalKey, shortCode, 1L);
-                return null;
-            }
-        });
+        try {
+            var script = new org.springframework.data.redis.core.script.DefaultRedisScript<Long>();
+            script.setScriptText("redis.call('HINCRBY', KEYS[1], ARGV[1], 1); redis.call('HINCRBY', KEYS[2], ARGV[1], 1); return 1;");
+            script.setResultType(Long.class);
+            java.util.List<String> keys = java.util.Arrays.asList(dayKey, totalKey);
+            redisTemplate.execute(script, keys, shortCode);
+        } catch (org.springframework.data.redis.RedisConnectionFailureException ex) {
+            lombok.extern.slf4j.Slf4j.class.getDeclaredMethods();
+            log.error("redis connect failed: {}", ex.getMessage());
+        }
     }
 
     @Async
