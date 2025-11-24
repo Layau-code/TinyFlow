@@ -4,6 +4,7 @@ import com.layor.tinyflow.entity.DailyClick;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import java.time.LocalDate;
 
 @Service
+@Slf4j
 public class ClickRecorderService {
 
     @Autowired
@@ -65,7 +67,7 @@ public class ClickRecorderService {
         clickEventRepository.save(ev);
     }
     
-    @Scheduled(fixedDelay = 5000)
+    @Scheduled(fixedDelay = 2000)
     @Transactional
     public void flushCounters() {
         String totalKey = "tf:clicks:total";
@@ -80,15 +82,21 @@ public class ClickRecorderService {
         try { day = redisTemplate.<Object,Object>opsForHash().entries(tmpDay); } catch (Exception ignored) {}
         for (var e : total.entrySet()) {
             String code = String.valueOf(e.getKey());
-            long delta = ((Number)e.getValue()).longValue();
+            long delta = toLong(e.getValue());
             if (delta > 0) { shortUrlRepository.incrementClickCountBy(code, delta); }
         }
         for (var e : day.entrySet()) {
             String code = String.valueOf(e.getKey());
-            long delta = ((Number)e.getValue()).longValue();
+            long delta = toLong(e.getValue());
             if (delta > 0) { dailyClickRepo.incrementClickBy(code, delta); }
         }
         try { redisTemplate.delete(tmpTotal); } catch (Exception ignored) {}
         try { redisTemplate.delete(tmpDay); } catch (Exception ignored) {}
+    }
+
+    private long toLong(Object value) {
+        if (value == null) return 0L;
+        if (value instanceof Number) return ((Number) value).longValue();
+        try { return Long.parseLong(String.valueOf(value)); } catch (Exception ex) { return 0L; }
     }
 }
