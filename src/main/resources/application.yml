@@ -79,6 +79,13 @@ events:
 clicks:
   mode: local
 
+cache:
+  caffeine:
+    spec: maximumSize=10000,expireAfterWrite=10m,recordStats
+  warmup:
+    enabled: true
+    size: 1000
+
 resilience4j:
   ratelimiter:
     instances:
