@@ -113,7 +113,7 @@ public class ShortUrlService {
 
 
     private static final java.util.concurrent.ConcurrentHashMap<String, CacheEntry> localCache = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final long LOCAL_TTL_MS = 60_000;
+    private static final long LOCAL_TTL_MS = 600_000;
 
     private static class CacheEntry {
         final String v; final long exp;
@@ -186,6 +186,21 @@ public class ShortUrlService {
         return new PageImpl<>(urlListResponseDTO, pageable, shortUrlPage.getTotalElements());
     
     }
+    @io.github.resilience4j.ratelimiter.annotation.RateLimiter(name = "redirectLimit")
+    public void redirectCode(String code, HttpServletRequest request, HttpServletResponse response) {
+        String longUrl = getLongUrlByShortCode(code);
+        if (longUrl == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        recordClick(code);
+        try { recordClickEvent(code, request); } catch (Exception ignored) {}
+        response.setStatus(HttpServletResponse.SC_FOUND);
+        response.setHeader("Location", longUrl);
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
+
+    @io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker(name = "redisBreaker", fallbackMethod = "redisFallback")
     public String getLongUrlByShortCode(String shortCode) {
         CacheEntry ce = localCache.get(shortCode);
         if (ce != null && ce.exp > System.currentTimeMillis()) return ce.v;
@@ -208,6 +223,12 @@ public class ShortUrlService {
         localCache.put(shortCode, new CacheEntry(shortUrl.getLongUrl(), System.currentTimeMillis()+LOCAL_TTL_MS));
         //返回长链接
         return shortUrl.getLongUrl();
+    }
+
+    public String redisFallback(String shortCode, Throwable t) {
+        // 降级逻辑：Redis 挂了直接查数据库
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
+        return shortUrl != null ? shortUrl.getLongUrl() : null;
     }
     public ShortUrlOverviewDTO getOverviewByShortCode(String shortCode) {
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);

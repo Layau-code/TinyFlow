@@ -27,9 +27,9 @@ public class TinyFlowApplication {
     @Bean
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(8);
-        executor.setMaxPoolSize(32);
-        executor.setQueueCapacity(10000);
+        executor.setCorePoolSize(32);
+        executor.setMaxPoolSize(128);
+        executor.setQueueCapacity(20000);
         executor.setThreadNamePrefix("async-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();

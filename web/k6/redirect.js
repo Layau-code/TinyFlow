@@ -6,47 +6,77 @@ let codes = (__ENV.CODES || '千问,腾讯技术,云控制台').split(',').map(s
 if (codes.length === 0) codes = ['test']
 const mode = (__ENV.MODE || 'rps').toLowerCase()
 
-export const options = mode === 'rps' ? {
-  scenarios: {
-    s1: {
-      executor: 'constant-arrival-rate',
-      rate: Number(__ENV.RATE1 || 500),
-      timeUnit: '1s',
-      duration: __ENV.DUR1 || '60s',
-      preAllocatedVUs: Number(__ENV.PRE1 || 300),
-      maxVUs: Number(__ENV.MAX1 || 1000),
+let options
+if (mode === 'rps') {
+  options = {
+    scenarios: {
+      default: {
+        executor: 'constant-arrival-rate',
+        rate: Number(__ENV.RATE1 || 600),
+        timeUnit: '1s',
+        duration: __ENV.DUR1 || '60s',
+        preAllocatedVUs: Number(__ENV.PRE1 || 400),
+        maxVUs: Number(__ENV.MAX1 || 1500),
+      },
     },
-    s2: {
-      executor: 'constant-arrival-rate',
-      rate: Number(__ENV.RATE2 || 1000),
-      timeUnit: '1s',
-      startTime: __ENV.DUR1 || '60s',
-      duration: __ENV.DUR2 || '60s',
-      preAllocatedVUs: Number(__ENV.PRE2 || 600),
-      maxVUs: Number(__ENV.MAX2 || 2000),
+    discardResponseBodies: true,
+    thresholds: {
+      http_req_duration: ['p(95)<300'],
+      checks: ['rate>0.99'],
     },
-  },
-  thresholds: {
-    http_req_duration: ['p(95)<300'],
-    checks: ['rate>0.99'],
-  },
-} : {
-  stages: [
-    { duration: '30s', target: Number(__ENV.VUS1 || 100) },
-    { duration: '2m', target: Number(__ENV.VUS2 || 500) },
-    { duration: '30s', target: 0 },
-  ],
-  thresholds: {
-    http_req_duration: ['p(95)<300'],
-    checks: ['rate>0.99'],
-  },
+  }
+} else if (mode === 'ramp') {
+  options = {
+    scenarios: {
+      default: {
+        executor: 'ramping-arrival-rate',
+        startRate: Number(__ENV.RATE_START || 100),
+        timeUnit: '1s',
+        preAllocatedVUs: Number(__ENV.PRE1 || 400),
+        maxVUs: Number(__ENV.MAX1 || 1500),
+        stages: [
+          { duration: __ENV.WARM || '20s', target: Number(__ENV.RATE1 || 600) },
+          { duration: __ENV.HOLD || '60s', target: Number(__ENV.RATE1 || 600) },
+        ],
+      },
+    },
+    discardResponseBodies: true,
+    thresholds: {
+      http_req_duration: ['p(95)<300'],
+      checks: ['rate>0.99'],
+    },
+  }
+} else {
+  options = {
+    stages: [
+      { duration: '30s', target: Number(__ENV.VUS1 || 100) },
+      { duration: '2m', target: Number(__ENV.VUS2 || 500) },
+      { duration: '30s', target: 0 },
+    ],
+    thresholds: {
+      http_req_duration: ['p(95)<300'],
+      checks: ['rate>0.99'],
+    },
+  }
 }
+
+export { options }
 
 export default function () {
   const code = codes[Math.floor(Math.random() * codes.length)]
   const url = `${BASE}/${encodeURIComponent(code)}`
-  const res = http.get(url, { redirects: 0 })
-  check(res, { '302': r => r.status === 302 })
+  const batch = Number(__ENV.BATCH || 0)
+  if (batch > 1) {
+    const urls = Array.from({ length: batch }, () => {
+      const c = codes[Math.floor(Math.random() * codes.length)]
+      return `${BASE}/${encodeURIComponent(c)}`
+    })
+    const resps = http.batch(urls.map(u => ['GET', u, null, { redirects: 0 }]))
+    for (const r of resps) check(r, { '302': rr => rr.status === 302 })
+  } else {
+    const res = http.get(url, { redirects: 0 })
+    check(res, { '302': r => r.status === 302 })
+  }
   const sl = Number(__ENV.SLEEP || 0)
   if (sl > 0) sleep(sl)
 }
@@ -61,14 +91,14 @@ function htmlReportLocal(data) {
     return typeof val === 'number' ? Number(val).toFixed(2) : String(val || '')
   }
   const rows = [
-    ['Requests', g('http_reqs','count')],
-    ['Fail rate', g('http_req_failed','rate')],
-    ['RPS (mean)', g('http_reqs','rate')],
-    ['Duration avg (ms)', g('http_req_duration','avg')],
-    ['Duration p95 (ms)', g('http_req_duration','p(95)')],
-    ['TTFB p95 (ms)', g('http_req_waiting','p(95)')],
+    ['Requests', g('http_reqs', 'count')],
+    ['Fail rate', g('http_req_failed', 'rate')],
+    ['RPS (mean)', g('http_reqs', 'rate')],
+    ['Duration avg (ms)', g('http_req_duration', 'avg')],
+    ['Duration p95 (ms)', g('http_req_duration', 'p(95)')],
+    ['TTFB p95 (ms)', g('http_req_waiting', 'p(95)')],
   ]
-  const tr = rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')
+  const tr = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')
   return `<!doctype html><html><head><meta charset="utf-8"><title>K6 Report</title><style>body{font-family:system-ui,Segoe UI,Arial;padding:20px;background:#fafafa;color:#222}h1{margin:0 0 12px}table{border-collapse:collapse;width:600px;max-width:100%}td{border:1px solid #ddd;padding:8px}td:first-child{font-weight:600;background:#f4f4f4}</style></head><body><h1>K6 Load Test Summary</h1><table>${tr}</table></body></html>`
 }
 

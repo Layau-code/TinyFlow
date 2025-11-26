@@ -28,11 +28,22 @@ public class ClickRecorderService {
     @Autowired
     private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
+    @Value("${clicks.mode:redis}")
+    private String counterMode;
+
     @Value("${events.sampleRate:0.0}")
     private double sampleRate;
 
+    private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong> localTotal = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong> localDay = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Async
     public void recordClick(String shortCode) {
+        if ("local".equalsIgnoreCase(counterMode)) {
+            localTotal.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
+            localDay.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
+            return;
+        }
         String totalKey = "tf:clicks:total";
         String dayKey = "tf:clicks:day:" + LocalDate.now();
         try {
@@ -42,7 +53,6 @@ public class ClickRecorderService {
             java.util.List<String> keys = java.util.Arrays.asList(dayKey, totalKey);
             redisTemplate.execute(script, keys, shortCode);
         } catch (org.springframework.data.redis.RedisConnectionFailureException ex) {
-            lombok.extern.slf4j.Slf4j.class.getDeclaredMethods();
             log.error("redis connect failed: {}", ex.getMessage());
         }
     }
@@ -72,6 +82,19 @@ public class ClickRecorderService {
     @Scheduled(fixedDelay = 2000)
     @Transactional
     public void flushCounters() {
+        if ("local".equalsIgnoreCase(counterMode)) {
+            for (var e : localTotal.entrySet()) {
+                String code = e.getKey();
+                long delta = e.getValue().getAndSet(0);
+                if (delta > 0) { shortUrlRepository.incrementClickCountBy(code, delta); }
+            }
+            for (var e : localDay.entrySet()) {
+                String code = e.getKey();
+                long delta = e.getValue().getAndSet(0);
+                if (delta > 0) { dailyClickRepo.incrementClickBy(code, delta); }
+            }
+            return;
+        }
         String totalKey = "tf:clicks:total";
         String dayKey = "tf:clicks:day:" + LocalDate.now();
         String tmpTotal = totalKey + ":flush:" + System.currentTimeMillis();
