@@ -8,8 +8,11 @@ spring:
     password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 50
-      minimum-idle: 10
+      maximum-pool-size: 100
+      minimum-idle: 20
+      connection-timeout: 3000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   jpa:
     hibernate:
@@ -24,21 +27,21 @@ spring:
       timeout: 2s
       lettuce:
           pool:
-            max-active: 400
-
-            max-idle: 100
-
-            max-wait: 2s
-            min-idle: 20
+            max-active: 600
+            max-idle: 200
+            max-wait: 1s
+            min-idle: 50
 
 
 server:
   port: 8080
   tomcat:
     threads:
-      max: 400
-    accept-count: 1000
-    max-connections: 20000
+      max: 600
+      min-spare: 50
+    accept-count: 2000
+    max-connections: 30000
+    connection-timeout: 3000
   servlet:
     encoding:
       charset: UTF-8
@@ -81,16 +84,16 @@ clicks:
 
 cache:
   caffeine:
-    spec: maximumSize=10000,expireAfterWrite=10m,recordStats
+    spec: maximumSize=50000,expireAfterWrite=30m,recordStats
   warmup:
     enabled: true
-    size: 1000
+    size: 5000
 
 resilience4j:
   ratelimiter:
     instances:
       redirectLimit:
-        limitForPeriod: 4500
+        limitForPeriod: 3500
         limitRefreshPeriod: 1s
         timeoutDuration: 0
   circuitbreaker:
