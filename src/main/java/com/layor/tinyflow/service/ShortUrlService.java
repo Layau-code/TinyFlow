@@ -58,6 +58,8 @@ public class ShortUrlService {
     private SegmentIdGenerator idGenerator;
     @Autowired
     HashidsStrategy codeStrategy;
+    @Autowired
+    private AuthService authService; // 注入认证服务
     // 基础短链域名
     private static final String BASE_URL = "https://localhost:8080";
 
@@ -69,15 +71,25 @@ public class ShortUrlService {
         if (!isValidUrl(longUrl)) {
             throw new Exception("长链接格式不正确");
         }
-        //1.1如果长链接已经存在，直接返回对应的短链
+        
+        // 获取当前登录用户ID
+        Long userId = authService.getCurrentUserId();
+        if (userId == null) {
+            throw new Exception("未登录，请先登录");
+        }
+        
+        //1.1如果长链接已经存在且属于当前用户，直接返回对应的短链
         if (shortUrlRepository.existsByLongUrl(longUrl)) {
-            ShortUrl shortUrl = shortUrlRepository.findByLongUrl(longUrl);
-            return ShortUrlDTO.builder()
-                    .shortCode(shortUrl.getShortCode())
-                    .shortUrl(BASE_URL + "/" + shortUrl.getShortCode())
-                    .longUrl(shortUrl.getLongUrl())
-                    .createdAt(shortUrl.getCreatedAt())
-                    .build();
+            ShortUrl existingUrl = shortUrlRepository.findByLongUrl(longUrl);
+            // 检查是否属于当前用户
+            if (existingUrl.getUserId() != null && existingUrl.getUserId().equals(userId)) {
+                return ShortUrlDTO.builder()
+                        .shortCode(existingUrl.getShortCode())
+                        .shortUrl(BASE_URL + "/" + existingUrl.getShortCode())
+                        .longUrl(existingUrl.getLongUrl())
+                        .createdAt(existingUrl.getCreatedAt())
+                        .build();
+            }
         }
 
         // 2. 处理别名
@@ -86,18 +98,23 @@ public class ShortUrlService {
             // 自动生成随机码
             shortCode = generateRandomCode();
         } else {
-            //用户自定义了别名
-            shortUrlRepository.existsByShortCode(shortCode);
+            //用户自定义了别名，检查是否已存在
+            if (shortUrlRepository.existsByShortCode(shortCode)) {
+                throw new Exception("自定义别名已存在");
+            }
         }
 
         ShortUrl shortUrl = ShortUrl.builder()
                 .longUrl(longUrl)
                 .shortCode(shortCode)
+                .userId(userId) // 设置创建者ID
                 .createdAt(LocalDateTime.now())
                 .build();
 
         // 3. 存入数据库
         shortUrlRepository.save(shortUrl);
+        log.info("用户 {} 创建短链: {} -> {}", userId, shortCode, longUrl);
+        
         // 4. 构造返回结果
         ShortUrlDTO dto = ShortUrlDTO.builder()
                 .shortCode(shortCode)
@@ -214,10 +231,16 @@ public class ShortUrlService {
     }
     // UrlService.java
     public Page<UrlListResponseDTO> getAllUrls(int page, int size) {
+        // 获取当前登录用户ID
+        Long userId = authService.getCurrentUserId();
+        if (userId == null) {
+            throw new RuntimeException("未登录，请先登录");
+        }
+        
         Pageable pageable = PageRequest.of(page, size);
 
-        // 1. 先分页查出 ShortUrl 列表
-        Page<ShortUrl> shortUrlPage = shortUrlRepository.findAll(pageable);
+        // 1. 只查询当前用户的短链接
+        Page<ShortUrl> shortUrlPage = shortUrlRepository.findByUserId(userId, pageable);
         List<ShortUrl> shortUrls = shortUrlPage.getContent();
 
 
@@ -461,13 +484,25 @@ public class ShortUrlService {
     private String escapeJson(String s) { return s.replace("\\", "\\\\").replace("\"", "\\\""); }
     @Transactional
     public void deleteByShortCode(String shortCode) {
+        // 获取当前登录用户ID
+        Long userId = authService.getCurrentUserId();
+        if (userId == null) {
+            throw new RuntimeException("未登录，请先登录");
+        }
+        
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
         if (shortUrl == null) {
             throw new NoSuchElementException("Short URL not found");
         }
+        
+        // 权限检查：只能删除自己的短链
+        if (!shortUrl.getUserId().equals(userId)) {
+            throw new SecurityException("无权删除此短链接");
+        }
+        
         shortUrlRepository.deleteByShortCode(shortCode);
-
         dailyClickRepo.deleteByShortCode(shortCode);
+        log.info("用户 {} 删除短链: {}", userId, shortCode);
     }
 
     public List<UrlClickStatsDTO> getUrlClickStats() {
@@ -491,11 +526,23 @@ public class ShortUrlService {
 
     @Transactional
     public void updateShortUrl(String shortCode,  String customAlias) {
+        // 获取当前登录用户ID
+        Long userId = authService.getCurrentUserId();
+        if (userId == null) {
+            throw new RuntimeException("未登录，请先登录");
+        }
+        
         //1. 查询短链是否存在
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
         if (shortUrl == null) {
             throw new RuntimeException("短链不存在");
         }
+        
+        // 权限检查：只能修改自己的短链
+        if (!shortUrl.getUserId().equals(userId)) {
+            throw new SecurityException("无权修改此短链接");
+        }
+        
         if (customAlias != null && !customAlias.isEmpty()) {
             //2. 检查自定义别名是否已存在
             if (shortUrlRepository.existsByShortCode(customAlias)) {
@@ -526,6 +573,7 @@ public class ShortUrlService {
         } catch (Exception e) {
             log.warn("Cache update failed: {}", e.getMessage());
         }
-
+        
+        log.info("用户 {} 修改短链: {} -> {}", userId, shortCode, customAlias);
     }
 }

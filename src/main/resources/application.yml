@@ -168,3 +168,10 @@ resilience4j:
       redisBulkhead:
         maxConcurrentCalls: 100
         maxWaitDuration: 50ms
+
+# JWT 配置
+jwt:
+  # 密钥（生产环境请使用环境变量或加密存储，至少256位）
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970337336763979244226452948404D635166546A576E5A7134743777217A25432A
+  # 过期时间（毫秒），默认7天
+  expiration: 604800000
