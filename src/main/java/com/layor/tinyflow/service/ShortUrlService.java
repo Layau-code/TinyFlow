@@ -143,13 +143,29 @@ public class ShortUrlService {
             Pageable topN = PageRequest.of(0, warmupSize);
             Page<ShortUrl> hotUrls = shortUrlRepository.findAll(topN);
             
-            int loaded = 0;
+            int l1Loaded = 0, l2Loaded = 0;
             for (ShortUrl url : hotUrls.getContent()) {
-                localCache.put(url.getShortCode(), url.getLongUrl());
-                loaded++;
+                String shortCode = url.getShortCode();
+                String longUrl = url.getLongUrl();
+                
+                // 填充L1本地缓存
+                localCache.put(shortCode, longUrl);
+                l1Loaded++;
+                
+                // 同时填充L2 Redis缓存
+                try {
+                    redisTemplate.opsForValue().set(
+                        "short_url:" + shortCode, 
+                        longUrl, 
+                        java.time.Duration.ofHours(24)
+                    );
+                    l2Loaded++;
+                } catch (Exception e) {
+                    log.warn("Redis warmup failed for {}: {}", shortCode, e.getMessage());
+                }
             }
             
-            log.info("Cache warmup completed: {} URLs loaded to L1 cache", loaded);
+            log.info("Cache warmup completed: L1(本地)={}条, L2(Redis)={}条", l1Loaded, l2Loaded);
         } catch (Exception e) {
             log.error("Cache warmup failed: {}", e.getMessage(), e);
         }
@@ -236,19 +252,26 @@ public class ShortUrlService {
     }
 
     @io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker(name = "redisBreaker", fallbackMethod = "redisFallback")
+    @io.github.resilience4j.retry.annotation.Retry(name = "redisRetry")
     public String getLongUrlByShortCode(String shortCode) {
+        long startTime = System.currentTimeMillis();
+        
         // L1: 本地 Caffeine 缓存
         String cachedUrl = localCache.getIfPresent(shortCode);
         if (cachedUrl != null) {
+            log.debug("[L1 HIT] shortCode={}, duration={}ms", shortCode, System.currentTimeMillis() - startTime);
             return cachedUrl;
         }
         
         // L2: Redis 缓存
         String redisUrl = null;
         try { 
-            redisUrl = redisTemplate.opsForValue().get("short_url:" + shortCode); 
+            redisUrl = redisTemplate.opsForValue().get("short_url:" + shortCode);
+            log.debug("[L2 QUERY] shortCode={}, hit={}, duration={}ms", 
+                shortCode, redisUrl != null, System.currentTimeMillis() - startTime);
         } catch (Exception e) {
-            log.warn("Redis query failed for {}: {}", shortCode, e.getMessage());
+            log.warn("[L2 ERROR] Redis query failed for {}: {}", shortCode, e.getMessage());
+            throw e; // 抛出异常触发熔断器
         }
         
         if (redisUrl != null) {
@@ -258,8 +281,10 @@ public class ShortUrlService {
         }
 
         // L3: 数据库回源
+        log.info("[L3 QUERY] Database fallback for shortCode={}", shortCode);
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
         if (shortUrl == null) {
+            log.warn("[NOT FOUND] shortCode={}", shortCode);
             return null;
         }
         
@@ -269,19 +294,27 @@ public class ShortUrlService {
         try {
             redisTemplate.opsForValue().set("short_url:" + shortCode, longUrl, java.time.Duration.ofHours(24));
         } catch (Exception e) {
-            log.warn("Redis set failed for {}: {}", shortCode, e.getMessage());
+            log.warn("[L2 ERROR] Redis set failed for {}: {}", shortCode, e.getMessage());
         }
         
         // 回填本地缓存 (L1)
         localCache.put(shortCode, longUrl);
         
+        log.info("[DB HIT] shortCode={}, totalDuration={}ms", shortCode, System.currentTimeMillis() - startTime);
         return longUrl;
     }
 
     public String redisFallback(String shortCode, Throwable t) {
+        log.error("[FALLBACK] Redis circuit breaker triggered for shortCode={}, reason={}", 
+            shortCode, t.getMessage());
         // 降级逻辑：Redis 挂了直接查数据库
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
-        return shortUrl != null ? shortUrl.getLongUrl() : null;
+        if (shortUrl != null) {
+            // 回填本地缓存
+            localCache.put(shortCode, shortUrl.getLongUrl());
+            return shortUrl.getLongUrl();
+        }
+        return null;
     }
     public ShortUrlOverviewDTO getOverviewByShortCode(String shortCode) {
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);

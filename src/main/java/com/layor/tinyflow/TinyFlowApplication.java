@@ -27,13 +27,18 @@ public class TinyFlowApplication {
     @Bean
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(64);
-        executor.setMaxPoolSize(256);
-        executor.setQueueCapacity(50000);
+        // 根据 Memory 配置：核心128、最大512、队列10万
+        executor.setCorePoolSize(128);
+        executor.setMaxPoolSize(512);
+        executor.setQueueCapacity(100000);
         executor.setThreadNamePrefix("async-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        // 拒绝策略：丢弃最旧任务
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardOldestPolicy());
         executor.setKeepAliveSeconds(60);
         executor.setAllowCoreThreadTimeOut(true);
+        // 启用等待终止（优雅关闭）
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
         executor.initialize();
         return executor;
     }
