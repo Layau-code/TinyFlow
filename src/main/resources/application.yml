@@ -31,6 +31,36 @@ spring:
             max-idle: 200
             max-wait: 1s
             min-idle: 50
+  
+  # RabbitMQ 配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+    # 生产者确认机制，保证消息不丢失
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    # 消费者配置
+    listener:
+      simple:
+        # 手动确认模式，保证消息处理成功
+        acknowledge-mode: manual
+        # 并发消费者数量
+        concurrency: 4
+        max-concurrency: 8
+        # 预取数量（批量消费）
+        prefetch: 100
+        # 重试机制
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+          multiplier: 2
+          max-interval: 10000
 
 
 server:
@@ -92,11 +122,18 @@ management:
         enabled: true
         step: 1m
         descriptions: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
 
 events:
   sampleRate: 0.0
+# 点击计数模式：mq(消息队列，推荐) | local(本地内存) | redis(Pipeline)
 clicks:
-  mode: local
+  mode: mq
 
 cache:
   caffeine:

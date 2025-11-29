@@ -43,7 +43,7 @@ public class StatsController {
         if (trends == null || trends.trim().isEmpty()) {
             throw new IllegalArgumentException("短码列表不能为空");
         }
-        List<String> shortCodes = Arrays.asList(trends.split(","));
+        List<String> shortCodes = List.of(trends.split(","));
         return shortUrlService.getVisitTrendsByShortCodes(shortCodes, days);
     }
 

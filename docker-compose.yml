@@ -20,6 +20,20 @@ services:
       - mysql_data:/var/lib/mysql
     restart: unless-stopped
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: tinyflow-rabbitmq
+    hostname: tinyflow-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"   # AMQP 协议端口
+      - "15672:15672" # 管理后台端口
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+
   app:
     build:
       context: .
@@ -28,6 +42,7 @@ services:
     depends_on:
       - redis
       - mysql
+      - rabbitmq
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/tiny-flow?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci
       - SPRING_DATASOURCE_USERNAME=root
@@ -35,6 +50,10 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_TIMEOUT=100ms
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
       - SERVER_PORT=8080
     ports:
       - "8080:8080"
@@ -42,5 +61,6 @@ services:
 
 volumes:
   mysql_data:
+  rabbitmq_data:
 
 

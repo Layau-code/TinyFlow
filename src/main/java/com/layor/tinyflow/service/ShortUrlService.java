@@ -268,7 +268,7 @@ public class ShortUrlService {
             return;
         }
         recordClick(code);
-        try { recordClickEvent(code, request); } catch (Exception ignored) {}
+        recordClickEvent(code, request);
         response.setStatus(HttpServletResponse.SC_FOUND);
         response.setHeader("Location", longUrl);
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

@@ -1,10 +1,13 @@
 package com.layor.tinyflow.service;
 
+import com.layor.tinyflow.config.RabbitMQConfig;
+import com.layor.tinyflow.entity.ClickMessage;
 import com.layor.tinyflow.entity.DailyClick;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -27,8 +30,10 @@ public class ClickRecorderService {
     private com.layor.tinyflow.repository.ClickEventRepository clickEventRepository;
     @Autowired
     private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
-    @Value("${clicks.mode:redis}")
+    @Value("${clicks.mode:mq}")
     private String counterMode;
 
     @Value("${events.sampleRate:0.0}")
@@ -37,21 +42,55 @@ public class ClickRecorderService {
     private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong> localTotal = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong> localDay = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /**
+     * 记录点击事件（使用消息队列）
+     * 优先级：MQ > Local > Redis
+     */
     @Async
     public void recordClick(String shortCode) {
+        // 模式1：消息队列模式（推荐，高可靠）
+        if ("mq".equalsIgnoreCase(counterMode)) {
+            ClickMessage message = ClickMessage.builder()
+                    .shortCode(shortCode)
+                    .timestamp(System.currentTimeMillis())
+                    .date(LocalDate.now().toString())
+                    .build();
+            try {
+                rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.CLICK_EXCHANGE, 
+                    RabbitMQConfig.CLICK_ROUTING_KEY, 
+                    message
+                );
+                log.debug("[MQ] Click message sent: {}", shortCode);
+            } catch (Exception e) {
+                log.error("[MQ ERROR] Failed to send click message for {}: {}", shortCode, e.getMessage());
+                // 降级到本地模式
+                localTotal.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
+                localDay.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
+            }
+            return;
+        }
+        
+        // 模式2：本地内存模式
         if ("local".equalsIgnoreCase(counterMode)) {
             localTotal.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
             localDay.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
             return;
         }
+        
+        // 模式3：Redis Pipeline 模式
         String totalKey = "tf:clicks:total";
         String dayKey = "tf:clicks:day:" + LocalDate.now();
         try {
-            var script = new org.springframework.data.redis.core.script.DefaultRedisScript<Long>();
-            script.setScriptText("redis.call('HINCRBY', KEYS[1], ARGV[1], 1); redis.call('HINCRBY', KEYS[2], ARGV[1], 1); return 1;");
-            script.setResultType(Long.class);
-            java.util.List<String> keys = java.util.Arrays.asList(dayKey, totalKey);
-            redisTemplate.execute(script, keys, shortCode);
+            // 使用Pipeline减少网络往返
+            redisTemplate.executePipelined(new org.springframework.data.redis.core.SessionCallback<Object>() {
+                @Override
+                public Object execute(org.springframework.data.redis.core.RedisOperations operations) {
+                    operations.opsForHash().increment(dayKey, shortCode, 1);
+                    operations.opsForHash().increment(totalKey, shortCode, 1);
+                    return null;
+                }
+            });
         } catch (org.springframework.data.redis.RedisConnectionFailureException ex) {
             log.error("redis connect failed: {}", ex.getMessage());
         }
@@ -99,12 +138,24 @@ public class ClickRecorderService {
         String dayKey = "tf:clicks:day:" + LocalDate.now();
         String tmpTotal = totalKey + ":flush:" + System.currentTimeMillis();
         String tmpDay = dayKey + ":flush:" + System.currentTimeMillis();
-        try { redisTemplate.rename(totalKey, tmpTotal); } catch (Exception ignored) {}
-        try { redisTemplate.rename(dayKey, tmpDay); } catch (Exception ignored) {}
+        
+        // 使用Pipeline批量重命名和读取，减少网络往返
+        try {
+            redisTemplate.executePipelined(new org.springframework.data.redis.core.SessionCallback<Object>() {
+                @Override
+                public Object execute(org.springframework.data.redis.core.RedisOperations operations) {
+                    try { operations.rename(totalKey, tmpTotal); } catch (Exception ignored) {}
+                    try { operations.rename(dayKey, tmpDay); } catch (Exception ignored) {}
+                    return null;
+                }
+            });
+        } catch (Exception ignored) {}
+        
         java.util.Map<Object,Object> total = java.util.Collections.emptyMap();
         java.util.Map<Object,Object> day = java.util.Collections.emptyMap();
         try { total = redisTemplate.<Object,Object>opsForHash().entries(tmpTotal); } catch (Exception ignored) {}
         try { day = redisTemplate.<Object,Object>opsForHash().entries(tmpDay); } catch (Exception ignored) {}
+        
         for (var e : total.entrySet()) {
             String code = String.valueOf(e.getKey());
             long delta = toLong(e.getValue());
@@ -115,8 +166,18 @@ public class ClickRecorderService {
             long delta = toLong(e.getValue());
             if (delta > 0) { dailyClickRepo.incrementClickBy(code, delta); }
         }
-        try { redisTemplate.delete(tmpTotal); } catch (Exception ignored) {}
-        try { redisTemplate.delete(tmpDay); } catch (Exception ignored) {}
+        
+        // 使用Pipeline批量删除临时key
+        try {
+            redisTemplate.executePipelined(new org.springframework.data.redis.core.SessionCallback<Object>() {
+                @Override
+                public Object execute(org.springframework.data.redis.core.RedisOperations operations) {
+                    try { operations.delete(tmpTotal); } catch (Exception ignored) {}
+                    try { operations.delete(tmpDay); } catch (Exception ignored) {}
+                    return null;
+                }
+            });
+        } catch (Exception ignored) {}
     }
 
     private long toLong(Object value) {

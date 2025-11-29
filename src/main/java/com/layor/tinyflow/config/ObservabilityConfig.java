@@ -30,11 +30,15 @@ public class ObservabilityConfig {
     public ExecutorServiceMetrics executorServiceMetrics(
             ThreadPoolTaskExecutor taskExecutor,
             MeterRegistry meterRegistry) {
-        return new ExecutorServiceMetrics(
+        ExecutorServiceMetrics metrics = new ExecutorServiceMetrics(
                 taskExecutor.getThreadPoolExecutor(),
                 "async-executor",
-                "type", "async"
+                java.util.List.of(
+                    io.micrometer.core.instrument.Tag.of("type", "async")
+                )
         );
+        metrics.bindTo(meterRegistry);
+        return metrics;
     }
 
     /**
