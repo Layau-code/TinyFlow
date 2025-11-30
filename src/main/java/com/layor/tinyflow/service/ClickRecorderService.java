@@ -118,6 +118,7 @@ public class ClickRecorderService {
         clickEventRepository.save(ev);
     }
     
+
     @Scheduled(fixedDelay = 2000)
     @Transactional
     public void flushCounters() {

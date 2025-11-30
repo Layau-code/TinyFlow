@@ -248,14 +248,18 @@ public class ShortUrlService {
             return new PageImpl<>(Collections.emptyList(), pageable, 0);
         }
 
-        List<UrlListResponseDTO> urlListResponseDTO= shortUrls.stream()
+        List<String> codes = shortUrls.stream().map(ShortUrl::getShortCode).toList();
+        Map<String, Integer> todayMap = dailyClickRepo.findTodayClicksByShortCodes(codes).stream()
+                .collect(Collectors.toMap(r -> (String) r[0], r -> ((Number) r[1]).intValue()));
+        List<UrlListResponseDTO> urlListResponseDTO = shortUrls.stream()
                 .map(shortUrl -> UrlListResponseDTO.builder()
                         .shortCode(shortUrl.getShortCode())
                         .longUrl(shortUrl.getLongUrl())
                         .totalVisits(Long.valueOf(shortUrl.getClickCount()))
-                        .todayVisits(dailyClickRepo.getTodayClicksByShortCode(shortUrl.getShortCode()))
+                        .todayVisits(todayMap.getOrDefault(shortUrl.getShortCode(), 0))
                         .createdAt(shortUrl.getCreatedAt())
-                        .build()).toList();
+                        .build())
+                .toList();
 
         return new PageImpl<>(urlListResponseDTO, pageable, shortUrlPage.getTotalElements());
     

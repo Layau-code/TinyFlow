@@ -103,7 +103,7 @@
         </div>
         <!-- Pagination -->
         <div class="flex items-center justify-between mt-4">
-          <div class="md-muted">{{ $t('dashboard.pagination.total', { count: filteredList.length, page: page, pages: totalPages }) }}</div>
+          <div class="md-muted">{{ $t('dashboard.pagination.total', { count: (meta?.value && meta.value.totalElements) || 0, page: page, pages: totalPages }) }}</div>
           <div class="flex items-center gap-3">
             <button @click="prev" class="md-btn-text">{{ $t('dashboard.pagination.prev') }}</button>
             <button @click="next" class="md-btn-text">{{ $t('dashboard.pagination.next') }}</button>
@@ -134,9 +134,9 @@ const { t } = useI18n()
 
 const query = ref('')
 const page = ref(1)
-const pageSize = 10
+const pageSize = ref(10)
 
-const { data: listRef, loading, error, refresh } = useFetchList()
+const { data: listRef, loading, error, refresh, meta } = useFetchList(page, pageSize)
 // 新增：点击统计（用于饼图）来源于 /api/urls/click-stats
 const { data: clickStatsRef, loading: clickLoading, error: clickError, refresh: refreshClickStats } = useFetchClickStats()
 const list = listRef
@@ -292,10 +292,10 @@ const filteredList = computed(() => {
   return base.sort((a,b) => Number(b.totalVisits||0) - Number(a.totalVisits||0))
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredList.value.length / pageSize)))
-const pagedList = computed(() => filteredList.value.slice((page.value-1)*pageSize, page.value*pageSize))
-function prev(){ page.value = Math.max(1, page.value-1) }
-function next(){ page.value = Math.min(totalPages.value, page.value+1) }
+const totalPages = computed(() => Math.max(1, Number((meta?.value && meta.value.totalPages) || 1)))
+const pagedList = computed(() => filteredList.value)
+async function prev(){ page.value = Math.max(1, page.value-1); await refresh() }
+async function next(){ page.value = Math.min(totalPages.value, page.value+1); await refresh() }
 
 // 已移除趋势与Top5对比相关逻辑
 

@@ -7,13 +7,16 @@ function createApiState() {
   return { data: ref(null), loading: ref(false), error: ref(null) }
 }
 
-export function useFetchList() {
+export function useFetchList(pageRef, sizeRef) {
   const state = createApiState()
+  state.meta = ref({ totalElements: 0, totalPages: 1, size: 10, number: 0 })
   const refresh = async () => {
     state.loading.value = true
     state.error.value = null
     try {
-      const res = await axios.get('/api/urls')
+      const p = (pageRef && typeof pageRef === 'object' && 'value' in pageRef) ? Number(pageRef.value) : Number(pageRef || 1)
+      const s = (sizeRef && typeof sizeRef === 'object' && 'value' in sizeRef) ? Number(sizeRef.value) : Number(sizeRef || 10)
+      const res = await axios.get('/api/urls', { params: { page: Math.max(0, p - 1), size: Math.max(1, s) } })
       const payload = res?.data ?? null
       // 兼容后端分页返回结构：PageResponseDTO { content, totalElements, ... }
       const list = Array.isArray(payload)
@@ -34,8 +37,20 @@ export function useFetchList() {
           const fixed = code ? `${SHORT_BASE}/${encodeURIComponent(code)}` : raw
           return { ...it, shortUrl: fixed }
         })
+        state.meta.value = {
+          totalElements: Number(payload?.data?.totalElements ?? payload?.totalElements ?? (Array.isArray(list) ? list.length : 0)),
+          totalPages: Number(payload?.data?.totalPages ?? payload?.totalPages ?? 1),
+          size: Number(payload?.data?.size ?? payload?.size ?? s),
+          number: Number(payload?.data?.number ?? payload?.number ?? Math.max(0, p - 1))
+        }
       } catch {
         state.data.value = list
+        state.meta.value = {
+          totalElements: Number(payload?.data?.totalElements ?? payload?.totalElements ?? (Array.isArray(list) ? list.length : 0)),
+          totalPages: Number(payload?.data?.totalPages ?? payload?.totalPages ?? 1),
+          size: Number(payload?.data?.size ?? payload?.size ?? s),
+          number: Number(payload?.data?.number ?? payload?.number ?? Math.max(0, p - 1))
+        }
       }
     } catch (e) {
       state.error.value = e
