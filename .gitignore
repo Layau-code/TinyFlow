@@ -34,3 +34,5 @@ build/
 
 # Ignore k6 dashboard file if it can be regenerated
 web/k6/dashboard.json
+
+/logs/
