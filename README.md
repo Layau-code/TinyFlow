@@ -1,6 +1,6 @@
 # TinyFlow
 
-一款现代化的短链接生成与统计系统，前端基于 Vue 3 + Vite + Tailwind CSS，后端推荐使用 Spring Boot（可替换为任意语言栈）。UI 参考多款优秀开源项目与主流网站的交互与视觉风格，提供极简流畅的使用体验。
+一款现代化的短链接生成与统计系统，前端基于 Vue 3 + Vite + Tailwind CSS，后端推荐使用 Spring Boot（）。
 
 ---
 
