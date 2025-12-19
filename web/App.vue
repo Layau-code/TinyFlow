@@ -244,7 +244,9 @@ import QrcodeVue from 'qrcode.vue'
 import LanguageSwitcher from '/src/components/LanguageSwitcher.vue'
 import Favicon from '/src/components/Favicon.vue'
 
-const API_BASE = 'http://localhost:8080' // 用于顶部“历史记录”跳转链接
+const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin)
+  ? window.location.origin
+  : 'http://localhost:8080' // 用于顶部“历史记录”跳转链接
 const api = axios.create({ baseURL: '' }) // 使用 Vite dev 代理转发 /api 与 /shorten
 
 export default {

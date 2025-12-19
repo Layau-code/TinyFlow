@@ -57,9 +57,10 @@ public class SecurityConfig {
                                 "/api/auth/**",           // 认证接口（注册、登录）
                                 "/api/redirect/**",       // 短链跳转（核心功能）
                                 "/actuator/**",           // 监控端点
-                                "/error"                  // 错误页面
+                                "/error",                 // 错误页面
+                                "/{shortCode}"            // 根路径短链重定向
                         ).permitAll()
-                        
+                
                         // 管理员接口
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         

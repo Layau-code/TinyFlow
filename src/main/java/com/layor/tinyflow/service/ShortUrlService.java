@@ -60,12 +60,10 @@ public class ShortUrlService {
     HashidsStrategy codeStrategy;
     @Autowired
     private AuthService authService; // 注入认证服务
-    // 基础短链域名
-    private static final String BASE_URL = "https://localhost:8080";
-
-
-
-
+    
+    @Value("${app.domain:http://localhost:8080}")
+    private String baseUrl;
+    
     public ShortUrlDTO createShortUrl(String longUrl, String customAlias) throws Exception {
         // 1. 校验长链接
         if (!isValidUrl(longUrl)) {
@@ -85,7 +83,7 @@ public class ShortUrlService {
             if (existingUrl.getUserId() != null && existingUrl.getUserId().equals(userId)) {
                 return ShortUrlDTO.builder()
                         .shortCode(existingUrl.getShortCode())
-                        .shortUrl(BASE_URL + "/" + existingUrl.getShortCode())
+                        .shortUrl(baseUrl + "/" + existingUrl.getShortCode())
                         .longUrl(existingUrl.getLongUrl())
                         .createdAt(existingUrl.getCreatedAt())
                         .build();
@@ -118,7 +116,7 @@ public class ShortUrlService {
         // 4. 构造返回结果
         ShortUrlDTO dto = ShortUrlDTO.builder()
                 .shortCode(shortCode)
-                .shortUrl(BASE_URL + "/" + shortCode)
+                .shortUrl(baseUrl + "/" + shortCode)
                 .longUrl(longUrl)
                 .createdAt(LocalDateTime.now())
                 .build();
