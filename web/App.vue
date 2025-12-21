@@ -7,6 +7,7 @@
         <nav class="hidden md:flex items-center gap-6">
           <a href="#" @click.prevent="$router.push('/')" class="text-[14px] hover:text-[#3370FF] transition" style="color:#646A73">{{ $t('common.home') }}</a>
           <a href="#" @click.prevent="goToDashboard" class="text-[14px] hover:text-[#3370FF] transition" style="color:#646A73">{{ $t('nav.dashboard') }}</a>
+          <a href="#" @click.prevent="$router.push('/about')" class="text-[14px] hover:text-[#3370FF] transition" style="color:#646A73">关于我们</a>
         </nav>
       </div>
       <div class="flex items-center gap-4">
@@ -42,8 +43,8 @@
   </header>
 
   <!-- Rest of page -->
-  <router-view v-if="isStatsOrDashboard" class="pt-14" />
-  <main class="min-h-screen pt-14" v-show="!isStatsOrDashboard" style="background-color:var(--tf-bg-page)">
+  <router-view v-if="isStatsOrDashboardOrAbout" class="pt-14" />
+  <main class="min-h-screen pt-14" v-show="!isStatsOrDashboardOrAbout" style="background-color:var(--tf-bg-page)">
     <section class="hero pt-24 pb-16">
       <div class="hero-inner max-w-5xl mx-auto px-6 flex flex-col items-center text-center gap-8">
         <!-- 标题区 -->
@@ -288,9 +289,9 @@ export default {
         background: 'linear-gradient(135deg, #3370FF 0%, #2B5FE6 45%, #38BDF8 100%)'
       }
     },
-    isStatsOrDashboard() {
+    isStatsOrDashboardOrAbout() {
       const p = this.$route?.path || ''
-      return p.startsWith('/stats/') || p === '/dashboard' || p === '/login'
+      return p.startsWith('/stats/') || p === '/dashboard' || p === '/login' || p === '/about'
     },
     statsMap() {
       const map = {}

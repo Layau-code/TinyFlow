@@ -3,12 +3,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 const DashboardPage = () => import('../pages/DashboardPage.vue')
 const StatsPage = () => import('../pages/StatsPage.vue')
 const LoginPage = () => import('../pages/LoginPage.vue')
+const AboutPage = () => import('../pages/AboutPage.vue')
 
 // 仅声明统计相关页面的路由；首页由 App.vue 直接渲染
 const routes = [
   { path: '/login', component: LoginPage, meta: { public: true } },
   { path: '/dashboard', component: DashboardPage },
   { path: '/stats/:shortCode', component: StatsPage },
+  { path: '/about', component: AboutPage, meta: { public: true } },
 ]
 
 const router = createRouter({
