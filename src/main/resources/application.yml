@@ -82,7 +82,7 @@ server:
 
 
 app:
-  domain: http://localhost:8080
+  domain: http://47.97.110.128
 
 shortcode:
   minLen: 4
