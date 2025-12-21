@@ -1,38 +1,38 @@
 <template>
-  <div class="min-h-screen q-page font-[Inter,system-ui,-apple-system,sans-serif]">
+  <div class="min-h-screen font-[Inter,system-ui,-apple-system,sans-serif]" style="background-color:var(--tf-bg-page)">
     <div class="max-w-6xl mx-auto p-6">
       <!-- Header -->
       <div class="flex items-center justify-between mb-8">
-        <h1 class="md-text text-[24px] font-medium">{{ $t('dashboard.title') }}</h1>
+        <h1 class="text-[24px] font-semibold" style="color:var(--tf-text-title)">{{ $t('dashboard.title') }}</h1>
         <div class="flex items-center gap-4">
-          <input v-model="query" type="text" :placeholder="$t('dashboard.searchPlaceholder')" class="h-9 px-3 rounded-lg border" style="border-color:#E5E7EB; background:#FFFFFF; color:#333333" />
-          <button @click="refresh" class="md-btn-text">{{ $t('dashboard.refresh') }}</button>
+          <input v-model="query" type="text" :placeholder="$t('dashboard.searchPlaceholder')" class="fs-input h-9 px-3" />
+          <button @click="refresh" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('dashboard.refresh') }}</button>
         </div>
       </div>
 
       <!-- 今日与总点击分布饼图 / 近七天趋势切换 -->
       <div class="flex items-center justify-between mb-3">
-        <div class="md-label">{{ $t('dashboard.overview') }}</div>
-        <button class="md-btn-text" @click="toggleShowTrend7">{{ showTrend7 ? $t('dashboard.toggleShowPie') : $t('dashboard.toggleShowTrend') }}</button>
+        <div class="text-[14px] font-medium" style="color:var(--tf-text-body)">{{ $t('dashboard.overview') }}</div>
+        <button class="fs-btn-secondary px-3 py-1 text-[13px]" @click="toggleShowTrend7">{{ showTrend7 ? $t('dashboard.toggleShowPie') : $t('dashboard.toggleShowTrend') }}</button>
       </div>
-      <div v-if="!showTrend7" class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <div class="q-card p-6" style="box-shadow: 0 2px 12px rgba(0,0,0,0.04)">
-          <div class="q-card-title mb-4">{{ $t('dashboard.todayDist') }}</div>
-          <div class="relative" style="height:280px;background:#fafafa;border:1px dashed #ddd;border-radius:8px">
+      <div v-if="!showTrend7" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="fs-card p-6">
+          <div class="text-[16px] font-medium mb-4" style="color:var(--tf-text-title)">{{ $t('dashboard.todayDist') }}</div>
+          <div class="relative" style="height:280px;background:var(--tf-bg-page);border:1px dashed var(--tf-border);border-radius:8px">
             <DistributionChart :type="'pie'" :data="pieTodayData" :colors="pieColors" :engine="'echarts'" />
           </div>
-          <div v-if="!hasPieTodayData" class="q-muted text-center mt-2">{{ $t('common.noData') }}</div>
-          <div class="q-help mt-1">数据条数：{{ pieTodayData.length }}，总和：{{ pieTodaySum }}</div>
-          <div class="q-help mt-3">悬停查看名称、百分比与数值</div>
+          <div v-if="!hasPieTodayData" class="text-center mt-2 text-[13px]" style="color:var(--tf-text-muted)">{{ $t('common.noData') }}</div>
+          <div class="text-[12px] mt-1" style="color:var(--tf-text-muted)">数据条数：{{ pieTodayData.length }}，总和：{{ pieTodaySum }}</div>
+          <div class="text-[12px] mt-3" style="color:var(--tf-text-muted)">悬停查看名称、百分比与数值</div>
         </div>
-        <div class="q-card p-6" style="box-shadow: 0 2px 12px rgba(0,0,0,0.04)">
-          <div class="q-card-title mb-4">{{ $t('dashboard.totalDist') }}</div>
-          <div class="relative" style="height:280px;background:#fafafa;border:1px dashed #ddd;border-radius:8px">
+        <div class="fs-card p-6">
+          <div class="text-[16px] font-medium mb-4" style="color:var(--tf-text-title)">{{ $t('dashboard.totalDist') }}</div>
+          <div class="relative" style="height:280px;background:var(--tf-bg-page);border:1px dashed var(--tf-border);border-radius:8px">
             <DistributionChart :type="'pie'" :data="pieTotalData" :colors="pieColors" :engine="'echarts'" />
           </div>
-          <div v-if="!hasPieTotalData" class="q-muted text-center mt-2">{{ $t('common.noData') }}</div>
-          <div class="q-help mt-1">数据条数：{{ pieTotalData.length }}，总和：{{ pieTotalSum }}</div>
-          <div class="q-help mt-3">悬停查看名称、百分比与数值</div>
+          <div v-if="!hasPieTotalData" class="text-center mt-2 text-[13px]" style="color:var(--tf-text-muted)">{{ $t('common.noData') }}</div>
+          <div class="text-[12px] mt-1" style="color:var(--tf-text-muted)">数据条数：{{ pieTotalData.length }}，总和：{{ pieTotalSum }}</div>
+          <div class="text-[12px] mt-3" style="color:var(--tf-text-muted)">悬停查看名称、百分比与数值</div>
         </div>
       </div>
       <div v-else class="q-card p-6 mb-8" style="box-shadow: 0 2px 12px rgba(0,0,0,0.04)">
@@ -82,7 +82,7 @@
                 <td class="md-td">
                   <div class="flex items-center gap-2">
                     <div class="w-[160px] h-2 rounded" style="background: var(--divider)">
-                      <div class="h-2 rounded" :style="{ width: (percentMap[row.shortCode]||0).toFixed(2) + '%', background: '#8A7CFD' }"></div>
+                      <div class="h-2 rounded" :style="{ width: (percentMap[row.shortCode]||0).toFixed(2) + '%', background: '#2563EB' }"></div>
                     </div>
                     <span class="md-muted">{{ (percentMap[row.shortCode]||0).toFixed(2) }}%</span>
                   </div>
@@ -142,7 +142,7 @@ const { data: clickStatsRef, loading: clickLoading, error: clickError, refresh: 
 const list = listRef
 
 // Pie data and colors
-const pieColors = ['#6E44FF','#8A7CFD','#7A5BFF','#9D8BFF','#B0A4FF','#C7BEFF','#D6D1FF','#E0DCFF','#EAE8FF']
+const pieColors = ['#3370FF','#2B5FE6','#1F4ED8','#00C875','#FFAB00','#6366F1','#38BDF8','#14B8A6','#22C55E']
 // 使用 click-stats 数据源生成饼图数据
 const pieTotalData = computed(() => buildPieData(clickStatsRef.value || [], 'totalVisits'))
 const pieTodayData = computed(() => buildPieData(clickStatsRef.value || [], 'todayVisits'))

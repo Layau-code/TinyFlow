@@ -21,7 +21,19 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
 
     boolean existsByLongUrl(String longUrl);
 
+    // 根据 longUrl 查询（可能多个结果，已废弃）
+    @Deprecated
     ShortUrl findByLongUrl(String longUrl);
+    
+    /**
+     * 根据用户ID和长链接查询短链（唯一）
+     */
+    ShortUrl findByUserIdAndLongUrl(Long userId, String longUrl);
+    
+    /**
+     * 查询匿名短链（userId 为 null）
+     */
+    ShortUrl findByUserIdIsNullAndLongUrl(String longUrl);
 
     @Transactional
     @Modifying(clearAutomatically = false, flushAutomatically = false)

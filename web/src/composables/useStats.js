@@ -1,7 +1,8 @@
 import { ref } from 'vue'
 import axios from 'axios'
 import { API_BASE } from './shortBase'
-try { if (API_BASE) { axios.defaults.baseURL = API_BASE } } catch {}
+// 只有在 API_BASE 有值时才设置 baseURL
+try { if (API_BASE && API_BASE.trim()) { axios.defaults.baseURL = API_BASE } } catch {}
 
 function createApiState() {
   return { data: ref(null), loading: ref(false), error: ref(null) }

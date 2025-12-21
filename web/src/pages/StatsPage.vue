@@ -293,11 +293,11 @@ onMounted(refreshAll)
 <style scoped>
 svg { width: 20px; height: 20px; }
 .tf-modal-backdrop { position: fixed; inset: 0; background: rgba(4,16,40,0.35); display: flex; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(2px); }
-.tf-modal { width: 680px; max-width: 92vw; border-radius: 16px; padding: 24px; background: linear-gradient(135deg,#ffffff 0%, #f7f9ff 100%); box-shadow: 0 12px 40px rgba(43,108,239,0.25); border: 1px solid rgba(138,107,255,0.25); }
-.tf-modal-header { font-size: 16px; font-weight: 600; color: #2B6CEF; margin-bottom: 16px; }
+.tf-modal { width: 680px; max-width: 92vw; border-radius: 16px; padding: 24px; background: linear-gradient(135deg,#ffffff 0%, #f3f7ff 100%); box-shadow: 0 12px 40px rgba(37,99,235,0.22); border: 1px solid rgba(37,99,235,0.18); }
+.tf-modal-header { font-size: 16px; font-weight: 600; color: #2563EB; margin-bottom: 16px; }
 
-.fx-btn { font-family: Arial, Helvetica, sans-serif; font-weight: bold; color: #2b2b2b; background-color: #f5f6fa; padding: 0.75em 1.4em; border: 1px solid rgba(138,107,255,0.2); border-radius: 0.6rem; position: relative; cursor: pointer; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; }
-.fx-btn span:not(.btn-text) { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); height: 26px; width: 26px; background-color: #8A6BFF; border-radius: 50%; transition: .6s ease; }
+.fx-btn { font-family: Arial, Helvetica, sans-serif; font-weight: bold; color: #0F172A; background-color: #F8FAFC; padding: 0.75em 1.4em; border: 1px solid rgba(148,163,184,0.6); border-radius: 0.6rem; position: relative; cursor: pointer; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; }
+.fx-btn span:not(.btn-text) { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); height: 26px; width: 26px; background-color: #2563EB; border-radius: 50%; transition: .6s ease; }
 .fx-btn span:nth-child(1) { transform: translate(-3.3em, -4em); }
 .fx-btn span:nth-child(2) { transform: translate(-6em, 1.3em); }
 .fx-btn span:nth-child(3) { transform: translate(-.2em, 1.8em); }
@@ -305,8 +305,8 @@ svg { width: 20px; height: 20px; }
 .fx-btn span:nth-child(5) { transform: translate(3.5em, -3.8em); }
 .fx-btn:hover span:not(.btn-text) { transform: translate(-50%, -50%) scale(4); transition: 1.5s ease; }
 .fx-btn .btn-text { position: relative; z-index: 1; }
-.fx-purple { background-color: #f0f1f7; }
-.fx-gray { background-color: #f7f8fc; }
+.fx-purple { background-color: #E0F2FE; }
+.fx-gray { background-color: #EFF6FF; }
 .fx-sm { padding: 0.4em 0.9em; }
 .fx-sm span:not(.btn-text) { height: 18px; width: 18px; }
 </style>

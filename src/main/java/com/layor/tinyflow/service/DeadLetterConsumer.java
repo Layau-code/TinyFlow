@@ -6,6 +6,7 @@ import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -13,9 +14,12 @@ import java.io.IOException;
 /**
  * 死信队列消费者
  * 处理消费失败的消息，记录日志并告警
+ * 
+ * 只有在配置了 RabbitMQ 时才启用
  */
 @Service
 @Slf4j
+@ConditionalOnProperty(name = "spring.rabbitmq.host")
 public class DeadLetterConsumer {
     
     /**

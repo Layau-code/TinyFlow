@@ -74,17 +74,22 @@ public class ShortUrlService {
         Long userId = authService.getCurrentUserId();
         
         //1.1如果长链接已经存在且属于当前用户，直接返回对应的短链
-        if (shortUrlRepository.existsByLongUrl(longUrl)) {
-            ShortUrl existingUrl = shortUrlRepository.findByLongUrl(longUrl);
-            // 检查是否属于当前用户
-            if (existingUrl.getUserId() != null && existingUrl.getUserId().equals(userId)) {
-                return ShortUrlDTO.builder()
-                        .shortCode(existingUrl.getShortCode())
-                        .shortUrl(baseUrl + "/" + existingUrl.getShortCode())
-                        .longUrl(existingUrl.getLongUrl())
-                        .createdAt(existingUrl.getCreatedAt())
-                        .build();
-            }
+        ShortUrl existingUrl = null;
+        if (userId != null) {
+            // 已登录用户：查询当前用户的短链
+            existingUrl = shortUrlRepository.findByUserIdAndLongUrl(userId, longUrl);
+        } else {
+            // 匿名用户：查询匿名短链
+            existingUrl = shortUrlRepository.findByUserIdIsNullAndLongUrl(longUrl);
+        }
+        
+        if (existingUrl != null) {
+            return ShortUrlDTO.builder()
+                    .shortCode(existingUrl.getShortCode())
+                    .shortUrl(baseUrl + "/" + existingUrl.getShortCode())
+                    .longUrl(existingUrl.getLongUrl())
+                    .createdAt(existingUrl.getCreatedAt())
+                    .build();
         }
 
         // 2. 处理别名

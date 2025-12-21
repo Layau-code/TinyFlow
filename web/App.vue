@@ -1,36 +1,20 @@
 <template>
-  <!-- Top Navbar: black with gradient brand text and accent line -->
-  <header class="fixed top-0 left-0 right-0 relative" :style="navStyle">
-    <div class="flex items-center justify-between py-4 px-6 md:px-[10%]">
-      <div class="font-bold tf-brand" aria-label="TinyFlow"><span class="tf-letter">T</span><span class="tf-letter">i</span><span class="tf-letter">n</span><span class="tf-letter">y</span><span class="tf-letter">F</span><span class="tf-letter">l</span><span class="tf-letter">o</span><span class="tf-letter">w</span></div>
+  <!-- Top Navbar: Feishu style minimal header -->
+  <header class="fixed top-0 left-0 right-0 z-50" :style="navStyle">
+    <div class="flex items-center justify-between h-14 px-6 md:px-[10%]">
+      <div class="flex items-center gap-8">
+        <div class="font-semibold text-[20px]" style="color:#1F2329">TinyFlow</div>
+        <nav class="hidden md:flex items-center gap-6">
+          <a href="#" @click.prevent="$router.push('/')" class="text-[14px] hover:text-[#3370FF] transition" style="color:#646A73">{{ $t('common.home') }}</a>
+          <a href="#" @click.prevent="goToDashboard" class="text-[14px] hover:text-[#3370FF] transition" style="color:#646A73">{{ $t('nav.dashboard') }}</a>
+        </nav>
+      </div>
       <div class="flex items-center gap-4">
-        <a
-          href="#"
-          @click.prevent="$router.push('/')"
-          class="text-[14px] text-[#6B7280] hover:text-black"
-          :title="$t('common.home')"
-        >{{ $t('common.home') }}</a>
-        <a
-          href="#"
-          @click.prevent="goToDashboard"
-          class="text-[14px] text-[#6B7280] hover:text-black"
-          :title="$t('nav.dashboard')"
-        >{{ $t('nav.dashboard') }}</a>
-        
-        <!-- 登录/退出按钮 -->
         <div v-if="isAuthenticated" class="flex items-center gap-3">
-          <span class="text-[14px] text-[#6B7280]">{{ currentUsername }}</span>
-          <button
-            @click="handleLogout"
-            class="text-[14px] text-[#6B7280] hover:text-red-600 transition"
-          >退出登录</button>
+          <span class="text-[14px]" style="color:#8F959E">{{ currentUsername }}</span>
+          <button @click="handleLogout" class="text-[14px] text-[#646A73] hover:text-[#F54A45] transition">退出登录</button>
         </div>
-        <a
-          v-else
-          href="#"
-          @click.prevent="$router.push('/login')"
-          class="text-[14px] text-[#6B7280] hover:text-blue-600 font-medium transition"
-        >登录</a>
+        <a v-else href="#" @click.prevent="$router.push('/login')" class="text-[14px] font-medium hover:text-[#2B5FE6] transition" style="color:#3370FF">登录</a>
         
         <a
           href="https://github.com/Layau-code/TinyFlow"
@@ -40,13 +24,13 @@
         >
           <span class="absolute right-0 -mt-12 h-32 w-8 translate-x-12 rotate-12 bg-white opacity-10 transition-all duration-1000 ease-out group-hover:-translate-x-40"></span>
           <div class="flex items-center">
-            <svg class="w-4 h-4 fill-current" viewBox="0 0 438.549 438.549" xmlns="http://www.w3.org/2000/svg">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 438.549 438.549">
               <path d="M409.132 114.573c-19.608-33.596-46.205-60.194-79.798-79.8-33.598-19.607-70.277-29.408-110.063-29.408-39.781 0-76.472 9.804-110.063 29.408-33.596 19.605-60.192 46.204-79.8 79.8C9.803 148.168 0 184.854 0 224.63c0 47.78 13.94 90.745 41.827 128.906 27.884 38.164 63.906 64.572 108.063 79.227 5.14.954 8.945.283 11.419-1.996 2.475-2.282 3.711-5.14 3.711-8.562 0-.571-.049-5.708-.144-15.417a2549.81 2549.81 0 01-.144-25.406l-6.567 1.136c-4.187.767-9.469 1.092-15.846 1-6.374-.089-12.991-.757-19.842-1.999-6.854-1.231-13.229-4.086-19.13-8.559-5.898-4.473-10.085-10.328-12.56-17.556l-2.855-6.57c-1.903-4.374-4.899-9.233-8.992-14.559-4.093-5.331-8.232-8.945-12.419-10.848l-1.999-1.431c-1.332-.951-2.568-2.098-3.711-3.429-1.142-1.331-1.997-2.663-2.568-3.997-.572-1.335-.098-2.43 1.427-3.289 1.525-.859 4.281-1.276 8.28-1.276l5.708.853c3.807.763 8.516 3.042 14.133 6.851 5.614 3.806 10.229 8.754 13.846 14.842 4.38 7.806 9.657 13.754 15.846 17.847 6.184 4.093 12.419 6.136 18.699 6.136 6.28 0 11.704-.476 16.274-1.423 4.565-.952 8.848-2.383 12.847-4.285 1.713-12.758 6.377-22.559 13.988-29.41-10.848-1.14-20.601-2.857-29.264-5.14-8.658-2.286-17.605-5.996-26.835-11.14-9.235-5.137-16.896-11.516-22.985-19.126-6.09-7.614-11.088-17.61-14.987-29.979-3.901-12.374-5.852-26.648-5.852-42.826 0-23.035 7.52-42.637 22.557-58.817-7.044-17.318-6.379-36.732 1.997-58.24 5.52-1.715 13.706-.428 24.554 3.853 10.85 4.283 18.794 7.952 23.84 10.994 5.046 3.041 9.089 5.618 12.135 7.708 17.705-4.947 35.976-7.421 54.818-7.421s37.117 2.474 54.823 7.421l10.849-6.849c7.419-4.57 16.18-8.758 26.262-12.565 10.088-3.805 17.802-4.853 23.134-3.138 8.562 21.509 9.325 40.922 2.279 58.24 15.036 16.18 22.559 35.787 22.559 58.817 0 16.178-1.958 30.497-5.853 42.966-3.9 12.471-8.941 22.457-15.125 29.979-6.191 7.521-13.901 13.85-23.131 18.986-9.232 5.14-18.182 8.85-26.84 11.136-8.662 2.286-18.415 4.004-29.263 5.146 9.894 8.562 14.842 22.077 14.842 40.539v60.237c0 3.422 1.19 6.279 3.572 8.562 2.379 2.279 6.136 2.95 11.276 1.995 44.163-14.653 80.185-41.062 108.068-79.226 27.88-38.161 41.825-81.126 41.825-128.906-.01-39.771-9.818-76.454-29.414-110.049z" />
             </svg>
             <span class="ml-1 text-white">Star on GitHub</span>
           </div>
           <div class="ml-2 hidden md:flex items-center gap-1 text-sm">
-            <svg class="w-4 h-4 text-gray-200 transition-all duration-300 group-hover:text-yellow-300" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <svg class="w-4 h-4 text-gray-200 transition-all duration-300 group-hover:text-yellow-300" aria-hidden="true" fill="currentColor" viewBox="0 0 24 24">
               <path clip-rule="evenodd" fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" />
             </svg>
             <span class="inline-block tabular-nums tracking-wider font-display font-medium text-white">Star</span>
@@ -55,199 +39,172 @@
         <LanguageSwitcher />
       </div>
     </div>
-    <div class="absolute bottom-0 left-0 right-0 h-[2px]" :style="navAccentStyle"></div>
   </header>
 
   <!-- Rest of page -->
-  <router-view v-if="isStatsOrDashboard" />
-  <main class="bg-white min-h-screen" v-show="!isStatsOrDashboard">
-    <section class="hero pt-12 pb-16">
-      <div class="hero-inner flex flex-col items-center justify-center px-6">
-        <h1 class="text-center font-semibold mb-10" style="color:#1F2329;font-size:clamp(36px,6vw,48px);line-height:1.2">{{ $t('hero.title') }}</h1>
-        <p class="text-center mb-10" style="color:#4B5563;font-size:18px;line-height:1.6">{{ $t('hero.subtitle') }}</p>
-
-        <!-- Input + Button（按钮在右侧） - 卡片化包裹 -->
-        <div class="w-full max-w-[720px] flex flex-col gap-3 p-5 md:p-6 rounded-[16px] border" :style="formCardStyle">
-          <div class="flex items-stretch gap-3">
-            <input
-              v-model="inputUrl"
-              type="text"
-              :placeholder="$t('form.urlPlaceholder')"
-              class="flex-1 rounded-[12px] h-14 px-6 outline-none border"
-              :style="inputStyle(focusInput)"
-              @focus="focusInput = true"
-              @blur="focusInput = false"
-              @keydown.enter="shortenUrl"
-            />
-            <button
-              @click="shortenUrl"
-              class="rounded-[12px] h-14 px-6 font-medium whitespace-nowrap"
-              :style="buttonStyle"
-              @mouseenter="hoverGen=true"
-              @mouseleave="hoverGen=false"
-            >
-              {{ $t('form.generate') }}
-            </button>
-          </div>
-          <input
-            v-model="customAlias"
-            type="text"
-            :placeholder="$t('form.aliasPlaceholder')"
-            class="w-full rounded-[12px] h-12 px-6 outline-none border bg-white"
-            :style="inputStyle(focusAlias)"
-            @focus="focusAlias = true"
-            @blur="focusAlias = false"
-            @keydown.enter="shortenUrl"
-          />
-          <LoadingSpinner v-if="generating" />
-          <div v-if="clearTip" class="text-[14px]" style="color:#10B981">已清空</div>
+  <router-view v-if="isStatsOrDashboard" class="pt-14" />
+  <main class="min-h-screen pt-14" v-show="!isStatsOrDashboard" style="background-color:var(--tf-bg-page)">
+    <section class="hero pt-24 pb-16">
+      <div class="hero-inner max-w-5xl mx-auto px-6 flex flex-col items-center text-center gap-8">
+        <!-- 标题区 -->
+        <div class="space-y-3">
+          <h1 class="font-semibold" style="color:#1F2329;font-size:clamp(40px,6vw,56px);line-height:1.2">
+            {{ $t('hero.title') }}
+          </h1>
+          <p class="text-[16px] md:text-[18px]" style="color:#646A73;line-height:1.7">
+            {{ $t('hero.subtitle') }}
+          </p>
         </div>
 
-        <!-- Inline Result: show under input -->
-        <div v-if="shortUrl" class="w-full max-w-[720px] mt-4 p-5 md:p-6 rounded-[16px] border bg-white" :style="resultCardStyle">
-          <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div class="min-w-0 flex-1">
-              <div class="text-sm mb-1" style="color:#4B5563">{{ $t('result.created') }}</div>
-              <button @click="redirectViaApi({ shortUrl })" class="underline break-all" style="color:#2B6CEF;background:none;border:none;padding:0;cursor:pointer">{{ decodeUrlText(shortUrl) }}</button>
-          <div class="mt-3 flex gap-3">
-            <button @click="copyShortUrl" class="text-[14px] px-3 py-1.5 rounded-md border tf-action-btn" :class="{ 'is-pressed': pressedCopy }" :style="minorBtnStyle">{{ $t('result.copy') }}</button>
-            <button @click="downloadQrPng" class="text-[14px] px-3 py-1.5 rounded-md border tf-action-btn" :class="{ 'is-pressed': pressedDownload }" :style="minorBtnStyle">{{ $t('result.downloadQr') }}</button>
-            <button @click="confirmClearAll" class="text-[14px] px-3 py-1.5 rounded-md border tf-action-btn" :class="{ 'is-pressed': pressedConfirm }" :style="minorBtnStyle">确认</button>
+        <!-- 表单卡片（飞书风格）-->
+        <div class="w-full max-w-3xl fs-card p-6 md:p-8">
+          <div class="flex flex-col gap-4">
+            <!-- 主输入区 -->
+            <div class="flex items-stretch gap-3">
+              <input
+                v-model="inputUrl"
+                type="text"
+                :placeholder="$t('form.urlPlaceholder')"
+                class="fs-input flex-1 h-12"
+                @focus="focusInput = true"
+                @blur="focusInput = false"
+                @keydown.enter="shortenUrl"
+              />
+              <button @click="shortenUrl" class="fs-btn-primary px-8 h-12">
+                {{ $t('form.generate') }}
+              </button>
+            </div>
+            <!-- 自定义别名 -->
+            <input
+              v-model="customAlias"
+              type="text"
+              :placeholder="$t('form.aliasPlaceholder')"
+              class="fs-input h-10"
+              @focus="focusAlias = true"
+              @blur="focusAlias = false"
+              @keydown.enter="shortenUrl"
+            />
+            <LoadingSpinner v-if="generating" />
+            <div v-if="clearTip" class="text-[14px]" style="color:var(--tf-success)">已清空</div>
           </div>
-              <div v-if="copyLabel==='已复制'" class="mt-2 text-[14px]" style="color:#10B981">{{ $t('result.copied') }}</div>
-              <div v-if="downloadTip" class="mt-2 text-[14px]" style="color:#10B981">二维码已保存</div>
+        </div>
+
+        <!-- 结果卡片 -->
+        <div v-if="shortUrl" class="w-full max-w-3xl fs-card p-6 md:p-8">
+          <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div class="min-w-0 flex-1 text-left">
+              <div class="text-sm mb-2" style="color:var(--tf-text-muted)">{{ $t('result.created') }}</div>
+              <button @click="redirectViaApi({ shortUrl })" class="underline break-all text-[16px] font-medium" style="color:var(--tf-brand-primary);background:none;border:none;padding:0;cursor:pointer">
+                {{ decodeUrlText(shortUrl) }}
+              </button>
+              <div class="mt-4 flex gap-3">
+                <button @click="copyShortUrl" class="fs-btn-secondary px-4 py-2">
+                  {{ $t('result.copy') }}
+                </button>
+                <button @click="downloadQrPng" class="fs-btn-secondary px-4 py-2">
+                  {{ $t('result.downloadQr') }}
+                </button>
+                <button @click="confirmClearAll" class="fs-btn-secondary px-4 py-2">
+                  确认
+                </button>
+              </div>
+              <div v-if="copyLabel==='已复制'" class="mt-2 text-[14px]" style="color:var(--tf-success)">
+                {{ $t('result.copied') }}
+              </div>
+              <div v-if="downloadTip" class="mt-2 text-[14px]" style="color:var(--tf-success)">二维码已保存</div>
             </div>
             <div class="shrink-0">
-              <QrcodeVue ref="qrRef" :value="shortUrl" :size="140" level="M" :foreground="'#2B6CEF'" :background="'#ffffff'" />
+              <QrcodeVue ref="qrRef" :value="shortUrl" :size="140" level="M" :foreground="'#3370FF'" :background="'#ffffff'" />
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- History list and controls -->
-    <section class="px-6 mt-6">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="font-semibold" style="color:#1F2329;font-size:24px;margin-top:48px">{{ $t('history.title') }}</h2>
+    <!-- 历史记录区域 -->
+    <section class="px-6 py-12">
+      <div class="max-w-5xl mx-auto">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="font-semibold text-[24px]" style="color:var(--tf-text-title)">{{ $t('history.title') }}</h2>
           <div class="flex items-center gap-3">
-            <input v-model="historyQuery" type="text" class="h-9 px-3 rounded-md border outline-none" :placeholder="$t('history.filterPlaceholder')" style="border-color:#E5E7EB" />
-            <div class="tf-refresh-container" :class="{ 'is-disabled': refreshing }">
-              <div class="hover bt-1"></div>
-              <div class="hover bt-2"></div>
-              <div class="hover bt-3"></div>
-              <div class="hover bt-4"></div>
-              <div class="hover bt-5"></div>
-              <div class="hover bt-6"></div>
-              <button
-                class="tf-refresh-btn font-medium"
-                :style="refreshButtonStyle"
-                :disabled="refreshing"
-                @mouseenter="hoverRefresh=true"
-                @mouseleave="hoverRefresh=false"
-                @click="refreshHistory"
-              >
-                {{ refreshing ? $t('history.refreshing') : $t('history.refresh') }}
-              </button>
-            </div>
+            <input v-model="historyQuery" type="text" class="fs-input h-9 px-3" :placeholder="$t('history.filterPlaceholder')" />
+            <button @click="refreshHistory" :disabled="refreshing" class="fs-btn-primary px-4 py-2 h-9">
+              {{ refreshing ? $t('history.refreshing') : $t('history.refresh') }}
+            </button>
           </div>
         </div>
-        <div v-if="filteredHistory.length === 0" class="text-[14px]" style="color:#9CA3AF">{{ $t('history.empty') }}</div>
-        <div v-else class="space-y-2">
-          <!-- History list item: refined layout to match modern sites -->
-          <div
-            v-for="item in filteredHistory"
-            :key="item.id || extractCode(item) || item.shortUrl"
-            class="tf-hist-item p-3 rounded-[12px] border bg-white"
-            style="border-color:#F3F4F6"
-          >
+        <div v-if="filteredHistory.length === 0" class="text-[14px]" style="color:var(--tf-text-muted)">{{ $t('history.empty') }}</div>
+        <div v-else class="space-y-3">
+          <!-- 历史记录项（飞书风格卡片）-->
+          <div v-for="item in filteredHistory" :key="item.id || extractCode(item) || item.shortUrl" class="fs-card p-4">
             <div class="flex items-center justify-between gap-3">
-              <!-- Left: favicon + domains + code badge -->
+              <!-- 左侧：favicon + 域名 + code徽章 -->
               <div class="flex items-center gap-3 min-w-0">
                 <Favicon :long-url="normalizeUrl(resolveLongUrl(item)) || (location.origin + (item.shortUrl || ''))" />
                 <div class="min-w-0">
                   <div class="flex items-center gap-2 min-w-0">
-                    <button @click="redirectViaApi(item)" class="truncate text-[13px]" style="color:#2B6CEF;max-width:52vw;background:none;border:none;padding:0;cursor:pointer">{{ displayShortUrlText(item) }}</button>
-                    <span class="tf-code-badge">{{ extractCode(item) }}</span>
+                    <button @click="redirectViaApi(item)" class="truncate text-[14px] font-medium hover:underline" style="color:var(--tf-brand-primary);max-width:52vw;background:none;border:none;padding:0;cursor:pointer">{{ displayShortUrlText(item) }}</button>
+                    <span class="px-2 py-0.5 text-[12px] rounded" style="background:var(--tf-brand-lighter);color:var(--tf-brand-primary)">{{ extractCode(item) }}</span>
                   </div>
-                  <div class="mt-0.5 truncate text-[12px]" style="color:#6B7280;max-width:60vw">{{ item.longUrl }}</div>
+                  <div class="mt-1 truncate text-[13px]" style="color:var(--tf-text-muted);max-width:60vw">{{ item.longUrl }}</div>
                 </div>
               </div>
-              <!-- Right: actions -->
+              <!-- 右侧：操作按钮 -->
               <div class="flex items-center gap-2 shrink-0">
-                <button @click="copyLink(displayShortUrl(item), item.id)" class="tf-copy-btn">{{ $t('actions.copy') }}</button>
-                <button @click="startEdit(item)" class="tf-copy-btn">{{ $t('actions.edit') }}</button>
-                <button
-                  @click="deleteHistoryItem(item)"
-                  :disabled="deletingIds.has(item.id)"
-                  @mouseenter="hoverDeleteId = item.id"
-                  @mouseleave="hoverDeleteId = null"
-                  class="tf-del-btn"
-                  :class="{ 'is-loading': deletingIds.has(item.id) }"
-                  aria-label="删除"
-                  :title="$t('actions.delete')"
-                >
-                  <svg viewBox="0 0 448 512" class="tf-del-icon" aria-hidden="true">
+                <button @click="copyLink(displayShortUrl(item), item.id)" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('actions.copy') }}</button>
+                <button @click="startEdit(item)" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('actions.edit') }}</button>
+                <button @click="deleteHistoryItem(item)" :disabled="deletingIds.has(item.id)" class="fs-btn-secondary px-2 py-1 text-[13px] hover:border-red-500 hover:text-red-500" :title="$t('actions.delete')">
+                  <svg viewBox="0 0 448 512" class="w-4 h-4" fill="currentColor">
                     <path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z" />
                   </svg>
                 </button>
               </div>
             </div>
-            <div v-if="copiedId===item.id" class="mt-1 text-[12px]" style="color:#10B981">{{ $t('actions.copied') }}</div>
-            <!-- Inline edit row -->
-            <div v-if="editingId===item.id" class="mt-2 flex items-center gap-2">
-              <input
-                v-model="editAlias"
-                type="text"
-                class="h-9 px-3 rounded-md border outline-none"
-                :placeholder="$t('actions.newAlias')"
-                style="border-color:#E5E7EB"
-                @keydown.enter.prevent
-                @keyup.enter="!editingComposing && saveEdit(item)"
-                @compositionstart="editingComposing = true"
-                @compositionend="editingComposing = false"
-              />
-              <button @click="saveEdit(item)" :disabled="updatingIds.has(item.id)" class="tf-copy-btn">{{ $t('actions.save') }}</button>
-              <button @click="cancelEdit" class="tf-copy-btn">{{ $t('actions.cancel') }}</button>
+            <div v-if="copiedId===item.id" class="mt-2 text-[13px]" style="color:var(--tf-success)">{{ $t('actions.copied') }}</div>
+            <!-- 编辑行 -->
+            <div v-if="editingId===item.id" class="mt-3 flex items-center gap-2">
+              <input v-model="editAlias" type="text" class="fs-input h-9 px-3 flex-1" :placeholder="$t('actions.newAlias')" @keydown.enter.prevent @keyup.enter="!editingComposing && saveEdit(item)" @compositionstart="editingComposing = true" @compositionend="editingComposing = false" />
+              <button @click="saveEdit(item)" :disabled="updatingIds.has(item.id)" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('actions.save') }}</button>
+              <button @click="cancelEdit" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('actions.cancel') }}</button>
             </div>
           </div>
-          <!-- Pagination for history -->
-          <div class="flex items-center justify-between mt-3">
-            <div class="text-[13px]" style="color:#6B7280">
+          <!-- 分页 -->
+          <div class="flex items-center justify-between mt-4 pt-4" style="border-top:1px solid var(--tf-divider)">
+            <div class="text-[13px]" style="color:var(--tf-text-muted)">
               {{ $t('historyPagination.total', { count: histTotal, page: histPage, pages: Math.max(1, Math.ceil(histTotal / histPageSize)) }) }}
             </div>
             <div class="flex items-center gap-3">
-              <button @click="prevHist" class="tf-copy-btn">{{ $t('historyPagination.prev') }}</button>
-              <button @click="nextHist" class="tf-copy-btn">{{ $t('historyPagination.next') }}</button>
+              <button @click="prevHist" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('historyPagination.prev') }}</button>
+              <button @click="nextHist" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('historyPagination.next') }}</button>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Features highlight (optional) -->
-    <section class="mt-16 bg-[#F9FAFB]">
-      <div class="max-w-[1200px] mx-auto py-16 px-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="p-6 rounded-[16px] border" style="border-color:#F3F4F6;background:#fff">
-          <div class="font-semibold mb-2" style="color:#1F2329">自定义别名</div>
-          <div style="color:#4B5563">可自定义短链后缀，增强品牌一致性</div>
+    <!-- 特性展示（飞书风格卡片网格）-->
+    <section class="py-16 px-6">
+      <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="fs-card p-6">
+          <div class="font-semibold mb-2 text-[16px]" style="color:var(--tf-text-title)">自定义别名</div>
+          <div class="text-[14px]" style="color:var(--tf-text-body)">可自定义短链后缀，增强品牌一致性</div>
         </div>
-        <div class="p-6 rounded-[16px] border" style="border-color:#F3F4F6;background:#fff">
-          <div class="font-semibold mb-2" style="color:#1F2329">访问统计</div>
-          <div style="color:#4B5563">统计点击与来源，数据驱动优化分享</div>
+        <div class="fs-card p-6">
+          <div class="font-semibold mb-2 text-[16px]" style="color:var(--tf-text-title)">访问统计</div>
+          <div class="text-[14px]" style="color:var(--tf-text-body)">统计点击与来源，数据驱动优化分享</div>
         </div>
-        <div class="p-6 rounded-[16px] border" style="border-color:#F3F4F6;background:#fff">
-          <div class="font-semibold mb-2" style="color:#1F2329">实时同步</div>
-          <div style="color:#4B5563">通过 API 刷新/删除历史记录，轻松管理与访问</div>
+        <div class="fs-card p-6">
+          <div class="font-semibold mb-2 text-[16px]" style="color:var(--tf-text-title)">实时同步</div>
+          <div class="text-[14px]" style="color:var(--tf-text-body)">通过 API 刷新/删除历史记录，轻松管理与访问</div>
         </div>
       </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="border-t mt-16">
-      <div class="text-center py-6 text-[14px]" style="color:#9CA3AF;border-color:#F3F4F6">
+    <!-- 页脚 -->
+    <footer class="py-8 px-6" style="border-top:1px solid var(--tf-divider)">
+      <div class="text-center text-[14px]" style="color:var(--tf-text-muted)">
         {{ $t('footer.suffix') }}
-        <a href="mailto:support@tinyflow.local" style="color:#6B72FF">{{ $t('footer.contactUs') }}</a>
+        <a href="mailto:support@tinyflow.local" class="hover:underline" style="color:var(--tf-brand-primary)">{{ $t('footer.contactUs') }}</a>
       </div>
     </footer>
   </main>
@@ -306,82 +263,30 @@ export default {
       histPageSize: 10,
       histTotal: 0,
       refreshing: false,
-      hoverRefresh: false,
       deletingIds: new Set(),
       updatingIds: new Set(),
-      hoverDeleteId: null,
       copiedId: null,
       copyItemTimer: null,
       editingId: null,
       editAlias: '',
       editingComposing: false,
-      pressedCopy: false,
-      pressedDownload: false,
-      pressedConfirm: false,
       FAVICONS_ENABLED: true,  // 是否启用外部 favicon 请求
     }
   },
   computed: {
     navStyle() {
       return {
-        backgroundColor: 'rgba(255,255,255,0.85)',
-        backdropFilter: 'saturate(180%) blur(8px)',
-        WebkitBackdropFilter: 'saturate(180%) blur(8px)',
-        transition: 'background-color 300ms ease, backdrop-filter 300ms ease, box-shadow 300ms ease',
-        boxShadow: '0 1px 0 rgba(0,0,0,0.04)'
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        backdropFilter: 'saturate(180%) blur(12px)',
+        WebkitBackdropFilter: 'saturate(180%) blur(12px)',
+        borderBottom: '1px solid var(--tf-border)',
+        boxShadow: 'var(--tf-shadow-card)'
       }
-    },
-    brandTextStyle() {
-      return {
-        fontSize: '20px',
-        backgroundImage: 'linear-gradient(135deg, #6B72FF 0%, #8A6BFF 60%, #A66BFF 100%)',
-        WebkitBackgroundClip: 'text',
-        backgroundClip: 'text',
-        color: 'transparent',
-        letterSpacing: '0.3px'
-      }
-    },
-    navAccentStyle() {
-      return { display: 'none' }
     },
     githubBtnStyle() {
       return {
-        background: 'linear-gradient(135deg, #6B72FF 0%, #8A6BFF 50%, #A66BFF 100%)'
+        background: 'linear-gradient(135deg, #3370FF 0%, #2B5FE6 45%, #38BDF8 100%)'
       }
-    },
-    formCardStyle() {
-      return {
-        borderColor: '#E5E7EB',
-        background: '#FFFFFF',
-        boxShadow: 'none'
-      }
-    },
-    resultCardStyle() {
-      return { borderColor: '#E5E7EB' }
-    },
-    minorBtnStyle() {
-      return { borderColor: '#E5E7EB', color: '#2B6CEF', background: '#fff' }
-    },
-    buttonStyle() {
-      const hasInput = !!(this.inputUrl && this.inputUrl.trim())
-      const deep = 'linear-gradient(135deg, #2B6CEF 0%, #8A6BFF 100%)' // 深蓝紫
-      const light = '#EAE8FF' // 默认浅紫色
-      const color = hasInput ? '#FFFFFF' : '#6B72FF'
-      return {
-        background: hasInput ? deep : light,
-        color,
-        transform: hasInput ? 'translateY(-2px) scale(1.02)' : 'none'
-      }
-    },
-    copyBtnStyle() {
-      return { color: this.copyLabel === '已复制' ? '#10B981' : '#6B72FF' }
-    },
-    refreshButtonStyle() {
-      const deep = 'linear-gradient(135deg, #2B6CEF 0%, #8A6BFF 100%)'
-      const light = '#EAE8FF'
-      const useDeep = this.hoverRefresh && !this.refreshing
-      const color = useDeep ? '#FFFFFF' : '#6B72FF'
-      return { background: useDeep ? deep : light, color, opacity: this.refreshing ? 0.8 : 1 }
     },
     isStatsOrDashboard() {
       const p = this.$route?.path || ''
@@ -424,8 +329,8 @@ export default {
   methods: {
     inputStyle(active) {
       return {
-        borderColor: active ? '#8A6BFF' : '#E5E7EB',
-        boxShadow: active ? '0 0 0 4px rgba(138,107,255,0.1)' : 'none',
+        borderColor: active ? '#2563EB' : '#E5E7EB',
+        boxShadow: active ? '0 0 0 4px rgba(37,99,235,0.14)' : 'none',
       }
     },
     async refreshClickStats() {
@@ -489,8 +394,8 @@ export default {
           createdAt: new Date().toISOString(),
         }
         this.history = [newItem, ...(this.history || [])]
-        // 触发全屏粒子压缩动画（若已挂载背景组件）
-        this.$refs?.qwenBg?.playCompression(this.shortUrl)
+        // 动效省略，保持首页简洁
+
       } catch (error) {
         const status = error?.response?.status
         if (status === 400) alert('链接格式无效或请求错误')
@@ -754,12 +659,6 @@ export default {
         if (id) this.deletingIds.delete(id)
       }
     },
-    deleteBtnStyle(id) {
-      return {
-        color: this.deletingIds.has(id) ? '#9CA3AF' : (this.hoverDeleteId === id ? '#EF4444' : '#9CA3AF'),
-        transition: 'all 0.2s ease'
-      }
-    },
     formatDate(value) {
       if (!value) return '-'
       try {
@@ -995,7 +894,7 @@ export default {
   width: 128px;
   height: 48px;
   border-radius: 10px;
-  background: linear-gradient(-45deg, #6B72FF 0%, #A66BFF 100%);
+  background: linear-gradient(-45deg, #2563EB 0%, #38BDF8 100%);
   z-index: -10;
   pointer-events: none;
   transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -1005,7 +904,7 @@ export default {
   z-index: -1;
   position: absolute;
   inset: 0;
-  background: linear-gradient(-45deg, #7E6BFF 0%, #B66BFF 100%);
+  background: linear-gradient(-45deg, #2563EB 0%, #38BDF8 100%);
   transform: translate3d(0, 0, 0) scale(0.95);
   filter: blur(20px);
 }
@@ -1022,7 +921,7 @@ export default {
 /* Brand text gradient + hover animation */
 .tf-brand-text {
   display: inline-block;
-  background-image: linear-gradient(135deg, #6B72FF 0%, #8A6BFF 60%, #A66BFF 100%);
+  background-image: linear-gradient(135deg, #2563EB 0%, #1D4ED8 45%, #38BDF8 100%);
   background-size: 200% 200%;
   background-position: 0% 50%;
   -webkit-background-clip: text;
@@ -1053,7 +952,7 @@ export default {
 }
 .tf-letter {
   display: inline-block;
-  background-image: linear-gradient(135deg, #6B72FF 0%, #8A6BFF 60%, #A66BFF 100%);
+  background-image: linear-gradient(135deg, #2563EB 0%, #1D4ED8 45%, #38BDF8 100%);
   background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -1171,7 +1070,7 @@ export default {
   box-shadow: none;
 }
 .tf-del-btn .tf-del-icon { width: 14px; height: 14px; transition: transform .25s ease, opacity .2s ease, fill .25s ease; }
-.tf-del-btn .tf-del-icon path { fill: #6B72FF; }
+.tf-del-btn .tf-del-icon path { fill: #2563EB; }
 
 /* 悬停态：红色高亮且展示文字标签，但不改变按钮本体尺寸，避免布局抖动 */
 .tf-del-btn::after {
@@ -1187,14 +1086,14 @@ export default {
   pointer-events: none;
   transition: opacity .25s ease, transform .25s ease;
 }
-.tf-del-btn:hover { background: linear-gradient(135deg, #4F9DFF 0%, #7A6BFF 100%); border-color: transparent; box-shadow: 0 6px 20px rgba(79,157,255,0.35); }
+.tf-del-btn:hover { background: linear-gradient(135deg, #2563EB 0%, #38BDF8 100%); border-color: transparent; box-shadow: 0 6px 20px rgba(37,99,235,0.3); }
 .tf-del-btn:hover .tf-del-icon path { fill: #ffffff; }
 .tf-del-btn:hover .tf-del-icon { transform: translateY(1px) scale(1.05); }
 .tf-del-btn:hover::after { opacity: .95; transform: translateX(-50%) translateY(26px); }
 
 /* 禁用态 */
 .tf-del-btn.is-loading,
-.tf-del-btn:disabled { background: linear-gradient(135deg, #98B9FF 0%, #C1B9FF 100%); cursor: not-allowed; box-shadow: none; }
+.tf-del-btn:disabled { background: linear-gradient(135deg, #93C5FD 0%, #BFDBFE 100%); cursor: not-allowed; box-shadow: none; }
 .tf-del-btn.is-loading .tf-del-icon,
 .tf-del-btn:disabled .tf-del-icon { opacity: .6; }
 
@@ -1209,8 +1108,8 @@ export default {
   padding: 0 8px;
   font-size: 11px;
   border-radius: 9999px;
-  background: rgba(107,114,255,0.12);
-  color: #6B72FF;
+  background: rgba(37,99,235,0.12);
+  color: #2563EB;
 }
 
 .tf-copy-btn {

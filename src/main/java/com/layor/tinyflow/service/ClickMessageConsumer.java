@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +22,12 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * RabbitMQ 消息消费者
  * 批量消费点击事件消息，批量更新数据库
+ * 
+ * 只有在配置了 RabbitMQ 时才启用
  */
 @Service
 @Slf4j
+@ConditionalOnProperty(name = "spring.rabbitmq.host")
 public class ClickMessageConsumer {
     
     @Autowired

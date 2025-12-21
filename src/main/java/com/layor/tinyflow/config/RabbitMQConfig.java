@@ -5,14 +5,18 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
  * RabbitMQ 配置类
  * 配置点击事件队列、死信队列、消息转换器等
+ * 
+ * 只有在配置了 spring.rabbitmq.host 时才启用
  */
 @Configuration
+@ConditionalOnProperty(name = "spring.rabbitmq.host")
 public class RabbitMQConfig {
     
     // ========== 队列名称常量 ==========
