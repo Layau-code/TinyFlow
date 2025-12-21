@@ -70,11 +70,8 @@ public class ShortUrlService {
             throw new Exception("长链接格式不正确");
         }
         
-        // 获取当前登录用户ID
+        // 获取当前登录用户ID（如果未登录则为null）
         Long userId = authService.getCurrentUserId();
-        if (userId == null) {
-            throw new Exception("未登录，请先登录");
-        }
         
         //1.1如果长链接已经存在且属于当前用户，直接返回对应的短链
         if (shortUrlRepository.existsByLongUrl(longUrl)) {
@@ -229,16 +226,19 @@ public class ShortUrlService {
     }
     // UrlService.java
     public Page<UrlListResponseDTO> getAllUrls(int page, int size) {
-        // 获取当前登录用户ID
+        // 获取当前登录用户ID（如果未登录则为null）
         Long userId = authService.getCurrentUserId();
-        if (userId == null) {
-            throw new RuntimeException("未登录，请先登录");
-        }
         
         Pageable pageable = PageRequest.of(page, size);
 
-        // 1. 只查询当前用户的短链接
-        Page<ShortUrl> shortUrlPage = shortUrlRepository.findByUserId(userId, pageable);
+        // 1. 如果用户已登录，只查询当前用户的短链接；否则查询所有匿名短链
+        Page<ShortUrl> shortUrlPage;
+        if (userId != null) {
+            shortUrlPage = shortUrlRepository.findByUserId(userId, pageable);
+        } else {
+            // 匿名用户查询所有userId为null的短链
+            shortUrlPage = shortUrlRepository.findByUserIdIsNull(pageable);
+        }
         List<ShortUrl> shortUrls = shortUrlPage.getContent();
 
 
@@ -486,19 +486,19 @@ public class ShortUrlService {
     private String escapeJson(String s) { return s.replace("\\", "\\\\").replace("\"", "\\\""); }
     @Transactional
     public void deleteByShortCode(String shortCode) {
-        // 获取当前登录用户ID
+        // 获取当前登录用户ID（如果未登录则为null）
         Long userId = authService.getCurrentUserId();
-        if (userId == null) {
-            throw new RuntimeException("未登录，请先登录");
-        }
         
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
         if (shortUrl == null) {
             throw new NoSuchElementException("Short URL not found");
         }
         
-        // 权限检查：只能删除自己的短链
-        if (!shortUrl.getUserId().equals(userId)) {
+        // 权限检查：只能删除自己的短链（匿名用户只能删除匿名短链）
+        if (userId != null && shortUrl.getUserId() != null && !shortUrl.getUserId().equals(userId)) {
+            throw new SecurityException("无权删除此短链接");
+        }
+        if (userId == null && shortUrl.getUserId() != null) {
             throw new SecurityException("无权删除此短链接");
         }
         
@@ -528,11 +528,8 @@ public class ShortUrlService {
 
     @Transactional
     public void updateShortUrl(String shortCode,  String customAlias) {
-        // 获取当前登录用户ID
+        // 获取当前登录用户ID（如果未登录则为null）
         Long userId = authService.getCurrentUserId();
-        if (userId == null) {
-            throw new RuntimeException("未登录，请先登录");
-        }
         
         //1. 查询短链是否存在
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
@@ -540,8 +537,11 @@ public class ShortUrlService {
             throw new RuntimeException("短链不存在");
         }
         
-        // 权限检查：只能修改自己的短链
-        if (!shortUrl.getUserId().equals(userId)) {
+        // 权限检查：只能修改自己的短链（匿名用户只能修改匿名短链）
+        if (userId != null && shortUrl.getUserId() != null && !shortUrl.getUserId().equals(userId)) {
+            throw new SecurityException("无权修改此短链接");
+        }
+        if (userId == null && shortUrl.getUserId() != null) {
             throw new SecurityException("无权修改此短链接");
         }
         

@@ -40,6 +40,11 @@ public interface ShortUrlRepository extends JpaRepository<ShortUrl, Long> {
     Page<ShortUrl> findByUserId(Long userId, Pageable pageable);
     
     /**
+     * 查询所有匿名短链（userId 为 null）
+     */
+    Page<ShortUrl> findByUserIdIsNull(Pageable pageable);
+    
+    /**
      * 根据用户ID和短码查询
      */
     ShortUrl findByUserIdAndShortCode(Long userId, String shortCode);

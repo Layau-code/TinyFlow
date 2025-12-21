@@ -56,6 +56,10 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",           // 认证接口（注册、登录）
                                 "/api/redirect/**",       // 短链跳转（核心功能）
+                                "/api/shorten",           // 创建短链（暂时允许匿名）
+                                "/api/urls",              // 查询短链列表（暂时允许匿名）
+                                "/api/urls/**",           // 短链相关操作（暂时允许匿名）
+                                "/api/stats/**",          // 统计接口（暂时允许匿名）
                                 "/actuator/**",           // 监控端点
                                 "/error",                 // 错误页面
                                 "/{shortCode}"            // 根路径短链重定向

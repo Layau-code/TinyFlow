@@ -16,6 +16,22 @@
           class="text-[14px] text-[#6B7280] hover:text-black"
           :title="$t('nav.dashboard')"
         >{{ $t('nav.dashboard') }}</a>
+        
+        <!-- 登录/退出按钮 -->
+        <div v-if="isAuthenticated" class="flex items-center gap-3">
+          <span class="text-[14px] text-[#6B7280]">{{ currentUsername }}</span>
+          <button
+            @click="handleLogout"
+            class="text-[14px] text-[#6B7280] hover:text-red-600 transition"
+          >退出登录</button>
+        </div>
+        <a
+          v-else
+          href="#"
+          @click.prevent="$router.push('/login')"
+          class="text-[14px] text-[#6B7280] hover:text-blue-600 font-medium transition"
+        >登录</a>
+        
         <a
           href="https://github.com/Layau-code/TinyFlow"
           target="_blank"
@@ -243,15 +259,30 @@ import LoadingSpinner from '/src/components/LoadingSpinner.vue'
 import QrcodeVue from 'qrcode.vue'
 import LanguageSwitcher from '/src/components/LanguageSwitcher.vue'
 import Favicon from '/src/components/Favicon.vue'
+import { useAuth } from '/src/composables/useAuth'
+import { computed } from 'vue'
+import { SHORT_BASE } from '/src/composables/shortBase'
 
 const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin)
   ? window.location.origin
   : 'http://localhost:8080' // 用于顶部“历史记录”跳转链接
-const api = axios.create({ baseURL: '' }) // 使用 Vite dev 代理转发 /api 与 /shorten
+// 使用全局 axios 实例（已在 useAuth 中配置拦截器）
+const api = axios
 
 export default {
   name: 'App',
   components: { LoadingSpinner, QrcodeVue, LanguageSwitcher, Favicon },
+  setup() {
+    const { username, isAuthenticated, logout } = useAuth()
+    return {
+      currentUsername: username,
+      isAuthenticated,
+      handleLogout: () => {
+        logout()
+        window.location.href = '/login'
+      }
+    }
+  },
   data() {
     return {
       apiBase: API_BASE,
@@ -287,6 +318,7 @@ export default {
       pressedCopy: false,
       pressedDownload: false,
       pressedConfirm: false,
+      FAVICONS_ENABLED: true,  // 是否启用外部 favicon 请求
     }
   },
   computed: {
@@ -353,7 +385,7 @@ export default {
     },
     isStatsOrDashboard() {
       const p = this.$route?.path || ''
-      return p.startsWith('/stats/') || p === '/dashboard'
+      return p.startsWith('/stats/') || p === '/dashboard' || p === '/login'
     },
     statsMap() {
       const map = {}
@@ -578,17 +610,17 @@ export default {
     buildShortUrl(code) {
       if (!code) return ''
       try {
-        return new URL('/api/redirect/' + encodeURIComponent(String(code)), API_BASE).href
+        return new URL('/api/redirect/' + encodeURIComponent(String(code)), 'http://localhost:8080').href
       } catch {
-        return (API_BASE || '') + '/api/redirect/' + encodeURIComponent(String(code))
+        return 'http://localhost:8080/api/redirect/' + encodeURIComponent(String(code))
       }
     },
     buildDisplayShortUrl(code) {
       if (!code) return ''
       try {
-        return new URL('/' + encodeURIComponent(String(code)), API_BASE).href
+        return new URL('/' + encodeURIComponent(String(code)), 'http://localhost:8080').href
       } catch {
-        return (API_BASE || '') + '/' + encodeURIComponent(String(code))
+        return 'http://localhost:8080/' + encodeURIComponent(String(code))
       }
     },
     displayShortUrl(item) {
@@ -738,8 +770,6 @@ export default {
     onScroll() {
       this.scrolled = window.scrollY > 8
     },
-    // 是否启用外部 favicon 请求（如受网络或策略限制，建议关闭）
-    FAVICONS_ENABLED: true,
     faviconSrc(item) {
       // 全局开关：关闭则不发起任何跨站图标请求
       if (!this.FAVICONS_ENABLED) return ''

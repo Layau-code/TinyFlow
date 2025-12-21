@@ -24,12 +24,14 @@ public class ObservabilityConfig {
     }
 
     /**
-     * 注册线程池监控指标
+     * 注册线程池监控指标（可选，仅当存在 ThreadPoolTaskExecutor 时启用）
      */
     @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(ThreadPoolTaskExecutor.class)
     public ExecutorServiceMetrics executorServiceMetrics(
             ThreadPoolTaskExecutor taskExecutor,
             MeterRegistry meterRegistry) {
+        log.info("Registering ExecutorServiceMetrics for async-executor");
         ExecutorServiceMetrics metrics = new ExecutorServiceMetrics(
                 taskExecutor.getThreadPoolExecutor(),
                 "async-executor",
