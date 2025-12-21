@@ -24,9 +24,9 @@ spring:
     database-platform: org.hibernate.dialect.MySQL8Dialect
   data:
     redis:
-      host: localhost
+      host: 47.97.110.128
       port: 6379
-      password: CHANGE_ME_REDIS_PASSWORD
+      password: 123456
       timeout: 2s
       lettuce:
           pool:
@@ -35,35 +35,35 @@ spring:
             max-wait: 1s
             min-idle: 50
   
-  # RabbitMQ 配置
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-    virtual-host: /
-    # 生产者确认机制，保证消息不丢失
-    publisher-confirm-type: correlated
-    publisher-returns: true
-    template:
-      mandatory: true
-    # 消费者配置
-    listener:
-      simple:
-        # 手动确认模式，保证消息处理成功
-        acknowledge-mode: manual
-        # 并发消费者数量
-        concurrency: 4
-        max-concurrency: 8
-        # 预取数量（批量消费）
-        prefetch: 100
-        # 重试机制
-        retry:
-          enabled: true
-          max-attempts: 3
-          initial-interval: 1000
-          multiplier: 2
-          max-interval: 10000
+  # RabbitMQ 配置（暂时禁用，未安装）
+#  rabbitmq:
+#    host: localhost
+#    port: 5672
+#    username: guest
+#    password: guest
+#    virtual-host: /
+#    # 生产者确认机制，保证消息不丢失
+#    publisher-confirm-type: correlated
+#    publisher-returns: true
+#    template:
+#      mandatory: true
+#    # 消费者配置
+#    listener:
+#      simple:
+#        # 手动确认模式，保证消息处理成功
+#        acknowledge-mode: manual
+#        # 并发消费者数量
+#        concurrency: 4
+#        max-concurrency: 8
+#        # 预取数量（批量消费）
+#        prefetch: 100
+#        # 重试机制
+#        retry:
+#          enabled: true
+#          max-attempts: 3
+#          initial-interval: 1000
+#          multiplier: 2
+#          max-interval: 10000
 
 
 server:
@@ -135,8 +135,9 @@ management:
 events:
   sampleRate: 0.0
 # 点击计数模式：mq(消息队列，推荐) | local(本地内存) | redis(Pipeline)
+# 暂时使用 redis 模式，等 RabbitMQ 安装后改为 mq
 clicks:
-  mode: mq
+  mode: redis
 
 cache:
   caffeine:
