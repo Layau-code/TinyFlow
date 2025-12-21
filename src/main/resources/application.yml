@@ -1,11 +1,14 @@
 spring:
 
+  profiles:
+    include: local
+
   application:
     name: TinyFlow
   datasource:
     url: jdbc:mysql://localhost:3306/tiny-flow?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci
     username: root
-    password: 123456
+    password: CHANGE_ME_DB_PASSWORD
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 100
@@ -21,9 +24,9 @@ spring:
     database-platform: org.hibernate.dialect.MySQL8Dialect
   data:
     redis:
-      host: 47.97.110.128
+      host: localhost
       port: 6379
-      password: 123456
+      password: CHANGE_ME_REDIS_PASSWORD
       timeout: 2s
       lettuce:
           pool:
@@ -209,6 +212,6 @@ resilience4j:
 # JWT 配置
 jwt:
   # 密钥（生产环境请使用环境变量或加密存储，至少256位）
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970337336763979244226452948404D635166546A576E5A7134743777217A25432A
+  secret: CHANGE_ME_SECRET_KEY
   # 过期时间（毫秒），默认7天
   expiration: 604800000
