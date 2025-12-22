@@ -1,0 +1,74 @@
+name: Deploy TinyFlow
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 设置 Node.js 环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      # 3. 安装前端依赖并构建
+      - name: Build Frontend
+        run: |
+          cd web
+          npm ci
+          npm run build
+
+      # 4. 设置 Java 环境
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      # 5. 构建后端
+      - name: Build Backend
+        run: mvn clean package -DskipTests
+
+      # 6. 部署到服务器
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/TinyFlow
+            git pull origin master
+            
+            # 重新构建前端
+            cd web
+            npm ci
+            npm run build
+            
+            # 重新构建后端
+            cd ..
+            mvn clean package -DskipTests
+            
+            # 重启服务
+            systemctl restart tinyflow
+            systemctl restart nginx
+            
+            echo " 部署完成！"
+
+      # 7. 部署成功通知（可选）
+      - name: Deployment Success
+        if: success()
+        run: echo " TinyFlow 部署成功！"
