@@ -1,9 +1,12 @@
 <template>
-  <!-- Top Navbar: Feishu style minimal header -->
-  <header class="fixed top-0 left-0 right-0 z-50" :style="navStyle">
+  <!-- Top Navbar: Feishu style minimal header (hidden on login page) -->
+  <header v-if="!isLoginPage" class="fixed top-0 left-0 right-0 z-50" :style="navStyle">
     <div class="flex items-center justify-between h-14 px-6 md:px-[10%]">
       <div class="flex items-center gap-8">
-        <div class="font-semibold text-[20px]" style="color:#1F2329">TinyFlow</div>
+        <div class="flex items-center gap-2">
+          <img src="/logo.png" alt="TinyFlow" class="h-7 w-auto" />
+          <div class="font-semibold text-[20px]" style="color:#1F2329">TinyFlow</div>
+        </div>
         <nav class="hidden md:flex items-center gap-6">
           <a href="#" @click.prevent="$router.push('/')" class="text-[14px] hover:text-[#3370FF] transition" style="color:#646A73">{{ $t('common.home') }}</a>
           <a href="#" @click.prevent="goToDashboard" class="text-[14px] hover:text-[#3370FF] transition" style="color:#646A73">{{ $t('nav.dashboard') }}</a>
@@ -43,8 +46,8 @@
   </header>
 
   <!-- Rest of page -->
-  <router-view v-if="isStatsOrDashboardOrAbout" class="pt-14" />
-  <main class="min-h-screen pt-14" v-show="!isStatsOrDashboardOrAbout" style="background-color:var(--tf-bg-page)">
+  <router-view v-if="isRouterViewPage" :class="{ 'pt-14': !isLoginPage }" />
+  <main class="min-h-screen pt-14" v-show="!isRouterViewPage" style="background-color:var(--tf-bg-page)">
     <section class="hero pt-24 pb-16">
       <div class="hero-inner max-w-5xl mx-auto px-6 flex flex-col items-center text-center gap-8">
         <!-- 标题区 -->
@@ -286,12 +289,16 @@ export default {
     },
     githubBtnStyle() {
       return {
-        background: 'linear-gradient(135deg, #3370FF 0%, #2B5FE6 45%, #38BDF8 100%)'
+        background: 'linear-gradient(135deg, #1D9BF0 0%, #2B6BFF 50%, #37B4FF 100%)'
       }
     },
-    isStatsOrDashboardOrAbout() {
+    isLoginPage() {
       const p = this.$route?.path || ''
-      return p.startsWith('/stats/') || p === '/dashboard' || p === '/login' || p === '/about'
+      return p === '/login'
+    },
+    isRouterViewPage() {
+      const p = this.$route?.path || ''
+      return p.startsWith('/stats/') || p === '/dashboard' || p === '/login' || p === '/about' || p === '/'
     },
     statsMap() {
       const map = {}

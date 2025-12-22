@@ -82,7 +82,7 @@
                 <td class="md-td">
                   <div class="flex items-center gap-2">
                     <div class="w-[160px] h-2 rounded" style="background: var(--divider)">
-                      <div class="h-2 rounded" :style="{ width: (percentMap[row.shortCode]||0).toFixed(2) + '%', background: '#2563EB' }"></div>
+                      <div class="h-2 rounded" :style="{ width: (percentMap[row.shortCode]||0).toFixed(2) + '%', background: 'var(--tf-brand-primary)' }"></div>
                     </div>
                     <span class="md-muted">{{ (percentMap[row.shortCode]||0).toFixed(2) }}%</span>
                   </div>
@@ -142,7 +142,7 @@ const { data: clickStatsRef, loading: clickLoading, error: clickError, refresh: 
 const list = listRef
 
 // Pie data and colors
-const pieColors = ['#3370FF','#2B5FE6','#1F4ED8','#00C875','#FFAB00','#6366F1','#38BDF8','#14B8A6','#22C55E']
+const pieColors = ['#1D9BF0','#2B6BFF','#37B4FF','#00C875','#FFAB00','#6366F1','#38BDF8','#14B8A6','#22C55E']
 // 使用 click-stats 数据源生成饼图数据
 const pieTotalData = computed(() => buildPieData(clickStatsRef.value || [], 'totalVisits'))
 const pieTodayData = computed(() => buildPieData(clickStatsRef.value || [], 'todayVisits'))

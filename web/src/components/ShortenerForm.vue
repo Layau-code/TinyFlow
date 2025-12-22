@@ -45,7 +45,7 @@
         </div>
         <div class="flex-1"></div>
         <!-- 二维码 -->
-        <QrcodeVue :value="redirectUrl" :size="140" level="M" :foreground="'#2B6CEF'" :background="'#ffffff'"/>
+        <QrcodeVue :value="redirectUrl" :size="140" level="M" :foreground="'#1D9BF0'" :background="'#ffffff'"/>
       </div>
     </div>
   </div>
@@ -60,8 +60,8 @@ import { useI18n } from 'vue-i18n'
 import { SHORT_BASE } from '../composables/shortBase'
 
 // UI 风格：通义千问蓝紫
-const BLUE = '#2B6CEF'
-const PURPLE = '#8B7DFF'
+const BLUE = '#1D9BF0'
+const PURPLE = '#2B6BFF'
 
 const longUrl = ref<string>('')
 const customAlias = ref<string>('')
@@ -91,7 +91,7 @@ const resultCardStyle = computed(() => ({
   borderColor: '#E5E7EB'
 }))
 
-const linkStyle = computed(() => ({ color: '#2B6CEF' }))
+const linkStyle = computed(() => ({ color: '#1D9BF0' }))
 // 展示使用统一基域短链（SHORT_BASE），不包含 /api/redirect
 const redirectUrl = computed(() => {
   const url = shortUrl.value || ''

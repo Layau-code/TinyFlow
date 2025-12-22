@@ -4,11 +4,11 @@
 
 :root {
   /* 飞书设计系统配色 */
-  --tf-brand-primary: #3370FF;
-  --tf-brand-hover: #2B5FE6;
-  --tf-brand-pressed: #1F4ED8;
-  --tf-brand-light: #EFF4FF;
-  --tf-brand-lighter: #F2F5FF;
+  --tf-brand-primary: #1D9BF0;
+  --tf-brand-hover: #1A7FE0;
+  --tf-brand-pressed: #1554C0;
+  --tf-brand-light: #E6F3FF;
+  --tf-brand-lighter: #F2F7FF;
   
   --tf-bg-page: #F7F8FA;
   --tf-bg-card: #FFFFFF;
@@ -109,7 +109,7 @@ html, body {
 
 /* Brand gradient helpers */
 .brand-gradient {
-  background: linear-gradient(135deg, #1D4ED8 0%, #2563EB 45%, #38BDF8 100%);
+  background: linear-gradient(135deg, #1D9BF0 0%, #2B6BFF 50%, #37B4FF 100%);
 }
 .brand-gradient-soft {
   background: linear-gradient(135deg, rgba(191,219,254,1), rgba(219,234,254,1));

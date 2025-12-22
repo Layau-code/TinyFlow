@@ -1,84 +1,232 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center px-4" style="background-color:var(--tf-bg-page)">
-    <div class="max-w-md w-full">
-      <!-- Logo -->
-      <div class="text-center mb-8">
-        <h1 class="font-semibold text-[36px] mb-2" style="color:var(--tf-brand-primary)">TinyFlow</h1>
-        <p class="text-[16px]" style="color:var(--tf-text-body)">{{ isLogin ? '登录到你的账户' : '创建新账户' }}</p>
+  <!-- 全屏登录页面 - 飞书风格 -->
+  <div class="min-h-screen w-full flex font-sans">
+    <!-- 左侧品牌区域 - 25% 宽度（左右比例1:3），渐变背景 -->
+    <div class="hidden lg:flex flex-col w-1/4 min-w-[360px] relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <!-- 装饰性背景元素 -->
+      <div class="absolute inset-0 overflow-hidden">
+        <!-- 主装饰圆 -->
+        <div class="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-blue-200/40 to-indigo-300/30 blur-3xl"></div>
+        <div class="absolute top-1/3 -right-20 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-cyan-200/30 to-blue-300/20 blur-3xl"></div>
+        <div class="absolute -bottom-32 left-1/4 w-[450px] h-[450px] rounded-full bg-gradient-to-br from-violet-200/30 to-indigo-200/20 blur-3xl"></div>
+        
+        <!-- 精致的装饰线条 -->
+        <svg class="absolute inset-0 w-full h-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="currentColor" stroke-width="0.5" class="text-indigo-500"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+        </svg>
+        
+        <!-- 流动的装饰曲线 -->
+        <svg class="absolute bottom-0 left-0 w-full h-1/2 opacity-10" viewBox="0 0 1440 320" preserveAspectRatio="none">
+          <path fill="url(#wave-gradient)" d="M0,160L48,176C96,192,192,224,288,213.3C384,203,480,149,576,138.7C672,128,768,160,864,181.3C960,203,1056,213,1152,197.3C1248,181,1344,139,1392,117.3L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+          <defs>
+            <linearGradient id="wave-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.3" />
+              <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:0.2" />
+              <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0.3" />
+            </linearGradient>
+          </defs>
+        </svg>
       </div>
+      
+      <!-- 内容区域 -->
+      <div class="relative z-10 flex flex-col h-full px-10 py-10">
+        <!-- 顶部小 Logo -->
+        <div class="flex items-center gap-3">
+          <img src="/logo.png" alt="TinyFlow" class="h-8 w-auto" />
+          <span class="text-[20px] font-semibold text-gray-700">TinyFlow</span>
+        </div>
+      
+      <!-- 中间主内容区域 -->
+      <div class="flex-1 flex flex-col justify-center">
+        <!-- 大 Logo + 名称 -->
+        <div class="flex items-center gap-4 mb-6">
+          <img src="/logo.png" alt="TinyFlow" class="h-16 w-auto" />
+          <span class="text-[36px] font-bold text-gray-800">TinyFlow</span>
+        </div>
+        
+        <!-- 主标语 - 上下结构 -->
+        <div class="mb-10">
+          <h2 class="text-[36px] font-bold text-gray-800 leading-tight">现在注册</h2>
+          <h2 class="text-[36px] font-bold gradient-text-animated leading-tight">让分享更有温度</h2>
+        </div>
+        
+        <!-- 三段卖点 - 优雅渐变图标 -->
+        <div class="space-y-7">
+          <!-- 卖点1 -->
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-200">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="text-[20px] font-semibold text-gray-800 mb-1">毫秒级跳转</div>
+              <div class="text-[18px] text-gray-500 leading-relaxed">稳定承载高并发访问，确保用户流畅体验</div>
+            </div>
+          </div>
 
-      <!-- 登录/注册表单卡片（飞书风格）-->
-      <div class="fs-card p-8">
-        <!-- 切换按钮 -->
-        <div class="mb-6">
-          <div class="flex gap-2 p-1 rounded-lg" style="background:var(--tf-bg-page)">
-            <button
-              @click="isLogin = true"
-              :class="[
-                'flex-1 py-2 px-4 rounded-md font-medium transition-all text-[14px]',
-                isLogin ? 'bg-white shadow-sm' : ''
-              ]"
-              :style="isLogin ? { color: 'var(--tf-brand-primary)' } : { color: 'var(--tf-text-muted)' }"
+          <!-- 卖点2 -->
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-200">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="text-[20px] font-semibold text-gray-800 mb-1">实时数据分析</div>
+              <div class="text-[18px] text-gray-500 leading-relaxed">来源、设备、地域分布一目了然</div>
+            </div>
+          </div>
+
+          <!-- 卖点3 -->
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-200">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="text-[20px] font-semibold text-gray-800 mb-1">安全可靠</div>
+              <div class="text-[18px] text-gray-500 leading-relaxed">企业级安全保障，数据始终安全</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 底部版权 -->
+      <div>
+        <div class="text-[14px] text-gray-400">© 2025 TinyFlow. All rights reserved.</div>
+      </div>
+      </div>
+    </div>
+
+    <!-- 右侧登录表单区域 - 70% 宽度，白色背景 -->
+    <div class="flex-1 flex items-center justify-center p-6 md:p-12 bg-white relative">
+      <!-- 登录表单容器 -->
+      <div class="w-full max-w-[420px]">
+        <!-- 移动端 Logo -->
+        <div class="lg:hidden flex items-center gap-3 mb-10">
+          <img src="/logo.png" alt="TinyFlow" class="h-10 w-auto" />
+          <span class="text-2xl font-bold text-gray-800">TinyFlow</span>
+        </div>
+
+        <!-- 登录卡片 -->
+        <div class="bg-white rounded-2xl p-8 md:p-10 shadow-xl border border-gray-100">
+          <!-- 标题 -->
+          <div class="mb-8">
+            <h1 class="text-[22px] font-bold text-gray-900 mb-2">
+              {{ isLogin ? '欢迎使用 TinyFlow' : '创建新账户' }}
+            </h1>
+            <p class="text-[14px] text-gray-500">
+              {{ isLogin ? '登录以管理您的短链和统计数据' : '注册后即可享受全部功能' }}
+            </p>
+          </div>
+
+          <!-- 登录/注册表单 -->
+          <form @submit.prevent="handleSubmit" class="space-y-5">
+            <!-- 用户名 -->
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-2">用户名</label>
+              <input
+                v-model="formData.username"
+                type="text"
+                required
+                class="w-full h-11 px-4 rounded-lg border border-gray-200 text-[14px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
+                :placeholder="isLogin ? '输入您的用户名' : '设置用户名'"
+              />
+            </div>
+
+            <!-- 邮箱（仅注册时显示）-->
+            <div v-if="!isLogin">
+              <label class="block text-[13px] font-medium text-gray-700 mb-2">邮箱地址</label>
+              <input
+                v-model="formData.email"
+                type="email"
+                class="w-full h-11 px-4 rounded-lg border border-gray-200 text-[14px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
+                placeholder="输入您的邮箱地址（可选）"
+              />
+            </div>
+
+            <!-- 密码 -->
+            <div>
+              <label class="block text-[13px] font-medium text-gray-700 mb-2">密码</label>
+              <input
+                v-model="formData.password"
+                type="password"
+                required
+                class="w-full h-11 px-4 rounded-lg border border-gray-200 text-[14px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
+                :placeholder="isLogin ? '输入您的密码' : '设置密码（至少6位）'"
+                :minlength="isLogin ? 1 : 6"
+              />
+            </div>
+
+            <!-- 错误提示 -->
+            <div
+              v-if="error"
+              class="p-3 rounded-lg text-[13px] bg-red-50 border border-red-100 text-red-600"
             >
-              登录
+              {{ error }}
+            </div>
+
+            <!-- 提交按钮 -->
+            <button
+              type="submit"
+              :disabled="loading"
+              class="w-full h-11 rounded-lg font-semibold text-white text-[14px] transition-all duration-200 hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-500 hover:bg-blue-600"
+            >
+              {{ loading ? '处理中...' : (isLogin ? '登录' : '创建账户') }}
             </button>
+          </form>
+
+          <!-- 跳过登录 -->
+          <div class="mt-5 text-center">
             <button
-              @click="isLogin = false"
-              :class="[
-                'flex-1 py-2 px-4 rounded-md font-medium transition-all text-[14px]',
-                !isLogin ? 'bg-white shadow-sm' : ''
-              ]"
-              :style="!isLogin ? { color: 'var(--tf-brand-primary)' } : { color: 'var(--tf-text-muted)' }"
+              @click="skipLogin"
+              class="text-[13px] text-gray-400 hover:text-blue-500 transition-colors"
             >
-              注册
+              暂不登录，先看看 →
+            </button>
+          </div>
+
+          <!-- 底部切换提示 -->
+          <div class="mt-5 pt-5 border-t border-gray-100 text-center text-[13px] text-gray-500">
+            {{ isLogin ? '还没有账户？' : '已有账户？' }}
+            <button
+              @click="isLogin = !isLogin"
+              class="font-medium text-blue-500 hover:text-blue-600 ml-1 transition-colors"
+            >
+              {{ isLogin ? '立即注册' : '立即登录' }}
             </button>
           </div>
         </div>
-
-        <form @submit.prevent="handleSubmit" class="space-y-4">
-          <!-- 用户名 -->
-          <div>
-            <label class="block text-sm font-medium mb-2" style="color:var(--tf-text-body)">用户名</label>
-            <input v-model="formData.username" type="text" required class="fs-input w-full" placeholder="请输入用户名" />
-          </div>
-
-          <!-- 邮箱（仅注册）-->
-          <div v-if="!isLogin">
-            <label class="block text-sm font-medium mb-2" style="color:var(--tf-text-body)">邮箱</label>
-            <input v-model="formData.email" type="email" class="fs-input w-full" placeholder="请输入邮箱（可选）" />
-          </div>
-
-          <!-- 密码 -->
-          <div>
-            <label class="block text-sm font-medium mb-2" style="color:var(--tf-text-body)">密码</label>
-            <input v-model="formData.password" type="password" required class="fs-input w-full" :placeholder="isLogin ? '请输入密码' : '请设置密码（至少6位）'" :minlength="isLogin ? 1 : 6" />
-          </div>
-
-          <!-- 错误提示 -->
-          <div v-if="error" class="p-3 rounded-lg text-sm" style="background:rgba(245,74,69,0.1);border:1px solid rgba(245,74,69,0.3);color:var(--tf-error)">
-            {{ error }}
-          </div>
-
-          <!-- 提交按钮 -->
-          <button type="submit" :disabled="loading" class="fs-btn-primary w-full h-11">
-            {{ loading ? '处理中...' : (isLogin ? '登录' : '注册') }}
-          </button>
-        </form>
-
-        <!-- 匿名访问提示 -->
-        <div class="mt-6 text-center">
-          <button @click="skipLogin" class="text-sm hover:underline transition" style="color:var(--tf-text-muted)">
-            暂时跳过，匿名访问 →
-          </button>
-        </div>
       </div>
 
-      <!-- 底部提示 -->
-      <div class="mt-6 text-center text-sm" style="color:var(--tf-text-muted)">
-        {{ isLogin ? '还没有账户？' : '已有账户？' }}
-        <button @click="isLogin = !isLogin" class="font-medium ml-1 hover:underline" style="color:var(--tf-brand-primary)">
-          {{ isLogin ? '立即注册' : '立即登录' }}
-        </button>
+      <!-- 右下角语言切换 -->
+      <div class="absolute bottom-6 right-6 flex items-center gap-1 text-[13px] text-gray-400 cursor-pointer hover:text-gray-600">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+        </svg>
+        <span>简体中文</span>
+      </div>
+
+      <!-- 右侧客服浮窗 -->
+      <div class="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
+        <div class="w-10 h-10 rounded-lg bg-white shadow-lg border border-gray-100 flex items-center justify-center cursor-pointer hover:shadow-xl transition-shadow" title="扫码登录">
+          <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm13 2h-2v2h2v2h2v-2h2v-2h-2v-2h-2v2zm0-8h2v2h-2v-2zm-4 4h2v4h-2v-4zm-4 6h2v4h-2v-4z"/>
+          </svg>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-white shadow-lg border border-gray-100 flex items-center justify-center cursor-pointer hover:shadow-xl transition-shadow" title="联系客服">
+          <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
+            <path d="M12 10c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm-4 0c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zm8 0c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1z"/>
+          </svg>
+        </div>
       </div>
     </div>
   </div>
@@ -89,8 +237,6 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import axios from 'axios'
-
-console.log('LoginPage.vue 组件正在加载...')
 
 const router = useRouter()
 const { setToken } = useAuth()
@@ -105,12 +251,10 @@ const formData = ref({
 })
 
 onMounted(() => {
-  console.log('LoginPage 组件已挂载！')
-  console.log('测试：点击"立即注册"按钮应该能切换标签')
+  console.log('LoginPage 组件已挂载')
 })
 
 const handleSubmit = async () => {
-  console.log('=== 开始登录/注册 ===', { isLogin: isLogin.value, formData: formData.value })
   error.value = ''
   loading.value = true
 
@@ -120,74 +264,82 @@ const handleSubmit = async () => {
       ? { username: formData.value.username, password: formData.value.password }
       : { username: formData.value.username, email: formData.value.email || undefined, password: formData.value.password }
 
-    console.log('发送请求:', { endpoint, payload })
     const response = await axios.post(endpoint, payload)
-    console.log('收到响应:', response)
-    console.log('响应头:', response.headers)
     const data = response.data
 
-    // 处理返回结果 - 支持两种格式：
-    // 1. Token 在响应体: { success: true, data: { token: "xxx" } }
-    // 2. Token 在响应头: Authorization: "Bearer xxx"
     let token = null
     let username = formData.value.username
 
-    // 方式1: 从响应头获取 Token
     const authHeader = response.headers['authorization'] || response.headers['Authorization']
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7) // 移除 "Bearer " 前缀
-      console.log('从响应头提取 Token:', token)
+      token = authHeader.substring(7)
     }
     
-    // 方式2: 从响应体获取 Token（备用）
     if (!token && data.success && data.data && data.data.token) {
       token = data.data.token
       username = data.data.username || username
-      console.log('从响应体提取 Token:', token)
     }
 
     if (!token) {
-      console.error('登录失败，未找到 Token。响应数据:', data, '响应头:', response.headers)
       throw new Error(data.message || '登录失败：未返回有效 Token')
     }
 
-    console.log('提取 Token:', token)
-    console.log('提取用户名:', username)
-
-    // 存储 Token 并更新响应式状态
     setToken(token, username)
-    console.log('Token 已存储，响应式状态已更新，准备跳转首页')
-
-    // 跳转到首页
     await router.push('/')
-    console.log('已跳转到首页')
   } catch (err) {
     console.error('登录/注册错误:', err)
     if (err.response) {
-      // 后端返回的错误
-      console.error('后端错误响应:', err.response.data)
       const msg = err.response.data?.message || err.response.data?.msg || err.response.data
       error.value = typeof msg === 'string' ? msg : (isLogin.value ? '登录失败,请检查用户名和密码' : '注册失败,请稍后重试')
     } else if (err.request) {
-      console.error('请求未收到响应:', err.request)
       error.value = '网络错误,请检查后端服务是否启动'
     } else {
-      console.error('请求配置错误:', err.message)
       error.value = isLogin.value ? '登录失败,请稍后重试' : '注册失败,请稍后重试'
     }
   } finally {
     loading.value = false
-    console.log('=== 登录/注册流程结束 ===')
   }
 }
 
 const skipLogin = () => {
-  // 清除 Token，以匿名身份访问
   setToken('', '')
+  sessionStorage.setItem('hasVisited', 'true')
   router.push('/')
 }
 </script>
 
 <style scoped>
-/* 飞书风格登录页面 */
+/* 渐变文字样式 - 蓝紫渐变，随时间动态变化 */
+.gradient-text-animated {
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-flow 3s ease infinite;
+}
+
+@keyframes gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 无衬线字体 */
+.font-sans {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
 </style>

@@ -1,4 +1,4 @@
-????????export const SHORT_BASE = (
+export const SHORT_BASE = (
   import.meta?.env?.VITE_SHORT_BASE
 ) || (
   typeof window !== 'undefined' && window.location && window.location.origin

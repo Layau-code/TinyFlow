@@ -1,7 +1,7 @@
 <template>
   <!-- Fallback: 首字母徽标 -->
   <div v-if="!hasValidSource || !hasIcon" class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold"
-       style="flex:none;transition: all 0.2s ease; background: linear-gradient(135deg, #6B72FF 0%, #8A6BFF 50%, #A66BFF 100%); color: #FFFFFF">
+       style="flex:none;transition: all 0.2s ease; background: linear-gradient(135deg, #1D9BF0 0%, #2B6BFF 50%, #37B4FF 100%); color: #FFFFFF">
     {{ initial }}
   </div>
   <!-- Favicon with multi-source fallback -->
