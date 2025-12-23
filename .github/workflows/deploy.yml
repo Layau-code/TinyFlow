@@ -44,15 +44,27 @@ jobs:
       # 6. 部署到服务器
       - name: Deploy to Server
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           port: ${{ secrets.SERVER_PORT }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: APP_DOMAIN,DB_PASSWORD,JWT_SECRET,REDIS_PASSWORD
           script: |
             cd /opt/TinyFlow
             git pull origin master
                   
+            # 更新 systemd 配置文件中的环境变量
+            sudo sed -i "s|Environment=\"app.domain=.*\"|Environment=\"app.domain=$APP_DOMAIN\"|g" /etc/systemd/system/tinyflow.service
+            sudo sed -i "s|Environment=\"DB_PASSWORD=.*\"|Environment=\"DB_PASSWORD=$DB_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
+            sudo sed -i "s|Environment=\"JWT_SECRET=.*\"|Environment=\"JWT_SECRET=$JWT_SECRET\"|g" /etc/systemd/system/tinyflow.service
+            sudo sed -i "s|Environment=\"REDIS_PASSWORD=.*\"|Environment=\"REDIS_PASSWORD=$REDIS_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
+            
             # 重新构建前端
             cd web
             npm ci
@@ -62,7 +74,8 @@ jobs:
             cd ..
             mvn clean package -DskipTests
                   
-            # 重启服务（自动加载环境变量）
+            # 重新加载 systemd 并重启服务
+            sudo systemctl daemon-reload
             systemctl restart tinyflow
                   
             echo "✅ 部署完成！"
