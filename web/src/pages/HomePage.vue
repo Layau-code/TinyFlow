@@ -163,6 +163,7 @@ import axios from 'axios'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import QrcodeVue from 'qrcode.vue'
 import Favicon from '../components/Favicon.vue'
+import { SHORT_BASE } from '/src/composables/shortBase'
 
 const api = axios
 
@@ -352,9 +353,9 @@ export default {
     buildDisplayShortUrl(code) {
       if (!code) return ''
       try {
-        return new URL('/' + encodeURIComponent(String(code)), 'http://localhost:8080').href
+        return new URL('/' + encodeURIComponent(String(code)), SHORT_BASE).href
       } catch {
-        return 'http://localhost:8080/' + encodeURIComponent(String(code))
+        return SHORT_BASE + '/' + encodeURIComponent(String(code))
       }
     },
     displayShortUrl(item) {
