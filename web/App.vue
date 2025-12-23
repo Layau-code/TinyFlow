@@ -226,7 +226,7 @@ import { SHORT_BASE } from '/src/composables/shortBase'
 
 const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin)
   ? window.location.origin
-  : 'http://localhost:8080' // 用于顶部“历史记录”跳转链接
+  SHORT_BASE // 用于顶部"历史记录"跳转链接
 // 使用全局 axios 实例（已在 useAuth 中配置拦截器）
 const api = axios
 
@@ -390,7 +390,7 @@ export default {
         }
 
         const code = this.extractCode({ shortUrl: shortRaw })
-        // 统一展示域名为 http://localhost:8080（外部短链形式）
+        // 统一展示域名为生产环境地址（外部短链形式）
         this.shortUrl = this.buildDisplayShortUrl(code)
         this.longUrl = url
         // 本地插入至历史顶部，无需整页刷新
@@ -523,17 +523,17 @@ export default {
     buildShortUrl(code) {
       if (!code) return ''
       try {
-        return new URL('/api/redirect/' + encodeURIComponent(String(code)), 'http://localhost:8080').href
+        return new URL('/api/redirect/' + encodeURIComponent(String(code)), SHORT_BASE).href
       } catch {
-        return 'http://localhost:8080/api/redirect/' + encodeURIComponent(String(code))
+        return SHORT_BASE + '/api/redirect/' + encodeURIComponent(String(code))
       }
     },
     buildDisplayShortUrl(code) {
       if (!code) return ''
       try {
-        return new URL('/' + encodeURIComponent(String(code)), 'http://localhost:8080').href
+        return new URL('/' + encodeURIComponent(String(code)), SHORT_BASE).href
       } catch {
-        return 'http://localhost:8080/' + encodeURIComponent(String(code))
+        return SHORT_BASE + '/' + encodeURIComponent(String(code))
       }
     },
     displayShortUrl(item) {
