@@ -226,7 +226,7 @@ import { SHORT_BASE } from '/src/composables/shortBase'
 
 const API_BASE = (typeof window !== 'undefined' && window.location && window.location.origin)
   ? window.location.origin
-  SHORT_BASE // 用于顶部"历史记录"跳转链接
+  : SHORT_BASE // 用于顶部"历史记录"跳转链接
 // 使用全局 axios 实例（已在 useAuth 中配置拦截器）
 const api = axios
 
