@@ -1,8 +1,4 @@
 spring:
-
-  profiles:
-    include: local
-
   application:
     name: TinyFlow
   datasource:
