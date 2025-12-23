@@ -392,8 +392,16 @@ export default {
         }
         const res = await api.get('/api/urls', { params })
         const payload = res?.data ?? null
-        const listRaw = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : Array.isArray(payload?.content) ? payload.content : []
-        const total = payload?.total ?? payload?.totalElements ?? listRaw.length
+        const listRaw = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload?.content)
+              ? payload.content
+              : Array.isArray(payload?.data?.content)
+                ? payload.data.content
+                : []
+        const total = payload?.data?.totalElements ?? payload?.totalElements ?? payload?.total ?? listRaw.length
         this.histTotal = Number(total) || 0
         this.history = (listRaw || []).map((it) => {
           const code = it?.shortCode || this.extractCode(it)
