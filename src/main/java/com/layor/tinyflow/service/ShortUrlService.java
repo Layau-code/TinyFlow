@@ -64,7 +64,7 @@ public class ShortUrlService {
     @Autowired
     private AuthService authService; // 注入认证服务
     
-    @Value("${app.domain:http://localhost:8080}")
+    @Value("${APP_DOMAIN:http://localhost:8080}")
     private String baseUrl;
     
     public ShortUrlDTO createShortUrl(String longUrl, String customAlias) throws Exception {
