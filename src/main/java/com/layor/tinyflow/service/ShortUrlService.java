@@ -5,6 +5,7 @@ import com.layor.tinyflow.Strategy.HashidsStrategy;
 import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
+import com.layor.tinyflow.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -53,6 +54,8 @@ public class ShortUrlService {
     @Autowired
     private ShortUrlRepository shortUrlRepository;
     @Autowired
+    private UserRepository userRepository;
+    @Autowired
     private com.layor.tinyflow.repository.ClickEventRepository clickEventRepository;
     @Autowired
     private SegmentIdGenerator idGenerator;
@@ -73,10 +76,18 @@ public class ShortUrlService {
         // 获取当前登录用户ID（如果未登录则为null）
         Long userId = authService.getCurrentUserId();
         
+        // 如果未登录，使用默认用户 "user" 的ID
+        if (userId == null) {
+            User defaultUser = userRepository.findByUsername("user").orElse(null);
+            if (defaultUser != null) {
+                userId = defaultUser.getId();
+            }
+        }
+        
         //1.1如果长链接已经存在且属于当前用户，直接返回对应的短链
         ShortUrl existingUrl = null;
         if (userId != null) {
-            // 已登录用户：查询当前用户的短链
+            // 已登录或使用默认用户：查询当前用户的短链
             existingUrl = shortUrlRepository.findByUserIdAndLongUrl(userId, longUrl);
         } else {
             // 匿名用户：查询匿名短链
@@ -107,7 +118,7 @@ public class ShortUrlService {
         ShortUrl shortUrl = ShortUrl.builder()
                 .longUrl(longUrl)
                 .shortCode(shortCode)
-                .userId(userId) // 设置创建者ID
+                .userId(userId) // 设置创建者ID（可能为默认用户ID或登录用户ID）
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -239,10 +250,17 @@ public class ShortUrlService {
         // 1. 如果用户已登录，只查询当前用户的短链接；否则查询所有匿名短链
         Page<ShortUrl> shortUrlPage;
         if (userId != null) {
+            // 已登录：查询自己的短链
             shortUrlPage = shortUrlRepository.findByUserId(userId, pageable);
         } else {
-            // 匿名用户查询所有userId为null的短链
-            shortUrlPage = shortUrlRepository.findByUserIdIsNull(pageable);
+            // 未登录：查询默认用户"user"的短链
+            User defaultUser = userRepository.findByUsername("user").orElse(null);
+            if (defaultUser != null) {
+                shortUrlPage = shortUrlRepository.findByUserId(defaultUser.getId(), pageable);
+            } else {
+                // 如果"user"不存在，返回空列表
+                shortUrlPage = shortUrlRepository.findByUserIdIsNull(pageable);
+            }
         }
         List<ShortUrl> shortUrls = shortUrlPage.getContent();
 
