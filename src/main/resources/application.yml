@@ -100,6 +100,8 @@ management:
       enabled: true
     ratelimiters:
       enabled: true
+    rabbit:
+      enabled: false  # 禁用RabbitMQ健康检查（服务未安装）
   metrics:
     tags:
       application: tinyflow
