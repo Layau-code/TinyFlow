@@ -28,6 +28,9 @@ jobs:
           cd web
           npm ci
           npm run build
+        env:
+          VITE_SHORT_BASE: ${{ secrets.APP_DOMAIN }}
+          VITE_API_BASE: ${{ secrets.API_BASE || '' }}
 
       # 4. 设置 Java 环境
       - name: Setup Java
@@ -37,11 +40,25 @@ jobs:
           java-version: '17'
           cache: 'maven'
 
-      # 5. 构建后端
-      - name: Build Backend
-        run: mvn clean package -DskipTests
+      # 5. 运行后端测试
+      - name: Run Backend Tests
+        run: mvn clean test
+        env:
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
 
-      # 6. 部署到服务器
+      # 6. 构建后端（跳过测试，因为已经运行过）
+      - name: Build Backend Package
+        run: mvn clean package -DskipTests
+        env:
+          APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+
+      # 7. 部署到服务器
       - name: Deploy to Server
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -57,30 +74,47 @@ jobs:
           envs: APP_DOMAIN,DB_PASSWORD,JWT_SECRET,REDIS_PASSWORD
           script: |
             cd /opt/TinyFlow
-            git pull origin master
-                  
+            # 拉取最新代码（关键：确保本地更改被丢弃）
+            git fetch origin
+            git checkout origin/$(git symbolic-ref --short HEAD)
+            
             # 更新 systemd 配置文件中的环境变量
-            sudo sed -i "s|Environment=\"app.domain=.*\"|Environment=\"app.domain=$APP_DOMAIN\"|g" /etc/systemd/system/tinyflow.service
+            sudo sed -i "s|Environment=\"APP_DOMAIN=.*\"|Environment=\"APP_DOMAIN=$APP_DOMAIN\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"DB_PASSWORD=.*\"|Environment=\"DB_PASSWORD=$DB_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"JWT_SECRET=.*\"|Environment=\"JWT_SECRET=$JWT_SECRET\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"REDIS_PASSWORD=.*\"|Environment=\"REDIS_PASSWORD=$REDIS_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
             
             # 重新构建前端
             cd web
-            npm ci
+            npm ci --prefer-offline --no-audit
             npm run build
-                  
+            
             # 重新构建后端
             cd ..
-            mvn clean package -DskipTests
-                  
+            mvn clean package -DskipTests -q
+            
             # 重新加载 systemd 并重启服务
             sudo systemctl daemon-reload
-            systemctl restart tinyflow
-                  
-            echo "✅ 部署完成！"
+            sudo systemctl restart tinyflow
+            
+            # 等待服务启动
+            sleep 3
+            
+            # 健康检查
+            if curl -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
+              echo "✅ 部署完成！服务已启动"
+            else
+              echo "❌ 服务启动失败，请检查日志"
+              journalctl -u tinyflow -n 50
+              exit 1
+            fi
 
-      # 7. 部署成功通知（可选）
+      # 8. 部署失败通知（可选）
+      - name: Deployment Failed
+        if: failure()
+        run: echo "❌ TinyFlow 部署失败！请检查 GitHub Actions 日志"
+
+      # 9. 部署成功通知
       - name: Deployment Success
         if: success()
-        run: echo " TinyFlow 部署成功！"
+        run: echo "✅ TinyFlow 部署成功！所有测试已通过，部署完成。"
