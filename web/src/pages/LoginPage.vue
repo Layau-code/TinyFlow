@@ -34,65 +34,59 @@
       </div>
       
       <!-- 内容区域 -->
-      <div class="relative z-10 flex flex-col h-full px-10 py-10">
+      <div class="relative z-10 flex flex-col h-full px-10 py-8">
         <!-- 顶部小 Logo -->
-        <div class="flex items-center gap-3">
-          <img src="/logo.png" alt="TinyFlow" class="h-8 w-auto" />
-          <span class="text-[20px] font-semibold text-gray-700">TinyFlow</span>
+        <div class="flex items-center gap-2">
+          <img src="/logo.png" alt="TinyFlow" class="h-6 w-auto" />
+          <span class="text-[18px] font-semibold text-gray-700">TinyFlow</span>
         </div>
       
       <!-- 中间主内容区域 -->
-      <div class="flex-1 flex flex-col justify-center">
-        <!-- 大 Logo + 名称 -->
-        <div class="flex items-center gap-4 mb-6">
-          <img src="/logo.png" alt="TinyFlow" class="h-16 w-auto" />
-          <span class="text-[36px] font-bold text-gray-800">TinyFlow</span>
+      <div class="flex-1 flex flex-col justify-start items-end pt-60">
+        <!-- 大 Logo + 名称 - 左右并排紧挨 -->
+        <div class="flex items-center gap-1 mb-4">
+          <img src="/logo.png" alt="TinyFlow" class="h-10 w-auto flex-shrink-0" />
+          <span class="text-[55px] font-bold text-gray-800">TinyFlow</span>
         </div>
         
-        <!-- 主标语 - 上下结构 -->
-        <div class="mb-10">
-          <h2 class="text-[36px] font-bold text-gray-800 leading-tight">现在注册</h2>
-          <h2 class="text-[36px] font-bold gradient-text-animated leading-tight">让分享更有温度</h2>
+        <!-- 主标语 - 上下结构，上小下大 -->
+        <div class="mb-20 text-right">
+          <h2 class="text-[30px] font-semibold text-gray-800 leading-tight">现在注册</h2>
+          <h2 class="text-[40px] font-bold gradient-text-animated leading-tight">让分享更轻松</h2>
         </div>
         
-        <!-- 三段卖点 - 优雅渐变图标 -->
-        <div class="space-y-7">
-          <!-- 卖点1 -->
+        <!-- 三段卖点 - 简洁线条图标 -->
+        <div class="space-y-6">
+          <!-- 卖炵1 -->
           <div class="flex items-start gap-4">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-200">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-              </svg>
-            </div>
+            <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
             <div>
-              <div class="text-[20px] font-semibold text-gray-800 mb-1">毫秒级跳转</div>
-              <div class="text-[18px] text-gray-500 leading-relaxed">稳定承载高并发访问，确保用户流畅体验</div>
+              <div class="text-[16px] font-semibold text-gray-800 mb-2">毫秒级跳转</div>
+              <div class="text-[15px] text-gray-500 leading-relaxed">基于分布式架构优化，每次跳转均控制在毫秒级，高效不失可靠</div>
             </div>
           </div>
-
-          <!-- 卖点2 -->
+        
+          <!-- 卖炵2 -->
           <div class="flex items-start gap-4">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-200">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-              </svg>
-            </div>
+            <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
             <div>
-              <div class="text-[20px] font-semibold text-gray-800 mb-1">实时数据分析</div>
-              <div class="text-[18px] text-gray-500 leading-relaxed">来源、设备、地域分布一目了然</div>
+              <div class="text-[16px] font-semibold text-gray-800 mb-2">实时数据分析</div>
+              <div class="text-[15px] text-gray-500 leading-relaxed">多维度报表展示来源、设备、地域等数据分布，精准掌握用户特征与趋势</div>
             </div>
           </div>
-
-          <!-- 卖点3 -->
+        
+          <!-- 卖炵3 -->
           <div class="flex items-start gap-4">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-200">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-              </svg>
-            </div>
+            <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
             <div>
-              <div class="text-[20px] font-semibold text-gray-800 mb-1">安全可靠</div>
-              <div class="text-[18px] text-gray-500 leading-relaxed">企业级安全保障，数据始终安全</div>
+              <div class="text-[16px] font-semibold text-gray-800 mb-2">安全可靠</div>
+              <div class="text-[15px] text-gray-500 leading-relaxed">企业级侵入检测与数据加密保护，灵活的权限管理体系，构建深层防御线</div>
             </div>
           </div>
         </div>
@@ -108,7 +102,7 @@
     <!-- 右侧登录表单区域 - 70% 宽度，白色背景 -->
     <div class="flex-1 flex items-center justify-center p-6 md:p-12 bg-white relative">
       <!-- 登录表单容器 -->
-      <div class="w-full max-w-[420px]">
+      <div class="w-full max-w-[480px]">
         <!-- 移动端 Logo -->
         <div class="lg:hidden flex items-center gap-3 mb-10">
           <img src="/logo.png" alt="TinyFlow" class="h-10 w-auto" />
@@ -309,9 +303,9 @@ const skipLogin = () => {
 </script>
 
 <style scoped>
-/* 渐变文字样式 - 蓝紫渐变，随时间动态变化 */
+/* 渐变文字样式 - 蓝色系渐变，随时间动态变化 */
 .gradient-text-animated {
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6);
+  background: linear-gradient(90deg, #3b82f6, #1e40af, #3b82f6);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
