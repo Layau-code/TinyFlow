@@ -43,57 +43,22 @@ public class ClickRecorderService {
     private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong> localDay = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
-     * 记录点击事件（使用消息队列）
-     * 优先级：MQ > Local > Redis
+     * 记录点击事件
+     * 优先级：Local > Redis Snapshot > MQ
+     * 
+     * 方案 C：本地内存 + Redis 快照 + 定期持久化
+     * ├─ 第一阶段（10s）：本地计数 → Redis 快照（冷备份）
+     * └─ 第二阶段（60s）：Redis 快照 → 数据库（正式记账）
      */
     @Async
     public void recordClick(String shortCode) {
-        // 模式1：消息队列模式（推荐，高可靠）
-        if ("mq".equalsIgnoreCase(counterMode)) {
-            ClickMessage message = ClickMessage.builder()
-                    .shortCode(shortCode)
-                    .timestamp(System.currentTimeMillis())
-                    .date(LocalDate.now().toString())
-                    .build();
-            try {
-                rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.CLICK_EXCHANGE, 
-                    RabbitMQConfig.CLICK_ROUTING_KEY, 
-                    message
-                );
-                log.debug("[MQ] Click message sent: {}", shortCode);
-            } catch (Exception e) {
-                log.error("[MQ ERROR] Failed to send click message for {}: {}", shortCode, e.getMessage());
-                // 降级到本地模式
-                localTotal.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
-                localDay.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
-            }
-            return;
-        }
+        // 所有模式都先写本地内存（最快）
+        localTotal.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong())
+                  .incrementAndGet();
+        localDay.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong())
+                .incrementAndGet();
         
-        // 模式2：本地内存模式
-        if ("local".equalsIgnoreCase(counterMode)) {
-            localTotal.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
-            localDay.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong()).incrementAndGet();
-            return;
-        }
-        
-        // 模式3：Redis Pipeline 模式
-        String totalKey = "tf:clicks:total";
-        String dayKey = "tf:clicks:day:" + LocalDate.now();
-        try {
-            // 使用Pipeline减少网络往返
-            redisTemplate.executePipelined(new org.springframework.data.redis.core.SessionCallback<Object>() {
-                @Override
-                public Object execute(org.springframework.data.redis.core.RedisOperations operations) {
-                    operations.opsForHash().increment(dayKey, shortCode, 1);
-                    operations.opsForHash().increment(totalKey, shortCode, 1);
-                    return null;
-                }
-            });
-        } catch (org.springframework.data.redis.RedisConnectionFailureException ex) {
-            log.error("redis connect failed: {}", ex.getMessage());
-        }
+        log.debug("[LOCAL] Click recorded: {}", shortCode);
     }
 
     @Async
@@ -119,66 +84,93 @@ public class ClickRecorderService {
     }
     
 
-    @Scheduled(fixedDelay = 2000)
+    /**
+     * 第一阶段：定期快照到 Redis（10 秒一次）
+     * 作用：冷备份，防止服务宕机时丢失数据
+     */
+    @Scheduled(fixedDelay = 10000)  // 每 10 秒
+    public void snapshotToRedis() {
+        try {
+            long startTime = System.currentTimeMillis();
+            int snapshotCount = 0;
+            
+            // 快照总点击数
+            for (var entry : localTotal.entrySet()) {
+                String code = entry.getKey();
+                long count = entry.getValue().get();  // 只读，不重置
+                if (count > 0) {
+                    redisTemplate.opsForHash().put("tf:click:snapshot:total", code, String.valueOf(count));
+                    snapshotCount++;
+                }
+            }
+            
+            // 快照每日点击数
+            for (var entry : localDay.entrySet()) {
+                String code = entry.getKey();
+                long count = entry.getValue().get();  // 只读，不重置
+                if (count > 0) {
+                    String dayKey = "tf:click:snapshot:day:" + LocalDate.now();
+                    redisTemplate.opsForHash().put(dayKey, code, String.valueOf(count));
+                    snapshotCount++;
+                }
+            }
+            
+            long duration = System.currentTimeMillis() - startTime;
+            if (snapshotCount > 0) {
+                log.info("[SNAPSHOT] Saved {} entries to Redis, duration={}ms", snapshotCount, duration);
+            }
+        } catch (Exception e) {
+            log.error("[SNAPSHOT ERROR] Failed to snapshot to Redis: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 第二阶段：定期持久化到数据库（60 秒一次）
+     * 作用：正式记账，将快照中的数据写入数据库
+     */
+    @Scheduled(fixedDelay = 60000)  // 每 60 秒
     @Transactional
-    public void flushCounters() {
-        if ("local".equalsIgnoreCase(counterMode)) {
-            for (var e : localTotal.entrySet()) {
-                String code = e.getKey();
-                long delta = e.getValue().getAndSet(0);
-                if (delta > 0) { shortUrlRepository.incrementClickCountBy(code, delta); }
-            }
-            for (var e : localDay.entrySet()) {
-                String code = e.getKey();
-                long delta = e.getValue().getAndSet(0);
-                if (delta > 0) { dailyClickRepo.incrementClickBy(code, delta); }
-            }
-            return;
-        }
-        String totalKey = "tf:clicks:total";
-        String dayKey = "tf:clicks:day:" + LocalDate.now();
-        String tmpTotal = totalKey + ":flush:" + System.currentTimeMillis();
-        String tmpDay = dayKey + ":flush:" + System.currentTimeMillis();
-        
-        // 使用Pipeline批量重命名和读取，减少网络往返
+    public void syncFromRedisToDB() {
         try {
-            redisTemplate.executePipelined(new org.springframework.data.redis.core.SessionCallback<Object>() {
-                @Override
-                public Object execute(org.springframework.data.redis.core.RedisOperations operations) {
-                    try { operations.rename(totalKey, tmpTotal); } catch (Exception ignored) {}
-                    try { operations.rename(dayKey, tmpDay); } catch (Exception ignored) {}
-                    return null;
+            long startTime = System.currentTimeMillis();
+            int totalUpdates = 0;
+            int dailyUpdates = 0;
+            
+            // 读取总点击快照并刷库
+            java.util.Map<Object, Object> totalSnapshot = redisTemplate.opsForHash()
+                    .entries("tf:click:snapshot:total");
+            for (var entry : totalSnapshot.entrySet()) {
+                String code = String.valueOf(entry.getKey());
+                long count = toLong(entry.getValue());
+                if (count > 0) {
+                    shortUrlRepository.incrementClickCountBy(code, count);
+                    totalUpdates++;
                 }
-            });
-        } catch (Exception ignored) {}
-        
-        java.util.Map<Object,Object> total = java.util.Collections.emptyMap();
-        java.util.Map<Object,Object> day = java.util.Collections.emptyMap();
-        try { total = redisTemplate.<Object,Object>opsForHash().entries(tmpTotal); } catch (Exception ignored) {}
-        try { day = redisTemplate.<Object,Object>opsForHash().entries(tmpDay); } catch (Exception ignored) {}
-        
-        for (var e : total.entrySet()) {
-            String code = String.valueOf(e.getKey());
-            long delta = toLong(e.getValue());
-            if (delta > 0) { shortUrlRepository.incrementClickCountBy(code, delta); }
-        }
-        for (var e : day.entrySet()) {
-            String code = String.valueOf(e.getKey());
-            long delta = toLong(e.getValue());
-            if (delta > 0) { dailyClickRepo.incrementClickBy(code, delta); }
-        }
-        
-        // 使用Pipeline批量删除临时key
-        try {
-            redisTemplate.executePipelined(new org.springframework.data.redis.core.SessionCallback<Object>() {
-                @Override
-                public Object execute(org.springframework.data.redis.core.RedisOperations operations) {
-                    try { operations.delete(tmpTotal); } catch (Exception ignored) {}
-                    try { operations.delete(tmpDay); } catch (Exception ignored) {}
-                    return null;
+            }
+            
+            // 读取每日点击快照并刷库
+            String daySnapshotKey = "tf:click:snapshot:day:" + LocalDate.now();
+            java.util.Map<Object, Object> daySnapshot = redisTemplate.opsForHash()
+                    .entries(daySnapshotKey);
+            for (var entry : daySnapshot.entrySet()) {
+                String code = String.valueOf(entry.getKey());
+                long count = toLong(entry.getValue());
+                if (count > 0) {
+                    dailyClickRepo.incrementClickBy(code, count);
+                    dailyUpdates++;
                 }
-            });
-        } catch (Exception ignored) {}
+            }
+            
+            // 刷库成功后，清空 Redis 快照（只清快照，本地内存继续累加）
+            redisTemplate.delete("tf:click:snapshot:total");
+            redisTemplate.delete(daySnapshotKey);
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("[SYNC] Persisted {} total clicks and {} daily clicks to DB, duration={}ms", 
+                    totalUpdates, dailyUpdates, duration);
+        } catch (Exception e) {
+            log.error("[SYNC ERROR] Failed to sync from Redis to DB: {}", e.getMessage(), e);
+        }
     }
 
     private long toLong(Object value) {

@@ -103,7 +103,7 @@
               </button>
               <div class="mt-4 flex gap-3">
                 <button @click="copyShortUrl" class="fs-btn-secondary px-4 py-2">
-                  {{ $t('result.copy') }}
+                  {{ copyLabel }}
                 </button>
                 <button @click="downloadQrPng" class="fs-btn-secondary px-4 py-2">
                   {{ $t('result.downloadQr') }}
@@ -614,6 +614,11 @@ export default {
       this.refreshHistory()
     },
     startEdit(item) {
+      // 检查是否已登录
+      if (!this.isAuthenticated) {
+        alert('请先登录后再编辑短链接')
+        return
+      }
       this.editingId = item?.id || null
       const code = this.extractCode(item)
       this.editAlias = code || ''
@@ -628,6 +633,13 @@ export default {
       const newAlias = (this.editAlias || '').trim()
       if (!id || !oldCode) return
       if (!newAlias) { alert('请输入新的短码或别名'); return }
+      
+      // 检查是否已登录
+      if (!this.isAuthenticated) {
+        alert('请先登录后再编辑短链接')
+        return
+      }
+      
       this.updatingIds.add(id)
       try {
         // 调用后端更新接口：PUT /api/{shortCode}
@@ -642,7 +654,15 @@ export default {
         this.history = (this.history || []).map(x => x.id === id ? updated : x)
         this.cancelEdit()
       } catch (err) {
-        alert('更新失败，请稍后重试')
+        const status = err?.response?.status
+        if (status === 401) {
+          alert('会话已过期，请重新登录')
+          window.location.href = '/login'
+        } else if (status === 403) {
+          alert('您没有权限修改此短链接')
+        } else {
+          alert('更新失败，请稍后重试')
+        }
         console.error('Update short url error:', err)
       } finally {
         this.updatingIds.delete(id)
@@ -652,6 +672,13 @@ export default {
       const id = item?.id
       const code = this.extractCode(item)
       if (!code) return
+      
+      // 检查是否已登录
+      if (!this.isAuthenticated) {
+        alert('请先登录后再删除短链接')
+        return
+      }
+      
       if (id) this.deletingIds.add(id)
       try {
         // 改为按短码删除：DELETE /api/{shortCode}
@@ -661,7 +688,15 @@ export default {
           this.history = (this.history || []).filter(x => this.extractCode(x) !== code)
         }
       } catch (err) {
-        alert('删除失败，请稍后重试')
+        const status = err?.response?.status
+        if (status === 401) {
+          alert('会话已过期，请重新登录')
+          window.location.href = '/login'
+        } else if (status === 403) {
+          alert('您没有权限删除此短链接')
+        } else {
+          alert('删除失败，请稍后重试')
+        }
         console.error('History delete error:', err)
       } finally {
         if (id) this.deletingIds.delete(id)

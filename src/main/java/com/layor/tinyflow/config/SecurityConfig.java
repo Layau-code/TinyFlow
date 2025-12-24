@@ -56,10 +56,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",           // 认证接口（注册、登录）
                                 "/api/redirect/**",       // 短链跳转（核心功能）
-                                "/api/shorten",           // 创建短链（暂时允许匿名）
-                                "/api/urls",              // 查询短链列表（暂时允许匿名）
-                                "/api/urls/**",           // 短链相关操作（暂时允许匿名）
-                                "/api/stats/**",          // 统计接口（暂时允许匿名）
+                                "/api/shorten",           // 创建短链（允许匿名）
+                                "/api/urls",              // 查询短链列表（允许匿名）
+                                "/api/stats/**",          // 统计接口（允许匿名）
                                 "/actuator/**",           // 监控端点
                                 "/error",                 // 错误页面
                                 "/{shortCode}"            // 根路径短链重定向
@@ -67,6 +66,12 @@ public class SecurityConfig {
                 
                         // 管理员接口
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        
+                        // PUT/DELETE 短链相关操作需要认证（修改、删除操作需要登录）
+                        .requestMatchers("PUT", "/api/urls/**").authenticated()
+                        .requestMatchers("DELETE", "/api/urls/**").authenticated()
+                        .requestMatchers("PUT", "/api/*").authenticated()
+                        .requestMatchers("DELETE", "/api/*").authenticated()
                         
                         // 其他所有接口需要认证
                         .anyRequest().authenticated()

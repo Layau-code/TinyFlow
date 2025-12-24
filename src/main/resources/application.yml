@@ -130,10 +130,11 @@ management:
 
 events:
   sampleRate: 0.0
-# 点击计数模式：mq(消息队列，推荐) | local(本地内存) | redis(Pipeline)
-# 暂时使用 redis 模式，等 RabbitMQ 安装后改为 mq
+
+# 点击计数模式：使用本地内存 + Redis 快照方案
+# 方案 C：第一阶段(10s)本地→Redis快照，第二阶段(60s)Redis→数据库
 clicks:
-  mode: redis
+  mode: local  # 仍配置为 local（第一阶段），第二阶段由定时任务驱动
 
 cache:
   caffeine:
