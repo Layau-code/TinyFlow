@@ -134,8 +134,8 @@ jobs:
             echo "❌ 健康检查超时，最后状态码: $HTTP_CODE"
             echo "检查服务端口监听状态："
             ss -tlnp | grep 8080 || netstat -tlnp | grep 8080 || echo "未找到监听8080端口的进程"
-            echo "查看服务日志："
-            journalctl -u tinyflow -n 100
+            echo "查看服务完整启动日志（包含错误和警告）："
+            journalctl -u tinyflow -n 200 --no-pager | grep -E "ERROR|WARN|Started TinyFlowApplication|Failed to|Exception" || journalctl -u tinyflow -n 200 --no-pager
             exit 1
 
       # 8. 部署失败通知（可选）
