@@ -84,6 +84,9 @@ jobs:
             sudo sed -i "s|Environment=\"JWT_SECRET=.*\"|Environment=\"JWT_SECRET=$JWT_SECRET\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"REDIS_PASSWORD=.*\"|Environment=\"REDIS_PASSWORD=$REDIS_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
             
+            # 清理前端构建产物和依赖（避免 git checkout 冲突）
+            rm -rf web/dist web/node_modules
+            
             # 重新构建前端
             cd web
             npm ci --prefer-offline --no-audit
