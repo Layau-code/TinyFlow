@@ -77,7 +77,7 @@ jobs:
             
             # 拉取最新代码并强制丢弃本地更改
             git fetch origin
-            git reset --hard origin/$(git symbolic-ref --short HEAD)
+            git reset --hard origin/master
             
             # 更新 systemd 配置文件中的环境变量
             sudo sed -i "s|Environment=\"APP_DOMAIN=.*\"|Environment=\"APP_DOMAIN=$APP_DOMAIN\"|g" /etc/systemd/system/tinyflow.service
@@ -94,7 +94,8 @@ jobs:
             cd ..
             mvn clean package -DskipTests -q
             
-            # 复制JAR包到运行目录
+            # 创建目录并复制JAR包到运行目录
+            sudo mkdir -p /opt/tinyflow
             sudo cp target/TinyFlow-0.0.1-SNAPSHOT.jar /opt/tinyflow/app.jar
             
             # 重新加载 systemd 并重启服务
