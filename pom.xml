@@ -180,6 +180,7 @@
                         <configuration>
                             <arguments>ci</arguments>
                         </configuration>
+                        <phase>none</phase>
                     </execution>
                     <!-- 构建前端 -->
                     <execution>
@@ -190,6 +191,7 @@
                         <configuration>
                             <arguments>run build</arguments>
                         </configuration>
+                        <phase>none</phase>
                     </execution>
                 </executions>
             </plugin>
