@@ -75,9 +75,16 @@ jobs:
           script: |
             cd /opt/TinyFlow
             
-            # 拉取最新代码并强制丢弃本地更改
-            git fetch origin
-            git reset --hard origin/master
+            # 拉取最新代码并强制丢弃本地更改（重试机制）
+            for i in 1 2 3; do
+              if git fetch origin; then
+                git reset --hard origin/master
+                break
+              else
+                echo "⚠️  git fetch 失败，第 $i 次重试..."
+                sleep 2
+              fi
+            done
             
             # 更新 systemd 配置文件中的环境变量
             sudo sed -i "s|Environment=\"APP_DOMAIN=.*\"|Environment=\"APP_DOMAIN=$APP_DOMAIN\"|g" /etc/systemd/system/tinyflow.service
