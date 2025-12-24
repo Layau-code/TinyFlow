@@ -94,6 +94,9 @@ jobs:
             cd ..
             mvn clean package -DskipTests -q
             
+            # 复制JAR包到运行目录
+            sudo cp target/TinyFlow-0.0.1-SNAPSHOT.jar /opt/tinyflow/app.jar
+            
             # 重新加载 systemd 并重启服务
             sudo systemctl daemon-reload
             sudo systemctl restart tinyflow
