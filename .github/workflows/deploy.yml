@@ -74,7 +74,11 @@ jobs:
           envs: APP_DOMAIN,DB_PASSWORD,JWT_SECRET,REDIS_PASSWORD
           script: |
             cd /opt/TinyFlow
-            # 拉取最新代码（关键：确保本地更改被丢弃）
+            
+            # 清理前端构建产物和依赖（避免 git checkout 冲突）
+            rm -rf web/dist web/node_modules
+            
+            # 拉取最新代码
             git fetch origin
             git checkout origin/$(git symbolic-ref --short HEAD)
             
@@ -83,9 +87,6 @@ jobs:
             sudo sed -i "s|Environment=\"DB_PASSWORD=.*\"|Environment=\"DB_PASSWORD=$DB_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"JWT_SECRET=.*\"|Environment=\"JWT_SECRET=$JWT_SECRET\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"REDIS_PASSWORD=.*\"|Environment=\"REDIS_PASSWORD=$REDIS_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
-            
-            # 清理前端构建产物和依赖（避免 git checkout 冲突）
-            rm -rf web/dist web/node_modules
             
             # 重新构建前端
             cd web
