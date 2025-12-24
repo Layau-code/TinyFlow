@@ -11,7 +11,6 @@ class TinyFlowApplicationTests {
     // 集成测试可以使用 @SpringBootTest 但需要完整环境配置
 
     @Test
-    @Disabled("应用 Context 加载需要配置完整环境，暂时跳过")
     void contextLoads() {
     }
 
