@@ -412,7 +412,12 @@ export default {
           return { ...it, id, code, shortUrl, longUrl, createdAt }
         })
       } catch (err) {
-        alert('获取历史记录失败，请稍后重试')
+        const status = err?.response?.status
+        if (status === 401 || status === 403) {
+          alert('未登录用户无法查看历史记录，请先登录')
+        } else {
+          alert('获取历史记录失败，请稍后重试')
+        }
         console.error('History refresh error:', err)
       } finally {
         this.refreshing = false
@@ -454,7 +459,12 @@ export default {
         this.history = (this.history || []).map(x => x.id === id ? updated : x)
         this.cancelEdit()
       } catch (err) {
-        alert('更新失败，请稍后重试')
+        const status = err?.response?.status
+        if (status === 401 || status === 403) {
+          alert('未登录用户无法编辑短链，请先登录')
+        } else {
+          alert('更新失败，请稍后重试')
+        }
         console.error('Update short url error:', err)
       } finally {
         this.updatingIds.delete(id)
@@ -471,7 +481,12 @@ export default {
           this.history = (this.history || []).filter(x => this.extractCode(x) !== code)
         }
       } catch (err) {
-        alert('删除失败，请稍后重试')
+        const status = err?.response?.status
+        if (status === 401 || status === 403) {
+          alert('未登录用户无法删除短链，请先登录')
+        } else {
+          alert('删除失败，请稍后重试')
+        }
         console.error('History delete error:', err)
       } finally {
         if (id) this.deletingIds.delete(id)

@@ -1,7 +1,7 @@
 <template>
   <div style="position:relative;width:100%;height:280px">
     <div ref="el" style="position:absolute;inset:0;width:100%;height:100%;background:#fafafa;border:1px dashed #ddd;border-radius:8px"></div>
-    <div v-if="noData" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9CA3AF;font-size:14px;pointer-events:none">暂无数据</div>
+    <div v-if="noData && !loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9CA3AF;font-size:14px;pointer-events:none">暂无数据</div>
   </div>
 </template>
 
@@ -11,9 +11,11 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 const props = defineProps({ data: { type: Array, default: () => [] }, colors: { type: Array, default: () => [] } })
 
 const el = ref(null)
+const loading = ref(true)
 let chart = null
 let echartsMod = null
 let ro = null
+let initPromise = null
 
 const noData = computed(()=> {
   const arr = (props.data||[]).map(d=> Number(d?.value||0))
@@ -53,44 +55,68 @@ const buildOption = ()=> {
   }
 }
 
-onMounted(async () => {
-  console.log('=== [EChartsPie] Mounted ===')
-  console.log('[EChartsPie] props.data:', props.data)
-  await nextTick()
-  console.log('[EChartsPie] el.value:', el.value)
-  if (!el.value) { console.warn('[EChartsPie] el.value is null'); return }
-  const w = el.value?.clientWidth || 0, h = el.value?.clientHeight || 0
-  console.log('[EChartsPie] mounted size:', w, h)
-  try {
-    const mod = await import('echarts')
-    echartsMod = mod.default || mod
-    console.log('[EChartsPie] ECharts loaded')
-  } catch (err) {
-    console.error('[EChartsPie] ECharts load error:', err)
-    return
-  }
-  try {
-    chart = echartsMod.init(el.value, null, { renderer: 'svg' })
-    console.log('[EChartsPie] chart initialized')
-  } catch (e) {
-    console.error('[EChartsPie] chart init error:', e)
-    return
-  }
+async function initChart() {
+  if (initPromise) return initPromise
+  initPromise = (async () => {
+    console.log('=== [EChartsPie] Initializing ===')
+    await nextTick()
+    if (!el.value) { console.warn('[EChartsPie] el.value is null'); return false }
+    const w = el.value?.clientWidth || 0, h = el.value?.clientHeight || 0
+    console.log('[EChartsPie] size:', w, h)
+    if (w === 0 || h === 0) {
+      console.warn('[EChartsPie] Container has zero size, retrying...')
+      await new Promise(r => setTimeout(r, 100))
+      await nextTick()
+    }
+    try {
+      if (!echartsMod) {
+        const mod = await import('echarts')
+        echartsMod = mod.default || mod
+        console.log('[EChartsPie] ECharts loaded')
+      }
+    } catch (err) {
+      console.error('[EChartsPie] ECharts load error:', err)
+      return false
+    }
+    try {
+      if (!chart) {
+        chart = echartsMod.init(el.value, null, { renderer: 'svg' })
+        console.log('[EChartsPie] chart initialized')
+        ro = new ResizeObserver(() => { try { chart && chart.resize() } catch {} })
+        ro.observe(el.value)
+      }
+    } catch (e) {
+      console.error('[EChartsPie] chart init error:', e)
+      return false
+    }
+    return true
+  })()
+  return initPromise
+}
+
+async function updateChart() {
+  const ok = await initChart()
+  if (!ok || !chart) return
   const option = buildOption()
-  console.log('[EChartsPie] init series length:', option?.series?.[0]?.data?.length)
+  console.log('[EChartsPie] update series length:', option?.series?.[0]?.data?.length)
   chart.setOption(option, true)
   chart.resize()
   setTimeout(() => { try { chart && chart.resize() } catch {} }, 120)
-  ro = new ResizeObserver(() => { try { chart && chart.resize() } catch {} })
-  ro.observe(el.value)
+}
+
+onMounted(async () => {
+  console.log('=== [EChartsPie] Mounted ===')
+  console.log('[EChartsPie] props.data:', props.data)
+  loading.value = true
+  await updateChart()
+  loading.value = false
 })
 
-watch(()=> props.data, (val) => {
+watch(()=> props.data, async (val) => {
   console.log('[EChartsPie] data changed:', val)
-  if (!chart) return
-  const option = buildOption()
-  chart.setOption(option, true)
-  chart.resize()
+  loading.value = true
+  await updateChart()
+  loading.value = false
 }, { deep: true })
 
 onUnmounted(()=> { try { ro && ro.disconnect() } catch {} ro = null; try { chart && chart.dispose() } catch {} chart = null })
