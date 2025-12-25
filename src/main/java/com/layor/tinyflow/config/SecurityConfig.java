@@ -22,6 +22,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.http.HttpMethod;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -69,10 +71,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         
                         // PUT/DELETE 短链相关操作需要认证（修改、删除操作需要登录）
-                        .requestMatchers("PUT", "/api/urls/**").authenticated()
-                        .requestMatchers("DELETE", "/api/urls/**").authenticated()
-                        .requestMatchers("PUT", "/api/*").authenticated()
-                        .requestMatchers("DELETE", "/api/*").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/urls/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/urls/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/*").authenticated()
                         
                         // 其他所有接口需要认证
                         .anyRequest().authenticated()
