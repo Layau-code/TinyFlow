@@ -1,561 +1,953 @@
 <template>
-  <div class="min-h-screen q-page pt-24 md:pt-28">
-    <div class="max-w-6xl mx-auto p-6 space-y-10">
-      <!-- Breadcrumb & Actions -->
-      <div class="flex items-center justify-between">
-        <div class="q-muted flex items-center gap-2">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-          </svg>
-          <span>{{ $t('stats.breadcrumb', { code: shortCode }) }}</span>
+  <div class="min-h-screen stats-page pt-24 md:pt-28">
+    <div class="max-w-7xl mx-auto p-6 space-y-6">
+      <!-- 顶部操作栏 -->
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div class="flex items-center gap-3">
+          <button @click="goHome" class="btn btn-secondary">返回首页</button>
+          <button @click="goDashboard" class="btn btn-secondary">数据看板</button>
         </div>
         <div class="flex items-center gap-3">
-          <button @click="goHome" class="fx-btn fx-gray">
-            <span></span><span></span><span></span><span></span><span></span><span class="btn-text">返回首页</span>
-          </button>
-          <button @click="goDashboard" class="fx-btn fx-gray">
-            <span></span><span></span><span></span><span></span><span></span><span class="btn-text">返回看板</span>
-          </button>
-          <button @click="copy(shortUrl)" class="fx-btn fx-gray">
-            <span></span><span></span><span></span><span></span><span></span><span class="btn-text">复制短链</span>
-          </button>
-          <button @click="openFilter" class="fx-btn fx-purple">
-            <span></span><span></span><span></span><span></span><span></span><span class="btn-text">筛选</span>
-          </button>
+          <button @click="copy(shortUrl)" class="btn btn-secondary">复制短链</button>
+          <button @click="openFilter" class="btn btn-primary">筛选</button>
+          <button @click="exportCsv" class="btn btn-secondary">导出CSV</button>
         </div>
       </div>
 
-      
+      <!-- 核心指标卡片 -->
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div class="metric-card">
+          <div class="metric-label">总PV</div>
+          <div class="metric-value">{{ detailedStats?.pv ?? overview?.totalVisits ?? '-' }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">总UV</div>
+          <div class="metric-value">{{ detailedStats?.uv ?? '-' }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">今日PV</div>
+          <div class="metric-value">{{ overview?.todayVisits ?? '-' }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">PV/UV比</div>
+          <div class="metric-value">{{ detailedStats?.pvUvRatio ? detailedStats.pvUvRatio.toFixed(2) : '-' }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">日均PV</div>
+          <div class="metric-value">{{ avgVisits }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">峰值PV</div>
+          <div class="metric-value">{{ peakVisits }}</div>
+        </div>
+      </div>
 
-      <!-- 近七天访问趋势（折线图） -->
-      <div class="grid grid-cols-1 gap-8">
-      <div class="q-card p-5">
-          <div class="q-card-title mb-3 flex items-center gap-2">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M4 17l6-6 4 4 6-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <span>访问趋势</span>
-            <div class="ml-auto flex items-center gap-2">
-              <button class="fx-btn fx-gray fx-sm" :class="{ 'font-semibold': selectedDays===7 }" @click="selectDays(7)"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">7天</span></button>
-              <button class="fx-btn fx-purple fx-sm" :class="{ 'font-semibold': selectedDays===30 }" @click="selectDays(30)"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">30天</span></button>
+      <!-- 短链信息卡片 -->
+      <div class="card">
+        <div class="card-header">短链信息</div>
+        <div class="card-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">短码</span>
+              <code class="info-code">{{ shortCode }}</code>
+            </div>
+            <div class="info-item">
+              <span class="info-label">短链地址</span>
+              <a :href="shortUrl" target="_blank" class="info-link">{{ shortUrl }}</a>
+            </div>
+            <div class="info-item">
+              <span class="info-label">创建时间</span>
+              <span class="info-value">{{ formatDate(overview?.createdAt) }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">首次访问</span>
+              <span class="info-value">{{ formatDate(detailedStats?.firstClick) }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">最后访问</span>
+              <span class="info-value">{{ formatDate(detailedStats?.lastClick) }}</span>
             </div>
           </div>
-          <div class="relative" style="height:260px;background:#fafafa;border:1px dashed #ddd;border-radius:8px">
+          <div class="info-item mt-4">
+            <span class="info-label">原始链接</span>
+            <div class="info-url">{{ overview?.longUrl || '-' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 趋势图表 -->
+      <div class="card">
+        <div class="card-header flex items-center justify-between">
+          <span>访问趋势</span>
+          <div class="flex gap-2">
+            <button class="btn-tab" :class="{ active: selectedDays === 7 }" @click="selectDays(7)">7天</button>
+            <button class="btn-tab" :class="{ active: selectedDays === 14 }" @click="selectDays(14)">14天</button>
+            <button class="btn-tab" :class="{ active: selectedDays === 30 }" @click="selectDays(30)">30天</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
             <Suspense>
               <TrendChart :values="trendValues" :labels="trendLabels" :showValues="true" />
-              <template #fallback><div class="h-[220px] q-card"></div></template>
+              <template #fallback><div class="chart-placeholder"></div></template>
             </Suspense>
           </div>
-          <div v-if="!trendLabels.length && !loadingTrend" class="q-muted text-center mt-2">{{ $t('common.noData') }}</div>
         </div>
       </div>
 
-      <!-- 顶部：设备饼图 + 来源分布 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div class="q-card p-5">
-          <div class="q-card-title mb-3">来源渠道占比</div>
-          <Suspense>
-            <SourceHBarChart :data="refererBars" />
-            <template #fallback><div class="h-[240px] q-card"></div></template>
-          </Suspense>
-          <div v-if="!refererBars.length && !loadingDist" class="q-muted">{{ $t('common.noData') }}</div>
+      <!-- 分布图表网格 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 小时分布 -->
+        <div class="card">
+          <div class="card-header">24小时分布</div>
+          <div class="card-body">
+            <div class="bar-chart">
+              <div v-for="item in hourDistribution" :key="item.key" class="bar-item">
+                <div class="bar-label">{{ item.key }}</div>
+                <div class="bar-track">
+                  <div class="bar-fill" :style="{ width: getBarWidth(item.count, hourMax) + '%' }"></div>
+                </div>
+                <div class="bar-value">{{ item.count }}</div>
+              </div>
+              <div v-if="!hourDistribution.length" class="empty-state">暂无数据</div>
+            </div>
+          </div>
         </div>
-        <div class="q-card p-5">
-          <div class="q-card-title mb-3">设备占比</div>
-          <Suspense>
-            <DistributionChart :type="'pie'" :data="deviceChartData" :engine="'echarts'" />
-            <template #fallback><div class="h-[240px] q-card"></div></template>
-          </Suspense>
-          <div v-if="!hasDeviceChartData && !loadingDist" class="q-muted">{{ $t('common.noData') }}</div>
+
+        <!-- 星期分布 -->
+        <div class="card">
+          <div class="card-header">星期分布</div>
+          <div class="card-body">
+            <div class="bar-chart">
+              <div v-for="item in weekdayDistribution" :key="item.key" class="bar-item">
+                <div class="bar-label">{{ item.key }}</div>
+                <div class="bar-track">
+                  <div class="bar-fill" :style="{ width: getBarWidth(item.count, weekdayMax) + '%' }"></div>
+                </div>
+                <div class="bar-value">{{ item.count }}</div>
+              </div>
+              <div v-if="!weekdayDistribution.length" class="empty-state">暂无数据</div>
+            </div>
+          </div>
         </div>
-        
+
+        <!-- 设备分布 -->
+        <div class="card">
+          <div class="card-header">设备分布</div>
+          <div class="card-body">
+            <div class="distribution-list">
+              <div v-for="item in deviceDistribution" :key="item.key" class="dist-item">
+                <div class="dist-info">
+                  <span class="dist-name">{{ item.key || '未知' }}</span>
+                  <span class="dist-count">{{ item.count }}</span>
+                  <span class="dist-percent">{{ getPercent(item.count, deviceTotal) }}%</span>
+                </div>
+                <div class="dist-bar">
+                  <div class="dist-fill" :style="{ width: getPercent(item.count, deviceTotal) + '%' }"></div>
+                </div>
+              </div>
+              <div v-if="!deviceDistribution.length" class="empty-state">暂无数据</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 浏览器分布 -->
+        <div class="card">
+          <div class="card-header">浏览器分布</div>
+          <div class="card-body">
+            <div class="distribution-list">
+              <div v-for="item in browserDistribution" :key="item.key" class="dist-item">
+                <div class="dist-info">
+                  <span class="dist-name">{{ item.key || '未知' }}</span>
+                  <span class="dist-count">{{ item.count }}</span>
+                  <span class="dist-percent">{{ getPercent(item.count, browserTotal) }}%</span>
+                </div>
+                <div class="dist-bar">
+                  <div class="dist-fill" :style="{ width: getPercent(item.count, browserTotal) + '%' }"></div>
+                </div>
+              </div>
+              <div v-if="!browserDistribution.length" class="empty-state">暂无数据</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 城市TOP10 -->
+        <div class="card">
+          <div class="card-header">城市 TOP 10</div>
+          <div class="card-body">
+            <div class="rank-list">
+              <div v-for="(item, idx) in cityDistribution.slice(0, 10)" :key="item.key" class="rank-item">
+                <span class="rank-num">{{ idx + 1 }}</span>
+                <span class="rank-name">{{ item.key || '未知' }}</span>
+                <span class="rank-count">{{ item.count }}</span>
+              </div>
+              <div v-if="!cityDistribution.length" class="empty-state">暂无数据</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 国家分布 -->
+        <div class="card">
+          <div class="card-header">国家/地区分布</div>
+          <div class="card-body">
+            <div class="rank-list">
+              <div v-for="(item, idx) in countryDistribution.slice(0, 10)" :key="item.key" class="rank-item">
+                <span class="rank-num">{{ idx + 1 }}</span>
+                <span class="rank-name">{{ item.key || '未知' }}</span>
+                <span class="rank-count">{{ item.count }}</span>
+              </div>
+              <div v-if="!countryDistribution.length" class="empty-state">暂无数据</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 来源域名 -->
+        <div class="card">
+          <div class="card-header">来源域名 TOP 10</div>
+          <div class="card-body">
+            <div class="rank-list">
+              <div v-for="(item, idx) in sourceDistribution.slice(0, 10)" :key="item.key" class="rank-item">
+                <span class="rank-num">{{ idx + 1 }}</span>
+                <span class="rank-name truncate">{{ item.key || '直接访问' }}</span>
+                <span class="rank-count">{{ item.count }}</span>
+              </div>
+              <div v-if="!sourceDistribution.length" class="empty-state">暂无数据</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Referer详情 -->
+        <div class="card">
+          <div class="card-header">Referer 详情</div>
+          <div class="card-body">
+            <div class="referer-list">
+              <div v-for="item in refererDistribution.slice(0, 10)" :key="item.key" class="referer-item">
+                <span class="referer-url truncate">{{ item.key || '直接访问' }}</span>
+                <span class="referer-count">{{ item.count }}</span>
+              </div>
+              <div v-if="!refererDistribution.length" class="empty-state">暂无数据</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      
+      <!-- 访问事件列表 -->
+      <div class="card">
+        <div class="card-header flex items-center justify-between">
+          <span>最近访问记录</span>
+          <span class="text-sm text-gray-500">共 {{ eventsList.length }} 条</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="events-table-container">
+            <table class="events-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>IP</th>
+                  <th>设备</th>
+                  <th>城市</th>
+                  <th>国家</th>
+                  <th>来源</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(event, idx) in eventsList.slice(0, 50)" :key="idx">
+                  <td>{{ formatDate(event.ts) }}</td>
+                  <td>{{ event.ip || '-' }}</td>
+                  <td><span class="device-tag">{{ event.deviceType || '-' }}</span></td>
+                  <td>{{ event.city || '-' }}</td>
+                  <td>{{ event.country || '-' }}</td>
+                  <td class="truncate max-w-[200px]">{{ event.sourceHost || '-' }}</td>
+                </tr>
+                <tr v-if="!eventsList.length">
+                  <td colspan="6" class="empty-state">暂无访问记录</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       <!-- 筛选弹窗 -->
-      <div v-if="showFilter" class="tf-modal-backdrop">
-        <div class="tf-modal">
-          <div class="tf-modal-header">筛选条件</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="q-muted text-[13px]">开始日期</label>
-              <input v-model="start" type="date" class="q-input mt-1 w-full" />
-            </div>
-            <div>
-              <label class="q-muted text-[13px]">结束日期</label>
-              <input v-model="end" type="date" class="q-input mt-1 w-full" />
-            </div>
-            <div>
-              <label class="q-muted text-[13px]">来源</label>
-              <input v-model="source" type="text" placeholder="不填为全部" class="q-input mt-1 w-full" />
-            </div>
-            <div>
-              <label class="q-muted text-[13px]">设备</label>
-              <select v-model="device" class="q-input mt-1 w-full">
-                <option value="">全部</option>
-                <option value="mobile">移动</option>
-                <option value="desktop">桌面</option>
-                <option value="tablet">平板</option>
-                <option value="bot">爬虫</option>
-              </select>
-            </div>
-            <div>
-              <label class="q-muted text-[13px]">城市</label>
-              <input v-model="city" type="text" placeholder="不填为全部" class="q-input mt-1 w-full" />
-            </div>
-          </div>
-          <div class="mt-6 flex items-center justify-end gap-3">
-            <button class="fx-btn fx-gray fx-sm" @click="resetFilters"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">重置</span></button>
-            <button class="fx-btn fx-purple fx-sm" @click="confirmFilters"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">应用筛选</span></button>
-            <button class="fx-btn fx-gray fx-sm" @click="closeFilter"><span></span><span></span><span></span><span></span><span></span><span class="btn-text">取消</span></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 关键指标卡片 - 扩展版 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-label">总访问量</div>
-            <div class="stat-value">{{ overview?.totalVisits ?? '-' }}</div>
-            <div class="stat-unit">次</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-label">今日访问量</div>
-            <div class="stat-value">{{ overview?.todayVisits ?? '-' }}</div>
-            <div class="stat-unit">次</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-label">峰值访问</div>
-            <div class="stat-value">{{ peakVisits }}</div>
-            <div class="stat-unit">次/天</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-label">日均访问</div>
-            <div class="stat-value">{{ avgVisits }}</div>
-            <div class="stat-unit">次/天</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 短链详情与 Top 城市 -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="col-span-1 md:col-span-2">
-          <div class="q-card p-6">
-            <div class="q-card-title mb-4">短链信息</div>
-            <div class="space-y-4">
-              <div class="detail-row">
-                <span class="detail-label">短码</span>
-                <code class="detail-value code-block">{{ shortCode }}</code>
+      <div v-if="showFilter" class="modal-backdrop" @click.self="closeFilter">
+        <div class="modal">
+          <div class="modal-header">筛选条件</div>
+          <div class="modal-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-group">
+                <label>开始日期</label>
+                <input v-model="filterStart" type="date" class="form-input" />
               </div>
-              <div class="detail-row">
-                <span class="detail-label">短链地址</span>
-                <a :href="shortUrl" target="_blank" class="detail-value link-style">{{ shortLabel }}</a>
+              <div class="form-group">
+                <label>结束日期</label>
+                <input v-model="filterEnd" type="date" class="form-input" />
               </div>
-              <div class="detail-row">
-                <span class="detail-label">原始链接</span>
-                <div class="mt-2 text-xs font-mono bg-gray-100 p-2 rounded break-all text-gray-600">{{ overview?.longUrl || '-' }}</div>
+              <div class="form-group">
+                <label>来源</label>
+                <input v-model="filterSource" type="text" placeholder="不填为全部" class="form-input" />
               </div>
-              <div class="detail-row">
-                <span class="detail-label">创建时间</span>
-                <span class="detail-value">{{ formatDate(overview?.createdAt) }}</span>
+              <div class="form-group">
+                <label>设备</label>
+                <select v-model="filterDevice" class="form-input">
+                  <option value="">全部</option>
+                  <option value="mobile">移动</option>
+                  <option value="desktop">桌面</option>
+                  <option value="tablet">平板</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>城市</label>
+                <input v-model="filterCity" type="text" placeholder="不填为全部" class="form-input" />
               </div>
             </div>
           </div>
-        </div>
-        <div>
-          <div class="q-card p-6">
-            <div class="q-card-title mb-4">城市 Top 5</div>
-            <div class="space-y-2">
-              <div v-for="(c, idx) in cityData" :key="c.label" class="city-item">
-                <div class="flex items-center justify-between">
-                  <span class="city-rank">{{ idx + 1 }}</span>
-                  <span class="city-name flex-1 ml-3">{{ c.label }}</span>
-                  <span class="city-count">{{ c.value }}</span>
-                </div>
-                <div class="city-bar">
-                  <div class="city-bar-fill" :style="{ width: (c.value / (cityData[0]?.value || 1) * 100) + '%' }"></div>
-                </div>
-              </div>
-              <div v-if="!cityData.length" class="text-center py-4 text-gray-400">{{ $t('common.noData') }}</div>
-            </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="resetFilters">重置</button>
+            <button class="btn btn-primary" @click="applyFilters">应用</button>
+            <button class="btn btn-secondary" @click="closeFilter">取消</button>
           </div>
         </div>
-      </div>
-      
-      <!-- 新增：浏览器/操作系统 + 24小时热力图 -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="q-card p-5">
-          <div class="q-card-title mb-3">浏览器 & 操作系统</div>
-          <Suspense>
-            <BrowserOSChart :data="eventsRef || []" />
-            <template #fallback><SkeletonLoader :count="1" :height="320" variant="card" /></template>
-          </Suspense>
-        </div>
-        <div class="q-card p-5">
-          <Suspense>
-            <HeatmapChart :data="eventsRef || []" :loading="loadingEvents" />
-            <template #fallback><SkeletonLoader :count="1" :height="320" variant="card" /></template>
-          </Suspense>
-        </div>
-      </div>
-      
-      <!-- 新增：实时事件流 -->
-      <div class="q-card p-5">
-        <div class="q-card-title mb-3">访问事件记录</div>
-        <Suspense>
-          <EventStream :events="eventsRef || []" :loading="loadingEvents" />
-          <template #fallback><SkeletonLoader :count="3" :height="100" variant="card" /></template>
-        </Suspense>
-      </div>
-
-      <!-- Error -->
-      <div v-if="errorMsg" class="p-4 rounded q-card">
-        {{ errorMsg }}
-        <button class="ml-3 q-btn-ghost px-3 py-1" @click="refreshAll">{{ $t('stats.retry') }}</button>
-        <button class="ml-3 q-btn-ghost px-3 py-1" @click="exportCsv">导出 CSV</button>
-        <button class="ml-3 q-btn-ghost px-3 py-1" @click="exportJson">导出 JSON</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, defineAsyncComponent, computed, watch } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useFetchOverview, useFetchDistribution, useFetchTrend, useFetchEvents, exportStats } from '../composables/useStats'
-import { SHORT_BASE } from '../composables/shortBase'
-const DistributionChart = defineAsyncComponent(() => import('../components/DistributionChart.vue'))
-const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
-const SourceHBarChart = defineAsyncComponent(() => import('../components/charts/SourceHBarChart.vue'))
-const EventStream = defineAsyncComponent(() => import('../components/charts/EventStream.vue'))
-const BrowserOSChart = defineAsyncComponent(() => import('../components/charts/BrowserOSChart.vue'))
-const HeatmapChart = defineAsyncComponent(() => import('../components/charts/HeatmapChart.vue'))
-const SkeletonLoader = defineAsyncComponent(() => import('../components/SkeletonLoader.vue'))
-
 import { useRoute, useRouter } from 'vue-router'
-import { useClipboard } from '../composables/useStats'
+import { SHORT_BASE, API_BASE } from '../composables/shortBase'
+import axios from 'axios'
+
+const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
+
 const route = useRoute()
 const router = useRouter()
-const shortCode = route.params.shortCode
-const shortUrl = `${SHORT_BASE}/${encodeURIComponent(shortCode)}`
-const shortLabel = `${SHORT_BASE}/${String(shortCode)}`
-const { copy } = useClipboard()
 const { t } = useI18n()
 
-const { data: overviewRef, loading: loadingOverview, error: errorOverview, refresh: refreshOverview } = useFetchOverview(shortCode)
-const filters = ref({ start: '', end: '', source: '', device: '', city: '', page: 0, size: 100 })
-const { data: distRef, loading: loadingDistRef, error: errorDist, refresh: refreshDist } = useFetchDistribution(shortCode, filters)
-const { data: eventsRef, loading: loadingEvents, error: errorEvents, refresh: refreshEvents } = useFetchEvents(shortCode, filters)
-const selectedDays = ref(7)
-const { data: trendRef, loading: loadingTrendRef, error: errorTrend, refresh: refreshTrend } = useFetchTrend(shortCode, selectedDays)
+const shortCode = route.params.shortCode
+const shortUrl = `${SHORT_BASE}/${encodeURIComponent(shortCode)}`
 
-const overview = overviewRef
-const deviceData = ref([])
-const cityData = ref([])
-const refererData = ref([])
-const refererBars = ref([])
-const deviceChartData = ref([])
-const hasDeviceChartData = computed(() => (deviceChartData.value || []).reduce((a,b)=> a + Number(b.value||0), 0) > 0)
-const cityBars = ref([])
-const errorMsg = ref('')
-
-const loadingDist = loadingDistRef
-const loadingTrend = loadingTrendRef
+// 数据状态
+const overview = ref(null)
+const detailedStats = ref(null)
+const eventsList = ref([])
 const trendLabels = ref([])
 const trendValues = ref([])
+const selectedDays = ref(7)
 
-// 计算峰值和平均访问量
-const peakVisits = computed(() => {
-  if (!trendValues.value || trendValues.value.length === 0) return 0
-  return Math.max(...trendValues.value)
-})
+// 分布数据
+const hourDistribution = ref([])
+const weekdayDistribution = ref([])
+const deviceDistribution = ref([])
+const browserDistribution = ref([])
+const cityDistribution = ref([])
+const countryDistribution = ref([])
+const sourceDistribution = ref([])
+const refererDistribution = ref([])
 
+// 筛选条件
+const showFilter = ref(false)
+const filterStart = ref('')
+const filterEnd = ref('')
+const filterSource = ref('')
+const filterDevice = ref('')
+const filterCity = ref('')
+
+// 计算属性
+const peakVisits = computed(() => trendValues.value.length ? Math.max(...trendValues.value) : 0)
 const avgVisits = computed(() => {
-  if (!trendValues.value || trendValues.value.length === 0) return 0
-  const sum = trendValues.value.reduce((a, b) => a + b, 0)
-  return Math.round(sum / trendValues.value.length)
+  if (!trendValues.value.length) return 0
+  return Math.round(trendValues.value.reduce((a, b) => a + b, 0) / trendValues.value.length)
 })
 
-function formatDate(ts){ try { return new Date(ts).toLocaleString() } catch { return String(ts) } }
+const hourMax = computed(() => Math.max(...hourDistribution.value.map(i => i.count), 1))
+const weekdayMax = computed(() => Math.max(...weekdayDistribution.value.map(i => i.count), 1))
+const deviceTotal = computed(() => deviceDistribution.value.reduce((a, b) => a + b.count, 0))
+const browserTotal = computed(() => browserDistribution.value.reduce((a, b) => a + b.count, 0))
 
-async function refreshAll(){
-  errorMsg.value = ''
-  await Promise.all([refreshOverview(), refreshDist(), refreshTrend(), refreshEvents()])
-  if (errorOverview.value || errorDist.value || errorTrend.value || errorEvents.value) {
-    errorMsg.value = t('stats.errorNotFound')
-  }
-  const dist = distRef.value || {}
-  refererBars.value = (dist.referer||[]).map(kv => ({ source: kv.referer || kv.label || kv.name || t('common.unknown'), count: Number(kv.count || kv.value || 0) }))
-  const devArr = (dist.device||[]).map(kv => ({ key: String(kv.device || kv.label || kv.name || 'unknown').toLowerCase(), count: Number(kv.count || kv.value || 0) }))
-  const mobile = devArr.filter(d => d.key.includes('mobile') || d.key.includes('phone') || d.key.includes('ios') || d.key.includes('android')).reduce((a,b)=>a+b.count,0)
-  const desktop = devArr.filter(d => d.key.includes('desktop') || d.key.includes('pc')).reduce((a,b)=>a+b.count,0)
-  const tablet = devArr.filter(d => d.key.includes('tablet') || d.key.includes('pad')).reduce((a,b)=>a+b.count,0)
-  deviceChartData.value = [
-    { label: '移动', value: mobile },
-    { label: '平板', value: tablet },
-    { label: '桌面', value: desktop }
-  ]
-  cityBars.value = (dist.city||[]).slice(0,10).map(kv => ({ city: kv.city || kv.label || kv.name || t('common.unknown'), count: Number(kv.count || kv.value || 0) }))
-  deviceData.value = (dist.device||[]).map(kv => ({ label: kv.label || kv.name || kv.key || t('common.unknown'), value: Number(kv.count || kv.value || 0) }))
-  cityData.value = (dist.city||[]).slice(0,5).map(kv => ({ label: kv.city || kv.label || kv.name || t('common.unknown'), value: Number(kv.count || kv.value || 0) }))
-
-  // 构建近7天趋势数据（labels 升序对齐，values 与 labels 一一对应）
-  const trendList = Array.isArray(trendRef.value) ? trendRef.value : []
-  const labels = Array.from(new Set(trendList.map(p => String(p.date)))).sort()
-  trendLabels.value = labels
-  const map = new Map(trendList.map(p => [String(p.date), Number(p.visits || p.count || 0)]))
-  trendValues.value = labels.map(d => map.get(d) ?? 0)
+// 工具函数
+function formatDate(ts) {
+  if (!ts) return '-'
+  try { return new Date(ts).toLocaleString('zh-CN') } catch { return String(ts) }
 }
 
-function goHome(){ router.push('/') }
-function goDashboard(){ router.push('/dashboard') }
+function getBarWidth(value, max) {
+  return max > 0 ? (value / max * 100) : 0
+}
 
-// 移除图标与渐变，采用纯文本信息结构
-function selectDays(d){ selectedDays.value = d }
+function getPercent(value, total) {
+  return total > 0 ? Math.round(value / total * 100) : 0
+}
 
-watch(selectedDays, async () => {
-  console.debug('[watch] selectedDays ->', selectedDays.value)
-  await refreshTrend()
-  await refreshAll()
-})
+function copy(text) {
+  try { navigator.clipboard.writeText(text) } catch {}
+}
 
-function applyFilters(){
-  filters.value = { start: start.value, end: end.value, source: source.value, device: device.value, city: city.value, page: 0, size: 20 }
+// API调用
+async function fetchOverview() {
+  try {
+    const res = await axios.get(`${API_BASE}/api/stats/overview/${encodeURIComponent(shortCode)}`)
+    overview.value = res.data
+  } catch (e) { console.error('fetchOverview error:', e) }
+}
+
+async function fetchDetailedStats() {
+  try {
+    const params = new URLSearchParams()
+    if (filterStart.value) params.set('start', filterStart.value)
+    if (filterEnd.value) params.set('end', filterEnd.value)
+    const res = await axios.get(`${API_BASE}/api/stats/detailed/${encodeURIComponent(shortCode)}?${params}`)
+    detailedStats.value = res.data
+    
+    // 解析分布数据
+    hourDistribution.value = (res.data.hourDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    weekdayDistribution.value = (res.data.weekdayDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    deviceDistribution.value = (res.data.deviceDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    browserDistribution.value = (res.data.browserDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    cityDistribution.value = (res.data.cityDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    countryDistribution.value = (res.data.countryDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    sourceDistribution.value = (res.data.sourceDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    refererDistribution.value = (res.data.refererDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+  } catch (e) { console.error('fetchDetailedStats error:', e) }
+}
+
+async function fetchTrend() {
+  try {
+    const res = await axios.get(`${API_BASE}/api/stats/trend/${encodeURIComponent(shortCode)}?days=${selectedDays.value}`)
+    const data = Array.isArray(res.data) ? res.data : []
+    const labels = data.map(d => d.date).sort()
+    trendLabels.value = labels
+    trendValues.value = labels.map(l => {
+      const item = data.find(d => d.date === l)
+      return item ? Number(item.visits || item.count || 0) : 0
+    })
+  } catch (e) { console.error('fetchTrend error:', e) }
+}
+
+async function fetchEvents() {
+  try {
+    const body = { code: shortCode, start: filterStart.value, end: filterEnd.value, source: filterSource.value, device: filterDevice.value, city: filterCity.value, page: 0, size: 100 }
+    const res = await axios.post(`${API_BASE}/api/stats/events`, body)
+    eventsList.value = Array.isArray(res.data) ? res.data : []
+  } catch (e) { console.error('fetchEvents error:', e) }
+}
+
+async function refreshAll() {
+  await Promise.all([fetchOverview(), fetchDetailedStats(), fetchTrend(), fetchEvents()])
+}
+
+function selectDays(d) {
+  selectedDays.value = d
+}
+
+watch(selectedDays, () => fetchTrend())
+
+// 筛选
+function openFilter() { showFilter.value = true }
+function closeFilter() { showFilter.value = false }
+function resetFilters() {
+  filterStart.value = ''
+  filterEnd.value = ''
+  filterSource.value = ''
+  filterDevice.value = ''
+  filterCity.value = ''
+}
+function applyFilters() {
+  closeFilter()
   refreshAll()
 }
 
-async function exportCsv(){ await doExport('csv') }
-async function exportJson(){ await doExport('json') }
-async function doExport(fmt){
-  const params = { start: start.value, end: end.value, source: source.value, device: device.value, city: city.value }
-  await exportStats(shortCode, params, fmt)
+// 导出
+async function exportCsv() {
+  const body = { code: shortCode, start: filterStart.value, end: filterEnd.value }
+  try {
+    const res = await axios.post(`${API_BASE}/api/stats/export?format=csv`, body, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `stats-${shortCode}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) { console.error('export error:', e) }
 }
 
-const start = ref('')
-const end = ref('')
-const source = ref('')
-const device = ref('')
-const city = ref('')
+// 导航
+function goHome() { router.push('/') }
+function goDashboard() { router.push('/dashboard') }
 
-const showFilter = ref(false)
-function openFilter(){ showFilter.value = true }
-function closeFilter(){ showFilter.value = false }
-function confirmFilters(){ showFilter.value = false; applyFilters() }
-function resetFilters(){ source.value=''; device.value=''; city.value='' }
-
-onMounted(refreshAll)
-
-;(function initDefaultDates(){
-  try {
-    const now = new Date()
-    const y = now.getFullYear()
-    const m = now.getMonth()
-    const startDate = new Date(y, m, 1)
-    const endDate = new Date(y, m + 1, 0)
-    const fmt = (d) => {
-      const yy = d.getFullYear()
-      const mm = String(d.getMonth() + 1).padStart(2, '0')
-      const dd = String(d.getDate()).padStart(2, '0')
-      return `${yy}-${mm}-${dd}`
-    }
-    start.value = fmt(startDate)
-    end.value = fmt(endDate)
-  } catch {}
-})()
+// 初始化
+onMounted(() => {
+  const now = new Date()
+  filterStart.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  filterEnd.value = now.toISOString().split('T')[0]
+  refreshAll()
+})
 </script>
 
 <style scoped>
-svg { width: 20px; height: 20px; }
-.tf-modal-backdrop { position: fixed; inset: 0; background: rgba(4,16,40,0.35); display: flex; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(2px); }
-.tf-modal { width: 680px; max-width: 92vw; border-radius: 16px; padding: 24px; background: linear-gradient(135deg,#ffffff 0%, #f3f7ff 100%); box-shadow: 0 12px 40px rgba(37,99,235,0.22); border: 1px solid rgba(37,99,235,0.18); }
-.tf-modal-header { font-size: 16px; font-weight: 600; color: #2563EB; margin-bottom: 16px; }
+.stats-page {
+  background: #f8fafc;
+  min-height: 100vh;
+}
 
-/* 统计卡片窗口 */
-.stat-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  border-radius: 16px;
-  padding: 20px;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
-  border-color: rgba(37, 99, 235, 0.3);
-}
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-.stat-content {
-  flex: 1;
-  min-width: 0;
-}
-.stat-label {
-  font-size: 13px;
-  color: #64748b;
+/* 按钮样式 - 单色 */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
   font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.btn-secondary {
+  background: white;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.btn-tab {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-tab.active {
+  background: #2563eb;
+  color: white;
+}
+
+/* 卡片样式 */
+.card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 16px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+/* 指标卡片 */
+.metric-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: #64748b;
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.stat-value {
-  font-size: 32px;
+
+.metric-value {
+  font-size: 28px;
   font-weight: 700;
   color: #1e293b;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-.stat-value-text {
-  font-size: 14px;
-  color: #334155;
-  font-weight: 500;
-  word-break: break-all;
-}
-.stat-unit {
-  font-size: 12px;
-  color: #94a3b8;
-  font-weight: 400;
 }
 
-/* 详情行样式 */
-.detail-row {
-  display: flex;
-  align-items: flex-start;
+/* 信息网格 */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid #f1f5f9;
 }
-.detail-row:last-child {
-  border-bottom: none;
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-.detail-label {
-  min-width: 80px;
-  font-size: 13px;
+
+.info-label {
+  font-size: 12px;
   color: #64748b;
   font-weight: 500;
-  flex-shrink: 0;
-}
-.detail-value {
-  font-size: 14px;
-  color: #1e293b;
-  flex: 1;
-  word-break: break-all;
-}
-.code-block {
-  background: #f1f5f9;
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: #2563eb;
-  font-weight: 500;
-  font-size: 13px;
-}
-.link-style {
-  color: #2563eb;
-  text-decoration: none;
-  border-bottom: 1px dashed #2563eb;
-  transition: all 0.2s ease;
-}
-.link-style:hover {
-  color: #1d4ed8;
-  border-bottom-color: #1d4ed8;
 }
 
-/* 城市接流样式 */
-.city-item {
-  padding: 8px 0;
-}
-.city-rank {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-.city-name {
-  font-size: 13px;
+.info-value {
+  font-size: 14px;
   color: #334155;
-  font-weight: 500;
 }
-.city-count {
-  font-size: 13px;
+
+.info-code {
+  font-family: monospace;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 4px;
   color: #2563eb;
-  font-weight: 600;
-  min-width: 40px;
-  text-align: right;
-  flex-shrink: 0;
+  font-size: 14px;
 }
-.city-bar {
-  width: 100%;
-  height: 4px;
-  background: #e2e8f0;
-  border-radius: 2px;
+
+.info-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.info-link:hover {
+  text-decoration: underline;
+}
+
+.info-url {
+  font-size: 13px;
+  font-family: monospace;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 4px;
+  word-break: break-all;
   margin-top: 4px;
+}
+
+/* 图表容器 */
+.chart-container {
+  height: 280px;
+  background: #fafbfc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+}
+
+.chart-placeholder {
+  height: 280px;
+  background: #f8fafc;
+}
+
+/* 柱状图 */
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.bar-item {
+  display: grid;
+  grid-template-columns: 60px 1fr 50px;
+  align-items: center;
+  gap: 12px;
+}
+
+.bar-label {
+  font-size: 13px;
+  color: #64748b;
+  text-align: right;
+}
+
+.bar-track {
+  height: 20px;
+  background: #f1f5f9;
+  border-radius: 4px;
   overflow: hidden;
 }
-.city-bar-fill {
+
+.bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #2563eb, #3b82f6);
-  border-radius: 2px;
+  background: #2563eb;
+  border-radius: 4px;
   transition: width 0.3s ease;
 }
 
-.fx-btn { font-family: Arial, Helvetica, sans-serif; font-weight: bold; color: #0F172A; background-color: #F8FAFC; padding: 0.75em 1.4em; border: 1px solid rgba(148,163,184,0.6); border-radius: 0.6rem; position: relative; cursor: pointer; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; }
-.fx-btn span:not(.btn-text) { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); height: 26px; width: 26px; background-color: #2563EB; border-radius: 50%; transition: .6s ease; }
-.fx-btn span:nth-child(1) { transform: translate(-3.3em, -4em); }
-.fx-btn span:nth-child(2) { transform: translate(-6em, 1.3em); }
-.fx-btn span:nth-child(3) { transform: translate(-.2em, 1.8em); }
-.fx-btn span:nth-child(4) { transform: translate(3.5em, 1.4em); }
-.fx-btn span:nth-child(5) { transform: translate(3.5em, -3.8em); }
-.fx-btn:hover span:not(.btn-text) { transform: translate(-50%, -50%) scale(4); transition: 1.5s ease; }
-.fx-btn .btn-text { position: relative; z-index: 1; }
-.fx-purple { background-color: #E0F2FE; }
-.fx-gray { background-color: #EFF6FF; }
-.fx-sm { padding: 0.4em 0.9em; }
-.fx-sm span:not(.btn-text) { height: 18px; width: 18px; }
+.bar-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  text-align: right;
+}
+
+/* 分布列表 */
+.distribution-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dist-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dist-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dist-name {
+  flex: 1;
+  font-size: 14px;
+  color: #334155;
+}
+
+.dist-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  min-width: 50px;
+  text-align: right;
+}
+
+.dist-percent {
+  font-size: 13px;
+  color: #64748b;
+  min-width: 45px;
+  text-align: right;
+}
+
+.dist-bar {
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dist-fill {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* 排行榜 */
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.rank-item:last-child {
+  border-bottom: none;
+}
+
+.rank-num {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2563eb;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rank-item:nth-child(n+4) .rank-num {
+  background: #94a3b8;
+}
+
+.rank-name {
+  flex: 1;
+  font-size: 14px;
+  color: #334155;
+  min-width: 0;
+}
+
+.rank-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+  min-width: 50px;
+  text-align: right;
+}
+
+/* Referer列表 */
+.referer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.referer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 4px;
+}
+
+.referer-url {
+  flex: 1;
+  font-size: 13px;
+  color: #64748b;
+  font-family: monospace;
+  min-width: 0;
+}
+
+.referer-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-left: 12px;
+}
+
+/* 事件表格 */
+.events-table-container {
+  overflow-x: auto;
+}
+
+.events-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.events-table th,
+.events-table td {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.events-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.events-table td {
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.events-table tr:hover td {
+  background: #fafbfc;
+}
+
+.device-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* 空状态 */
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* 弹窗 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  width: 520px;
+  max-width: 90vw;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* 表单 */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.form-input {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #334155;
+  background: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 </style>

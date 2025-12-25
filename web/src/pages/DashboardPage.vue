@@ -1,427 +1,724 @@
 <template>
-  <div class="min-h-screen font-[Inter,system-ui,-apple-system,sans-serif]" style="background-color:var(--tf-bg-page)">
-    <div class="max-w-6xl mx-auto p-6">
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-8">
-        <h1 class="text-[24px] font-semibold" style="color:var(--tf-text-title)">{{ $t('dashboard.title') }}</h1>
-        <div class="flex items-center gap-4">
-          <input v-model="query" type="text" :placeholder="$t('dashboard.searchPlaceholder')" class="fs-input h-9 px-3" />
-          <button @click="refresh" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('dashboard.refresh') }}</button>
+  <div class="min-h-screen dashboard-page pt-24">
+    <div class="max-w-7xl mx-auto p-6 space-y-6">
+      <!-- 顶部操作栏 -->
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <h1 class="text-xl font-semibold text-gray-800">数据看板</h1>
+        <div class="flex items-center gap-3">
+          <input v-model="searchQuery" type="text" placeholder="搜索短链..." class="search-input" />
+          <button @click="refreshAll" class="btn btn-secondary">刷新</button>
+          <button @click="exportCSV" class="btn btn-secondary">导出CSV</button>
         </div>
       </div>
 
-      <!-- 新增：全局统计概览 -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div class="stats-overview-card">
-          <div class="stats-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-            </svg>
+      <!-- 全局统计概览 -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div class="metric-card">
+          <div class="metric-label">总短链数</div>
+          <div class="metric-value">{{ globalStats?.totalUrls ?? '-' }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">总点击量(PV)</div>
+          <div class="metric-value">{{ globalStats?.totalClicks ?? '-' }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">独立访客(UV)</div>
+          <div class="metric-value">{{ globalStats?.totalUniqueIps ?? '-' }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">今日点击</div>
+          <div class="metric-value">{{ globalStats?.todayClicks ?? '-' }}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">活跃短链</div>
+          <div class="metric-value">{{ globalStats?.activeUrls ?? '-' }}</div>
+        </div>
+      </div>
+
+      <!-- 图表区域 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 访问趋势 -->
+        <div class="card">
+          <div class="card-header flex items-center justify-between">
+            <span>访问趋势</span>
+            <div class="flex gap-2">
+              <button class="btn-tab" :class="{ active: trendDays === 7 }" @click="setTrendDays(7)">7天</button>
+              <button class="btn-tab" :class="{ active: trendDays === 14 }" @click="setTrendDays(14)">14天</button>
+              <button class="btn-tab" :class="{ active: trendDays === 30 }" @click="setTrendDays(30)">30天</button>
+            </div>
           </div>
-          <div class="stats-content">
-            <div class="stats-label">总短链数</div>
-            <div class="stats-value">{{ totalUrls }}</div>
+          <div class="card-body">
+            <div class="chart-container">
+              <Suspense>
+                <TrendChart :values="dailyTrendValues" :labels="dailyTrendLabels" :showValues="true" />
+                <template #fallback><div class="chart-placeholder"></div></template>
+              </Suspense>
+            </div>
           </div>
         </div>
-        <div class="stats-overview-card">
-          <div class="stats-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
-            </svg>
-          </div>
-          <div class="stats-content">
-            <div class="stats-label">总点击数</div>
-            <div class="stats-value">{{ totalClicks }}</div>
-          </div>
-        </div>
-        <div class="stats-overview-card">
-          <div class="stats-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <div class="stats-content">
-            <div class="stats-label">今日点击</div>
-            <div class="stats-value">{{ todayClicks }}</div>
+
+        <!-- 设备分布 -->
+        <div class="card">
+          <div class="card-header">设备分布</div>
+          <div class="card-body">
+            <div class="distribution-list">
+              <div v-for="item in deviceDistribution" :key="item.key" class="dist-item">
+                <div class="dist-info">
+                  <span class="dist-name">{{ item.key || '未知' }}</span>
+                  <span class="dist-count">{{ item.count }}</span>
+                  <span class="dist-percent">{{ getPercent(item.count, deviceTotal) }}%</span>
+                </div>
+                <div class="dist-bar">
+                  <div class="dist-fill" :style="{ width: getPercent(item.count, deviceTotal) + '%' }"></div>
+                </div>
+              </div>
+              <div v-if="!deviceDistribution.length" class="empty-state">暂无数据</div>
+            </div>
           </div>
         </div>
-        <div class="stats-overview-card">
-          <div class="stats-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
+
+        <!-- 城市TOP10 -->
+        <div class="card">
+          <div class="card-header">城市 TOP 10</div>
+          <div class="card-body">
+            <div class="rank-list">
+              <div v-for="(item, idx) in cityTop10" :key="item.key" class="rank-item">
+                <span class="rank-num">{{ idx + 1 }}</span>
+                <span class="rank-name">{{ item.key || '未知' }}</span>
+                <span class="rank-count">{{ item.count }}</span>
+              </div>
+              <div v-if="!cityTop10.length" class="empty-state">暂无数据</div>
+            </div>
           </div>
-          <div class="stats-content">
-            <div class="stats-label">活跃短链</div>
-            <div class="stats-value">{{ activeUrls }}</div>
+        </div>
+
+        <!-- 来源TOP10 -->
+        <div class="card">
+          <div class="card-header">来源域名 TOP 10</div>
+          <div class="card-body">
+            <div class="rank-list">
+              <div v-for="(item, idx) in sourceTop10" :key="item.key" class="rank-item">
+                <span class="rank-num">{{ idx + 1 }}</span>
+                <span class="rank-name truncate">{{ item.key || '直接访问' }}</span>
+                <span class="rank-count">{{ item.count }}</span>
+              </div>
+              <div v-if="!sourceTop10.length" class="empty-state">暂无数据</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 今日与总点击分布饼图 / 近七天趋势切换 -->
-      <div class="flex items-center justify-between mb-3">
-        <div class="text-[14px] font-medium" style="color:var(--tf-text-body)">{{ $t('dashboard.overview') }}</div>
-        <button class="fs-btn-secondary px-3 py-1 text-[13px]" @click="toggleShowTrend7">{{ showTrend7 ? $t('dashboard.toggleShowPie') : $t('dashboard.toggleShowTrend') }}</button>
-      </div>
-      <div v-if="!showTrend7" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="fs-card p-6">
-          <div class="text-[16px] font-medium mb-4" style="color:var(--tf-text-title)">{{ $t('dashboard.todayDist') }}</div>
-          <div class="relative" style="height:280px;background:var(--tf-bg-page);border:1px dashed var(--tf-border);border-radius:8px">
-            <DistributionChart :type="'pie'" :data="pieTodayData" :colors="pieColors" :engine="'echarts'" />
-          </div>
-          <div v-if="!hasPieTodayData" class="text-center mt-2 text-[13px]" style="color:var(--tf-text-muted)">{{ $t('common.noData') }}</div>
-          <div class="text-[12px] mt-1" style="color:var(--tf-text-muted)">数据条数：{{ pieTodayData.length }}，总和：{{ pieTodaySum }}</div>
-          <div class="text-[12px] mt-3" style="color:var(--tf-text-muted)">悬停查看名称、百分比与数值</div>
-        </div>
-        <div class="fs-card p-6">
-          <div class="text-[16px] font-medium mb-4" style="color:var(--tf-text-title)">{{ $t('dashboard.totalDist') }}</div>
-          <div class="relative" style="height:280px;background:var(--tf-bg-page);border:1px dashed var(--tf-border);border-radius:8px">
-            <DistributionChart :type="'pie'" :data="pieTotalData" :colors="pieColors" :engine="'echarts'" />
-          </div>
-          <div v-if="!hasPieTotalData" class="text-center mt-2 text-[13px]" style="color:var(--tf-text-muted)">{{ $t('common.noData') }}</div>
-          <div class="text-[12px] mt-1" style="color:var(--tf-text-muted)">数据条数：{{ pieTotalData.length }}，总和：{{ pieTotalSum }}</div>
-          <div class="text-[12px] mt-3" style="color:var(--tf-text-muted)">悬停查看名称、百分比与数值</div>
-        </div>
-      </div>
-      <div v-else class="q-card p-6 mb-8" style="box-shadow: 0 2px 12px rgba(0,0,0,0.04)">
-        <div class="q-card-title mb-4 flex items-center justify-between">
-          <span>{{ $t('dashboard.toggleShowTrend') }}（Top 5 / {{ selectedDays }}天）</span>
-          <div class="flex items-center gap-2">
-            <button class="md-btn-text" :class="{ 'font-semibold': selectedDays===7 }" @click="selectDays(7)">7天</button>
-            <button class="md-btn-text" :class="{ 'font-semibold': selectedDays===14 }" @click="selectDays(14)">14天</button>
-            <button class="md-btn-text" :class="{ 'font-semibold': selectedDays===30 }" @click="selectDays(30)">30天</button>
-          </div>
-        </div>
-        <div class="relative" style="height:280px;background:#fafafa;border:1px dashed #ddd;border-radius:8px">
-          <Suspense>
-            <TrendChart v-if="trendLabelsDash.length && compareTrends.length" :multi="true" :series="compareTrends" :labels="trendLabelsDash" />
-            <template #fallback><div class="h-[240px] md-card"></div></template>
-          </Suspense>
-        </div>
-        <div v-if="!trendLabelsDash.length || !compareTrends.length" class="q-muted text-center mt-2">{{ $t('dashboard.noDataOrNone') }}</div>
-        <div class="q-help mt-3">{{ $t('dashboard.descTop5Trend') }}（{{ selectedDays }}天）</div>
-      </div>
-
-      <!-- 合并后的统一表格（紫白配色） -->
-      <div class="md-card p-5 mb-10">
-        <div class="flex items-center justify-between mb-3">
-          <div class="md-label">{{ $t('history.title') }}</div>
-          <button class="md-btn" @click="exportCSV">{{ $t('dashboard.exportCsv') }}</button>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="md-table">
-            <thead>
-              <tr>
-                <th class="md-th text-left">{{ $t('dashboard.table.shortCode') }}</th>
-                <th class="md-th text-left">{{ $t('dashboard.table.url') }}</th>
-                <th class="md-th text-right">{{ $t('dashboard.table.total') }}</th>
-                <th class="md-th text-right">{{ $t('dashboard.table.today') }}</th>
-                <th class="md-th text-left">{{ $t('dashboard.table.share') }}</th>
-                <th class="md-th text-left">{{ $t('dashboard.table.createdAt') }}</th>
-                <th class="md-th text-left">{{ $t('dashboard.table.actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in pagedList" :key="row.shortCode" class="md-tr">
-                <td class="md-td font-medium">{{ row.shortCode }}</td>
-                <td class="md-td truncate max-w-[420px] md-muted">{{ row.longUrl }}</td>
-                <td class="md-td text-right md-nums"><span style="color:#6E44FF">{{ row.totalVisits ?? '-' }}</span></td>
-                <td class="md-td text-right md-nums">{{ row.todayVisits === 0 ? '-' : (row.todayVisits ?? '-') }}</td>
-                <td class="md-td">
-                  <div class="flex items-center gap-2">
-                    <div class="w-[160px] h-2 rounded" style="background: var(--divider)">
-                      <div class="h-2 rounded" :style="{ width: (percentMap[row.shortCode]||0).toFixed(2) + '%', background: 'var(--tf-brand-primary)' }"></div>
+      <!-- 热门短链排行 -->
+      <div class="card">
+        <div class="card-header">热门短链 TOP 10</div>
+        <div class="card-body p-0">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>排名</th>
+                  <th>短码</th>
+                  <th>原始链接</th>
+                  <th>总点击</th>
+                  <th>今日点击</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(url, idx) in topUrls" :key="url.shortCode">
+                  <td><span class="rank-badge">{{ idx + 1 }}</span></td>
+                  <td><code class="code-badge">{{ url.shortCode }}</code></td>
+                  <td class="truncate max-w-[300px]">{{ url.longUrl }}</td>
+                  <td class="font-semibold text-blue-600">{{ url.totalClicks }}</td>
+                  <td>{{ url.todayClicks }}</td>
+                  <td>
+                    <div class="flex gap-2">
+                      <router-link :to="'/stats/' + url.shortCode" class="action-link">详情</router-link>
+                      <button @click="copyUrl(url.shortCode)" class="action-link">复制</button>
                     </div>
-                    <span class="md-muted">{{ (percentMap[row.shortCode]||0).toFixed(2) }}%</span>
-                  </div>
-                </td>
-                <td class="md-td">{{ formatDate(row.createdAt) }}</td>
-                <td class="md-td">
-                  <div class="flex items-center gap-3 md-actions">
-                    <router-link :to="'/stats/' + encodeURIComponent(row.shortCode)" class="md-btn-text">{{ $t('stats.details') }}</router-link>
-<button class="md-btn-text" @click="copy(SHORT_BASE + '/' + encodeURIComponent(row.shortCode))">{{ $t('actions.copy') }}</button>
-                    <button class="md-btn-text" @click="remove(row.shortCode)">{{ $t('actions.delete') }}</button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="loading"><td colspan="7" class="p-4 text-center md-muted">{{ $t('common.loading') }}</td></tr>
-              <tr v-if="!loading && filteredList.length===0"><td colspan="7" class="p-4 text-center md-muted">{{ $t('common.noData') }}</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <!-- Pagination -->
-        <div class="flex items-center justify-between mt-4">
-          <div class="md-muted">{{ $t('dashboard.pagination.total', { count: (meta?.value && meta.value.totalElements) || 0, page: page, pages: totalPages }) }}</div>
-          <div class="flex items-center gap-3">
-            <button @click="prev" class="md-btn-text">{{ $t('dashboard.pagination.prev') }}</button>
-            <button @click="next" class="md-btn-text">{{ $t('dashboard.pagination.next') }}</button>
+                  </td>
+                </tr>
+                <tr v-if="!topUrls.length">
+                  <td colspan="6" class="empty-state">暂无数据</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      
+      <!-- 所有短链列表 -->
+      <div class="card">
+        <div class="card-header flex items-center justify-between">
+          <span>所有短链</span>
+          <span class="text-sm text-gray-500">共 {{ totalElements }} 条</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>短码</th>
+                  <th>原始链接</th>
+                  <th>总点击</th>
+                  <th>今日点击</th>
+                  <th>占比</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="url in filteredList" :key="url.shortCode">
+                  <td><code class="code-badge">{{ url.shortCode }}</code></td>
+                  <td class="truncate max-w-[300px]">{{ url.longUrl }}</td>
+                  <td class="font-semibold text-blue-600">{{ url.totalVisits ?? '-' }}</td>
+                  <td>{{ url.todayVisits === 0 ? '-' : url.todayVisits }}</td>
+                  <td>
+                    <div class="share-bar">
+                      <div class="share-fill" :style="{ width: getSharePercent(url) + '%' }"></div>
+                      <span class="share-text">{{ getSharePercent(url).toFixed(1) }}%</span>
+                    </div>
+                  </td>
+                  <td>{{ formatDate(url.createdAt) }}</td>
+                  <td>
+                    <div class="flex gap-2">
+                      <router-link :to="'/stats/' + url.shortCode" class="action-link">详情</router-link>
+                      <button @click="copyUrl(url.shortCode)" class="action-link">复制</button>
+                      <button @click="deleteUrl(url.shortCode)" class="action-link text-red-500">删除</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="loading">
+                  <td colspan="7" class="text-center py-4 text-gray-500">加载中...</td>
+                </tr>
+                <tr v-if="!loading && !filteredList.length">
+                  <td colspan="7" class="empty-state">暂无数据</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <!-- 分页 -->
+        <div class="card-footer">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500">第 {{ page }} 页 / 共 {{ totalPages }} 页</span>
+            <div class="flex gap-2">
+              <button class="btn btn-secondary btn-sm" @click="prevPage" :disabled="page <= 1">上一页</button>
+              <button class="btn btn-secondary btn-sm" @click="nextPage" :disabled="page >= totalPages">下一页</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
+import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
-import { useFetchList, useFetchClickStats, useFetchOverview, useFetchTrend, useCompareTrend } from '../composables/useStats'
 import axios from 'axios'
-import { API_BASE } from '../composables/shortBase'
-import { SHORT_BASE } from '../composables/shortBase'
-try { if (API_BASE) { axios.defaults.baseURL = API_BASE } } catch {}
-const DistributionChart = defineAsyncComponent(() => import('../components/DistributionChart.vue'))
-const TrendLineChart = defineAsyncComponent(() => import('../components/charts/TrendLineChart.vue'))
+import { API_BASE, SHORT_BASE } from '../composables/shortBase'
+
 const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
-const router = useRouter()
 
 const { t } = useI18n()
 
-const query = ref('')
+// 状态
+const loading = ref(false)
+const globalStats = ref(null)
+const urlList = ref([])
+const topUrls = ref([])
+const searchQuery = ref('')
 const page = ref(1)
-const pageSize = ref(10)
+const pageSize = 10
+const totalElements = ref(0)
+const totalPages = ref(1)
+const trendDays = ref(7)
 
-const { data: listRef, loading, error, refresh, meta } = useFetchList(page, pageSize)
-// 新增：点击统计（用于饼图）来源于 /api/urls/click-stats
-const { data: clickStatsRef, loading: clickLoading, error: clickError, refresh: refreshClickStats } = useFetchClickStats()
-const list = listRef
+// 分布数据
+const deviceDistribution = ref([])
+const cityTop10 = ref([])
+const sourceTop10 = ref([])
+const dailyTrendLabels = ref([])
+const dailyTrendValues = ref([])
 
-// Pie data and colors
-const pieColors = ['#1D9BF0','#2B6BFF','#37B4FF','#00C875','#FFAB00','#6366F1','#38BDF8','#14B8A6','#22C55E']
-// 使用 click-stats 数据源生成饼图数据
-const pieTotalData = computed(() => buildPieData(clickStatsRef.value || [], 'totalVisits'))
-const pieTodayData = computed(() => buildPieData(clickStatsRef.value || [], 'todayVisits'))
-// 计算是否有数据，避免模板中的复杂表达式导致误判
-const hasPieTotalData = computed(() => (pieTotalData.value || []).reduce((a,b)=> a + Number(b.value||0), 0) > 0)
-const hasPieTodayData = computed(() => (pieTodayData.value || []).reduce((a,b)=> a + Number(b.value||0), 0) > 0)
-const pieTotalSum = computed(() => (pieTotalData.value || []).reduce((a,b)=> a + Number(b.value||0), 0))
-const pieTodaySum = computed(() => (pieTodayData.value || []).reduce((a,b)=> a + Number(b.value||0), 0))
-// 调试日志，便于定位数据来源与渲染问题
-watch([pieTodayData, pieTotalData], ([t, all]) => {
-  try {
-    const sumToday = (t||[]).reduce((a,b)=> a + Number(b.value||0), 0)
-    const sumAll = (all||[]).reduce((a,b)=> a + Number(b.value||0), 0)
-    console.log('[Dashboard] Pie sums => today:', sumToday, ', total:', sumAll)
-  } catch {}
+// 计算属性
+const deviceTotal = computed(() => deviceDistribution.value.reduce((a, b) => a + b.count, 0))
+
+const filteredList = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  const list = urlList.value || []
+  if (!q) return list
+  return list.filter(u => 
+    (u.shortCode || '').toLowerCase().includes(q) || 
+    (u.longUrl || '').toLowerCase().includes(q)
+  )
 })
-watch(list, (val) => {
-  try {
-    console.log('[Dashboard] list length:', (val||[]).length, 'first item:', (val||[])[0])
-  } catch {}
+
+const totalClicks = computed(() => {
+  return (urlList.value || []).reduce((sum, u) => sum + Number(u.totalVisits || 0), 0) || 1
 })
-watch(clickStatsRef, (val) => {
-  try {
-    console.log('[Dashboard] click-stats length:', (val||[]).length, 'first item:', (val||[])[0])
-  } catch {}
-})
-function buildPieData(arr, field){
-  const items = (arr||[]).map(it => ({ name: it.shortCode, label: it.shortCode, value: Number(it[field]||0) }))
-  const sorted = items.sort((a,b)=> b.value-a.value)
-  const total = sorted.reduce((a,b)=> a+b.value, 0)
-  if (sorted.length <= 8) return sorted
-  const top = sorted.slice(0,7)
-  const otherValue = sorted.slice(7).reduce((a,b)=> a+b.value, 0)
-  if (otherValue > 0) top.push({ name: t('dashboard.other'), label: t('dashboard.other'), value: otherValue })
-  return top
+
+// 工具函数
+function formatDate(ts) {
+  if (!ts) return '-'
+  try { return new Date(ts).toLocaleString('zh-CN') } catch { return String(ts) }
 }
 
-// 近七天趋势切换与数据（Top5 多折线，对齐日期）
-const showTrend7 = ref(false)
-const selectedDays = ref(7)
-const trendLabelsDash = ref([])
-const compareTrends = ref([])
-const { data: compareDataRef, refresh: refreshCompareApi } = useCompareTrend()
-async function refreshDashboardTrend7(){
+function getPercent(value, total) {
+  return total > 0 ? Math.round(value / total * 100) : 0
+}
+
+function getSharePercent(url) {
+  return totalClicks.value > 0 ? (Number(url.totalVisits || 0) / totalClicks.value * 100) : 0
+}
+
+function copyUrl(shortCode) {
+  const url = `${SHORT_BASE}/${shortCode}`
+  try { navigator.clipboard.writeText(url) } catch {}
+}
+
+// API调用
+async function fetchGlobalStats() {
   try {
-    const topKeys = [...(list.value||[])].sort((a,b)=> (b.totalVisits||0)-(a.totalVisits||0)).slice(0,5).map(it=> it.shortCode)
-    if (!topKeys.length) { trendLabelsDash.value = []; compareTrends.value = []; return }
-    await refreshCompareApi(topKeys, selectedDays.value)
-    const data = compareDataRef.value || {}
-    // 统一日期标签（升序），并为每个短码补齐缺失日期的0值
-    const labelSet = new Set()
-    topKeys.forEach(k => (data[k]||[]).forEach(p => labelSet.add(String(p.date))))
-    const labels = Array.from(labelSet).sort()
-    const series = topKeys.map((k, idx) => {
-      const map = new Map((data[k]||[]).map(p => [String(p.date), Number(p.visits||0)]))
-      const s = labels.map(d => ({ label: d, value: map.get(d) ?? 0 }))
-      return { name: k, color: ['#4F46E5','#06B6D4','#F59E0B','#10B981','#EF4444'][idx%5], series: s }
-    })
-    trendLabelsDash.value = labels
-    compareTrends.value = series
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+    const end = now.toISOString().split('T')[0]
+    const res = await axios.get(`${API_BASE}/api/stats/global?start=${start}&end=${end}`)
+    globalStats.value = res.data
+    
+    // 解析分布数据
+    deviceDistribution.value = (res.data.deviceDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    cityTop10.value = (res.data.cityTop10 || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    sourceTop10.value = (res.data.sourceTop10 || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
+    topUrls.value = res.data.topUrls || []
+    
+    // 趋势数据
+    const trend = res.data.dailyTrend || []
+    dailyTrendLabels.value = trend.map(i => i.key || i.label)
+    dailyTrendValues.value = trend.map(i => Number(i.count || i.value || 0))
+  } catch (e) { 
+    console.error('fetchGlobalStats error:', e) 
+  }
+}
+
+async function fetchUrlList() {
+  loading.value = true
+  try {
+    const res = await axios.get(`${API_BASE}/api/urls?page=${page.value - 1}&size=${pageSize}`)
+    const data = res.data
+    urlList.value = Array.isArray(data) ? data : (data.content || data.items || [])
+    totalElements.value = data.totalElements || urlList.value.length
+    totalPages.value = data.totalPages || Math.ceil(totalElements.value / pageSize) || 1
   } catch (e) {
-    console.log('[Dashboard] refreshDashboardTrend7 error:', e)
-    trendLabelsDash.value = []
-    compareTrends.value = []
-  }
-}
-function toggleShowTrend7(){
-  showTrend7.value = !showTrend7.value
-  if (showTrend7.value && !trendLabelsDash.value.length) { refreshDashboardTrend7() }
-}
-
-function selectDays(d){
-  if (selectedDays.value === d) return
-  selectedDays.value = d
-  if (showTrend7.value) {
-    refreshDashboardTrend7()
+    console.error('fetchUrlList error:', e)
+  } finally {
+    loading.value = false
   }
 }
 
-// 移除概览解析函数（已改为 compare 接口）
-// 合并表格：为每个短码计算在当前过滤列表中的占比（总访问次数比）
-const percentMap = computed(() => {
-  const arr = filteredList.value || []
-  const sum = arr.reduce((a,b)=> a + Number(b.totalVisits||0), 0) || 1
-  const map = {}
-  arr.forEach(it => { map[it.shortCode] = (Number(it.totalVisits||0) / sum) * 100 })
-  return map
-})
+async function deleteUrl(shortCode) {
+  if (!confirm('确定要删除这个短链吗？')) return
+  try {
+    await axios.delete(`${API_BASE}/api/${encodeURIComponent(shortCode)}`)
+    await refreshAll()
+  } catch (e) {
+    alert('删除失败')
+  }
+}
 
-// 将点击统计合并到列表项中，确保排序依据 totalVisits 有效
-const statsMap = computed(() => {
-  const map = {}
-  ;(clickStatsRef.value || []).forEach(s => {
-    map[s.shortCode] = {
-      totalVisits: Number(s.totalVisits || 0),
-      todayVisits: Number(s.todayVisits || 0)
-    }
-  })
-  return map
-})
-const combinedList = computed(() => {
-  return (list.value || []).map(it => {
-    const stat = statsMap.value[it.shortCode] || {}
-    return {
-      ...it,
-      totalVisits: stat.totalVisits ?? Number(it.totalVisits || 0),
-      todayVisits: stat.todayVisits ?? Number(it.todayVisits || 0)
-    }
-  })
-})
+function setTrendDays(days) {
+  trendDays.value = days
+  fetchGlobalStats()
+}
 
-function exportCSV(){
-  const header = [
-    t('dashboard.table.shortCode'),
-    t('dashboard.table.total'),
-    t('dashboard.table.today'),
-    t('dashboard.table.share'),
-    t('dashboard.table.createdAt'),
-    t('dashboard.table.url')
-  ]
-  const arr = filteredList.value || []
-  const rows = arr.map(it => [
-    it.shortCode,
-    it.totalVisits ?? '-',
-    it.todayVisits ?? '-',
-    (percentMap.value[it.shortCode]||0).toFixed(2),
-    formatDate(it.createdAt),
-    it.longUrl || ''
+async function refreshAll() {
+  await Promise.all([fetchGlobalStats(), fetchUrlList()])
+}
+
+function prevPage() {
+  if (page.value > 1) {
+    page.value--
+    fetchUrlList()
+  }
+}
+
+function nextPage() {
+  if (page.value < totalPages.value) {
+    page.value++
+    fetchUrlList()
+  }
+}
+
+function exportCSV() {
+  const header = ['短码', '原始链接', '总点击', '今日点击', '创建时间']
+  const rows = (urlList.value || []).map(u => [
+    u.shortCode,
+    u.longUrl,
+    u.totalVisits ?? '-',
+    u.todayVisits ?? '-',
+    formatDate(u.createdAt)
   ])
-  const csv = [header.join(','), ...rows.map(r=> r.join(','))].join('\n')
+  const csv = [header.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${t('history.title')}.csv`
+  a.download = 'urls.csv'
   a.click()
   URL.revokeObjectURL(url)
 }
 
-const filteredList = computed(() => {
-  const q = query.value.trim().toLowerCase()
-  const source = combinedList.value || []
-  const base = q
-    ? source.filter(it => (it.shortCode||'').toLowerCase().includes(q) || (it.longUrl||'').toLowerCase().includes(q))
-    : [...source]
-  // 按总点击次数降序排序，提升首页历史记录的可读性
-  return base.sort((a,b) => Number(b.totalVisits||0) - Number(a.totalVisits||0))
-})
-
-const totalPages = computed(() => Math.max(1, Number((meta?.value && meta.value.totalPages) || 1)))
-const pagedList = computed(() => filteredList.value)
-
-// 全局统计
-const totalUrls = computed(() => (meta?.value && meta.value.totalElements) || (list.value || []).length)
-const totalClicks = computed(() => (clickStatsRef.value || []).reduce((sum, item) => sum + Number(item.totalVisits || 0), 0))
-const todayClicks = computed(() => (clickStatsRef.value || []).reduce((sum, item) => sum + Number(item.todayVisits || 0), 0))
-const activeUrls = computed(() => (clickStatsRef.value || []).filter(item => Number(item.todayVisits || 0) > 0).length)
-
-async function prev(){ page.value = Math.max(1, page.value-1); await refresh() }
-async function next(){ page.value = Math.min(totalPages.value, page.value+1); await refresh() }
-
-// 已移除趋势与Top5对比相关逻辑
-
-function formatDate(ts){ try { return new Date(ts).toLocaleString() } catch { return String(ts) } }
-
-onMounted(async () => {
-  await Promise.all([refresh(), refreshClickStats()])
-})
-
-function copy(text){
-  try { navigator.clipboard.writeText(String(text)) } catch (e) { console.log('copy failed', e) }
-}
-async function remove(code){
-  if (!code) return
-  try {
-    await axios.delete('/api/' + encodeURIComponent(code))
-    await Promise.all([refresh(), refreshClickStats()])
-  } catch (e) {
-    console.log('remove failed', e)
-    alert('删除失败，请稍后重试')
-  }
-}
+onMounted(refreshAll)
 </script>
 
 <style scoped>
-.stats-overview-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid rgba(226, 232, 240, 0.6);
-  border-radius: 16px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+.dashboard-page {
+  background: #f8fafc;
+  min-height: 100vh;
 }
 
-.stats-overview-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
-  border-color: rgba(37, 99, 235, 0.3);
+/* 搜索框 */
+.search-input {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 200px;
+  background: white;
 }
 
-.stats-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.search-input:focus {
+  outline: none;
+  border-color: #2563eb;
 }
 
-.stats-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.stats-label {
-  font-size: 13px;
-  color: #64748b;
+/* 按钮 */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
   font-weight: 500;
-  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
 }
 
-.stats-value {
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.btn-secondary {
+  background: white;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #f1f5f9;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-tab {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-tab.active {
+  background: #2563eb;
+  color: white;
+}
+
+/* 卡片 */
+.card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 16px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.card-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #f1f5f9;
+  background: #fafbfc;
+}
+
+/* 指标卡片 */
+.metric-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.metric-value {
   font-size: 28px;
   font-weight: 700;
   color: #1e293b;
-  line-height: 1;
+}
+
+/* 图表 */
+.chart-container {
+  height: 280px;
+  background: #fafbfc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+}
+
+.chart-placeholder {
+  height: 280px;
+}
+
+/* 分布列表 */
+.distribution-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dist-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dist-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dist-name {
+  flex: 1;
+  font-size: 14px;
+  color: #334155;
+}
+
+.dist-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.dist-percent {
+  font-size: 13px;
+  color: #64748b;
+  min-width: 45px;
+  text-align: right;
+}
+
+.dist-bar {
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dist-fill {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 3px;
+}
+
+/* 排行 */
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.rank-item:last-child {
+  border-bottom: none;
+}
+
+.rank-num {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2563eb;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 50%;
+}
+
+.rank-item:nth-child(n+4) .rank-num {
+  background: #94a3b8;
+}
+
+.rank-name {
+  flex: 1;
+  font-size: 14px;
+  color: #334155;
+}
+
+.rank-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #2563eb;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 50%;
+}
+
+tr:nth-child(n+4) .rank-badge {
+  background: #94a3b8;
+}
+
+/* 表格 */
+.table-container {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.data-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.data-table td {
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.data-table tr:hover td {
+  background: #fafbfc;
+}
+
+.code-badge {
+  font-family: monospace;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #2563eb;
+  font-size: 13px;
+}
+
+.action-link {
+  color: #2563eb;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.action-link:hover {
+  text-decoration: underline;
+}
+
+/* 占比条 */
+.share-bar {
+  position: relative;
+  height: 20px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 100px;
+}
+
+.share-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: #2563eb;
+  border-radius: 4px;
+}
+
+.share-text {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  color: #334155;
+  padding: 0 8px;
+  line-height: 20px;
+}
+
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

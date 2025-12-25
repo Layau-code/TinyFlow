@@ -1,16 +1,12 @@
 package com.layor.tinyflow.Controller;
 
-import com.layor.tinyflow.entity.DailyVisitTrendDTO;
-import com.layor.tinyflow.entity.DistributionDTO;
-import com.layor.tinyflow.entity.ClickEventDTO;
-import com.layor.tinyflow.entity.ShortUrlOverviewDTO;
+import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.dto.StatsQuery;
 import com.layor.tinyflow.service.ShortUrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -84,5 +80,100 @@ public class StatsController {
                 .header("Content-Type", ct)
                 .header("Content-Disposition", "attachment; filename=stats-" + q.getCode() + "." + ("csv".equalsIgnoreCase(format) ? "csv" : "json"))
                 .body(bytes);
+    }
+
+    /**
+     * 获取详细统计数据（包含所有维度）
+     */
+    @GetMapping("/detailed/{shortCode}")
+    public ResponseEntity<DetailedStatsDTO> getDetailedStats(
+            @PathVariable String shortCode,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        DetailedStatsDTO dto = shortUrlService.getDetailedStats(shortCode, start, end);
+        return ResponseEntity.ok(dto);
+    }
+
+    /**
+     * 获取全局统计数据
+     */
+    @GetMapping("/global")
+    public ResponseEntity<GlobalStatsDTO> getGlobalStats(
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        GlobalStatsDTO dto = shortUrlService.getGlobalStats(start, end);
+        return ResponseEntity.ok(dto);
+    }
+
+    /**
+     * 获取小时分布
+     */
+    @GetMapping("/hour/{shortCode}")
+    public ResponseEntity<List<KeyCountDTO>> getHourDistribution(
+            @PathVariable String shortCode,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        List<KeyCountDTO> list = shortUrlService.getHourDistribution(shortCode, start, end);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * 获取星期分布
+     */
+    @GetMapping("/weekday/{shortCode}")
+    public ResponseEntity<List<KeyCountDTO>> getWeekdayDistribution(
+            @PathVariable String shortCode,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        List<KeyCountDTO> list = shortUrlService.getWeekdayDistribution(shortCode, start, end);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * 获取浏览器分布
+     */
+    @GetMapping("/browser/{shortCode}")
+    public ResponseEntity<List<KeyCountDTO>> getBrowserDistribution(
+            @PathVariable String shortCode,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        List<KeyCountDTO> list = shortUrlService.getBrowserDistribution(shortCode, start, end);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * 获取国家分布
+     */
+    @GetMapping("/country/{shortCode}")
+    public ResponseEntity<List<KeyCountDTO>> getCountryDistribution(
+            @PathVariable String shortCode,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        List<KeyCountDTO> list = shortUrlService.getCountryDistribution(shortCode, start, end);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * 获取Referer详细分布
+     */
+    @GetMapping("/referer/{shortCode}")
+    public ResponseEntity<List<KeyCountDTO>> getRefererDistribution(
+            @PathVariable String shortCode,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        List<KeyCountDTO> list = shortUrlService.getRefererDistribution(shortCode, start, end);
+        return ResponseEntity.ok(list);
+    }
+
+    /**
+     * 获取PV/UV数据
+     */
+    @GetMapping("/pvuv/{shortCode}")
+    public ResponseEntity<Map<String, Long>> getPvUv(
+            @PathVariable String shortCode,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        Map<String, Long> data = shortUrlService.getPvUv(shortCode, start, end);
+        return ResponseEntity.ok(data);
     }
 }

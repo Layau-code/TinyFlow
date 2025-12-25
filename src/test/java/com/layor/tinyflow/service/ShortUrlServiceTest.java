@@ -2,6 +2,7 @@ package com.layor.tinyflow.service;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.layor.tinyflow.Strategy.HashidsStrategy;
+import com.layor.tinyflow.entity.DailyClick;
 import com.layor.tinyflow.entity.ShortUrl;
 import com.layor.tinyflow.entity.ShortUrlDTO;
 import com.layor.tinyflow.entity.User;
@@ -25,7 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -354,5 +355,348 @@ class ShortUrlServiceTest {
         });
         
         verify(shortUrlRepository, never()).deleteByShortCode(anyString());
+    }
+
+    // ==================== 统计功能测试 ====================
+
+    // 辅助方法：创建 Object[] 列表
+    @SuppressWarnings("unchecked")
+    private List<Object[]> createObjectArrayList(Object[]... arrays) {
+        List<Object[]> result = new ArrayList<>();
+        for (Object[] arr : arrays) {
+            result.add(arr);
+        }
+        return result;
+    }
+
+    @Test
+    @DisplayName("获取详细统计数据 - 成功")
+    void testGetDetailedStats_Success() {
+        // Given
+        String shortCode = TEST_SHORT_CODE;
+        LocalDateTime start = LocalDateTime.of(2025, 12, 1, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2025, 12, 31, 23, 59);
+        
+        when(clickEventRepository.countTotal(eq(shortCode), any(), any())).thenReturn(1000L);
+        when(clickEventRepository.countUniqueIp(eq(shortCode), any(), any())).thenReturn(500L);
+        when(clickEventRepository.countByHour(eq(shortCode), any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{10, 50L}, new Object[]{14, 80L}));
+        when(clickEventRepository.countByDayOfWeek(eq(shortCode), any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{1, 100L}, new Object[]{2, 120L}));
+        when(clickEventRepository.countByCountry(eq(shortCode), any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{"中国", 800L}));
+        when(clickEventRepository.countByCity(eq(shortCode), any(), any(), isNull()))
+                .thenReturn(createObjectArrayList(new Object[]{"北京", 300L}));
+        when(clickEventRepository.countByDevice(eq(shortCode), any(), any(), isNull()))
+                .thenReturn(createObjectArrayList(new Object[]{"mobile", 600L}));
+        when(clickEventRepository.countByUa(eq(shortCode), any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{"Mozilla/5.0 Chrome", 700L}));
+        when(clickEventRepository.countBySource(eq(shortCode), any(), any(), isNull()))
+                .thenReturn(createObjectArrayList(new Object[]{"google.com", 200L}));
+        when(clickEventRepository.countByReferer(eq(shortCode), any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{"https://google.com/search", 150L}));
+        when(clickEventRepository.findFirstClickTime(shortCode)).thenReturn(LocalDateTime.of(2025, 12, 1, 10, 0));
+        when(clickEventRepository.findLastClickTime(shortCode)).thenReturn(LocalDateTime.of(2025, 12, 25, 15, 30));
+
+        // When
+        com.layor.tinyflow.entity.DetailedStatsDTO result = shortUrlService.getDetailedStats(shortCode, "2025-12-01", "2025-12-31");
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1000L, result.getPv());
+        assertEquals(500L, result.getUv());
+        assertEquals(2.0, result.getPvUvRatio(), 0.01);
+        assertNotNull(result.getHourDistribution());
+        assertNotNull(result.getWeekdayDistribution());
+        assertNotNull(result.getCountryDistribution());
+        assertNotNull(result.getCityDistribution());
+        assertNotNull(result.getDeviceDistribution());
+        assertNotNull(result.getBrowserDistribution());
+        assertNotNull(result.getSourceDistribution());
+        assertNotNull(result.getRefererDistribution());
+        assertNotNull(result.getFirstClick());
+        assertNotNull(result.getLastClick());
+    }
+
+    @Test
+    @DisplayName("获取详细统计数据 - UV为0时PV/UV比率为0")
+    void testGetDetailedStats_ZeroUv() {
+        // Given
+        when(clickEventRepository.countTotal(eq(TEST_SHORT_CODE), any(), any())).thenReturn(100L);
+        when(clickEventRepository.countUniqueIp(eq(TEST_SHORT_CODE), any(), any())).thenReturn(0L);
+        when(clickEventRepository.countByHour(eq(TEST_SHORT_CODE), any(), any())).thenReturn(Collections.emptyList());
+        when(clickEventRepository.countByDayOfWeek(eq(TEST_SHORT_CODE), any(), any())).thenReturn(Collections.emptyList());
+        when(clickEventRepository.countByCountry(eq(TEST_SHORT_CODE), any(), any())).thenReturn(Collections.emptyList());
+        when(clickEventRepository.countByCity(eq(TEST_SHORT_CODE), any(), any(), isNull())).thenReturn(Collections.emptyList());
+        when(clickEventRepository.countByDevice(eq(TEST_SHORT_CODE), any(), any(), isNull())).thenReturn(Collections.emptyList());
+        when(clickEventRepository.countByUa(eq(TEST_SHORT_CODE), any(), any())).thenReturn(Collections.emptyList());
+        when(clickEventRepository.countBySource(eq(TEST_SHORT_CODE), any(), any(), isNull())).thenReturn(Collections.emptyList());
+        when(clickEventRepository.countByReferer(eq(TEST_SHORT_CODE), any(), any())).thenReturn(Collections.emptyList());
+        when(clickEventRepository.findFirstClickTime(TEST_SHORT_CODE)).thenReturn(null);
+        when(clickEventRepository.findLastClickTime(TEST_SHORT_CODE)).thenReturn(null);
+
+        // When
+        com.layor.tinyflow.entity.DetailedStatsDTO result = shortUrlService.getDetailedStats(TEST_SHORT_CODE, null, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(100L, result.getPv());
+        assertEquals(0L, result.getUv());
+        assertEquals(0.0, result.getPvUvRatio(), 0.01);
+    }
+
+    @Test
+    @DisplayName("获取小时分布 - 成功")
+    void testGetHourDistribution_Success() {
+        // Given
+        when(clickEventRepository.countByHour(eq(TEST_SHORT_CODE), any(), any()))
+                .thenReturn(createObjectArrayList(
+                        new Object[]{0, 10L},
+                        new Object[]{10, 50L},
+                        new Object[]{14, 80L},
+                        new Object[]{20, 30L}
+                ));
+
+        // When
+        List<com.layor.tinyflow.entity.KeyCountDTO> result = shortUrlService.getHourDistribution(TEST_SHORT_CODE, null, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(4, result.size());
+        assertEquals("00:00", result.get(0).getLabel());
+        assertEquals(10L, result.get(0).getCount());
+        assertEquals("10:00", result.get(1).getLabel());
+        assertEquals(50L, result.get(1).getCount());
+    }
+
+    @Test
+    @DisplayName("获取星期分布 - 成功")
+    void testGetWeekdayDistribution_Success() {
+        // Given
+        when(clickEventRepository.countByDayOfWeek(eq(TEST_SHORT_CODE), any(), any()))
+                .thenReturn(createObjectArrayList(
+                        new Object[]{1, 100L},  // 周日
+                        new Object[]{2, 120L},  // 周一
+                        new Object[]{6, 150L}   // 周五
+                ));
+
+        // When
+        List<com.layor.tinyflow.entity.KeyCountDTO> result = shortUrlService.getWeekdayDistribution(TEST_SHORT_CODE, null, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(3, result.size());
+        assertEquals("周日", result.get(0).getLabel());
+        assertEquals("周一", result.get(1).getLabel());
+        assertEquals("周五", result.get(2).getLabel());
+    }
+
+    @Test
+    @DisplayName("获取浏览器分布 - 成功并合并相同浏览器")
+    void testGetBrowserDistribution_Success() {
+        // Given
+        when(clickEventRepository.countByUa(eq(TEST_SHORT_CODE), any(), any()))
+                .thenReturn(createObjectArrayList(
+                        new Object[]{"Mozilla/5.0 (Windows) Chrome/120.0", 300L},
+                        new Object[]{"Mozilla/5.0 (Mac) Chrome/119.0", 200L},
+                        new Object[]{"Mozilla/5.0 Safari/17.0", 150L},
+                        new Object[]{"Mozilla/5.0 Firefox/120.0", 100L}
+                ));
+
+        // When
+        List<com.layor.tinyflow.entity.KeyCountDTO> result = shortUrlService.getBrowserDistribution(TEST_SHORT_CODE, null, null);
+
+        // Then
+        assertNotNull(result);
+        // Chrome应该被合并
+        var chromeEntry = result.stream().filter(k -> k.getLabel().equals("Chrome")).findFirst();
+        assertTrue(chromeEntry.isPresent());
+        assertEquals(500L, chromeEntry.get().getCount()); // 300 + 200
+    }
+
+    @Test
+    @DisplayName("获取国家分布 - 成功")
+    void testGetCountryDistribution_Success() {
+        // Given
+        when(clickEventRepository.countByCountry(eq(TEST_SHORT_CODE), any(), any()))
+                .thenReturn(createObjectArrayList(
+                        new Object[]{"中国", 800L},
+                        new Object[]{"美国", 100L},
+                        new Object[]{"日本", 50L}
+                ));
+
+        // When
+        List<com.layor.tinyflow.entity.KeyCountDTO> result = shortUrlService.getCountryDistribution(TEST_SHORT_CODE, null, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(3, result.size());
+        assertEquals("中国", result.get(0).getLabel());
+        assertEquals(800L, result.get(0).getCount());
+    }
+
+    @Test
+    @DisplayName("获取Referer分布 - 成功")
+    void testGetRefererDistribution_Success() {
+        // Given
+        when(clickEventRepository.countByReferer(eq(TEST_SHORT_CODE), any(), any()))
+                .thenReturn(createObjectArrayList(
+                        new Object[]{"https://google.com/search?q=test", 200L},
+                        new Object[]{"https://baidu.com/s?wd=test", 150L},
+                        new Object[]{null, 100L}
+                ));
+
+        // When
+        List<com.layor.tinyflow.entity.KeyCountDTO> result = shortUrlService.getRefererDistribution(TEST_SHORT_CODE, null, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(3, result.size());
+    }
+
+    @Test
+    @DisplayName("获取PV/UV数据 - 成功")
+    void testGetPvUv_Success() {
+        // Given
+        when(clickEventRepository.countTotal(eq(TEST_SHORT_CODE), any(), any())).thenReturn(1000L);
+        when(clickEventRepository.countUniqueIp(eq(TEST_SHORT_CODE), any(), any())).thenReturn(500L);
+
+        // When
+        Map<String, Long> result = shortUrlService.getPvUv(TEST_SHORT_CODE, null, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1000L, result.get("pv"));
+        assertEquals(500L, result.get("uv"));
+    }
+
+    @Test
+    @DisplayName("获取全局统计 - 成功")
+    void testGetGlobalStats_Success() {
+        // Given
+        when(shortUrlRepository.count()).thenReturn(100L);
+        when(clickEventRepository.countAllTotal(any(), any())).thenReturn(50000L);
+        when(clickEventRepository.countAllUniqueIp(any(), any())).thenReturn(20000L);
+        when(dailyClickRepo.findTodayActiveCodes()).thenReturn(Arrays.asList("code1", "code2", "code3"));
+        when(clickEventRepository.countAllByDate(any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{"2025-12-25", 500L}));
+        when(clickEventRepository.countAllByDevice(any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{"mobile", 30000L}));
+        when(clickEventRepository.countAllByCity(any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{"北京", 10000L}));
+        when(clickEventRepository.countAllBySource(any(), any()))
+                .thenReturn(createObjectArrayList(new Object[]{"google.com", 5000L}));
+        
+        ShortUrl topUrl = ShortUrl.builder()
+                .shortCode("abc123")
+                .longUrl("https://example.com")
+                .clickCount(1000)
+                .build();
+        when(shortUrlRepository.findAll(any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(Arrays.asList(topUrl)));
+        when(dailyClickRepo.getTodayClicksByShortCode("abc123")).thenReturn(50);
+
+        // When
+        com.layor.tinyflow.entity.GlobalStatsDTO result = shortUrlService.getGlobalStats(null, null);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(100L, result.getTotalUrls());
+        assertEquals(50000L, result.getTotalClicks());
+        assertEquals(20000L, result.getTotalUniqueIps());
+        assertEquals(3L, result.getActiveUrls());
+        assertNotNull(result.getDailyTrend());
+        assertNotNull(result.getDeviceDistribution());
+        assertNotNull(result.getCityTop10());
+        assertNotNull(result.getSourceTop10());
+        assertNotNull(result.getTopUrls());
+        assertEquals(1, result.getTopUrls().size());
+        assertEquals("abc123", result.getTopUrls().get(0).getShortCode());
+    }
+
+    @Test
+    @DisplayName("获取访问趋势对比 - 成功")
+    void testGetVisitTrendsByShortCodes_Success() {
+        // Given
+        List<String> shortCodes = Arrays.asList("code1", "code2");
+        when(dailyClickRepo.findByShortCodeAndDate(eq("code1"), any()))
+                .thenReturn(Optional.of(DailyClick.builder().clicks(100).build()));
+        when(dailyClickRepo.findByShortCodeAndDate(eq("code2"), any()))
+                .thenReturn(Optional.of(DailyClick.builder().clicks(200).build()));
+
+        // When
+        Map<String, List<com.layor.tinyflow.entity.DailyVisitTrendDTO>> result = 
+                shortUrlService.getVisitTrendsByShortCodes(shortCodes, 7);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertTrue(result.containsKey("code1"));
+        assertTrue(result.containsKey("code2"));
+        assertEquals(7, result.get("code1").size());
+        assertEquals(7, result.get("code2").size());
+    }
+
+    @Test
+    @DisplayName("获取短链概览 - 成功")
+    void testGetOverviewByShortCode_Success() {
+        // Given
+        ShortUrl shortUrl = ShortUrl.builder()
+                .shortCode(TEST_SHORT_CODE)
+                .longUrl(TEST_LONG_URL)
+                .clickCount(1000)
+                .createdAt(LocalDateTime.of(2025, 12, 1, 10, 0))
+                .build();
+        when(shortUrlRepository.findByShortCode(TEST_SHORT_CODE)).thenReturn(shortUrl);
+        when(dailyClickRepo.findByShortCodeAndDate(eq(TEST_SHORT_CODE), any()))
+                .thenReturn(Optional.of(DailyClick.builder().clicks(50).build()));
+
+        // When
+        com.layor.tinyflow.entity.ShortUrlOverviewDTO result = shortUrlService.getOverviewByShortCode(TEST_SHORT_CODE);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1000, result.getTotalVisits());
+        assertEquals(50, result.getTodayVisits());
+    }
+
+    @Test
+    @DisplayName("获取每日趋势 - 成功")
+    void testGetDailyTrendByShortCode_Success() {
+        // Given
+        when(dailyClickRepo.findByShortCodeAndDate(eq(TEST_SHORT_CODE), any()))
+                .thenReturn(Optional.of(DailyClick.builder().clicks(100).build()));
+
+        // When
+        List<com.layor.tinyflow.entity.DailyVisitTrendDTO> result = 
+                shortUrlService.getDailyTrendByShortCode(TEST_SHORT_CODE, 7);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(7, result.size());
+        // 验证返回了7天的数据
+        for (com.layor.tinyflow.entity.DailyVisitTrendDTO dto : result) {
+            assertNotNull(dto.getDate());
+            assertEquals(100, dto.getVisits());
+        }
+    }
+
+    @Test
+    @DisplayName("获取每日趋势 - 无数据时返回0")
+    void testGetDailyTrendByShortCode_NoData() {
+        // Given
+        when(dailyClickRepo.findByShortCodeAndDate(eq(TEST_SHORT_CODE), any()))
+                .thenReturn(Optional.empty());
+
+        // When
+        List<com.layor.tinyflow.entity.DailyVisitTrendDTO> result = 
+                shortUrlService.getDailyTrendByShortCode(TEST_SHORT_CODE, 3);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(3, result.size());
+        for (com.layor.tinyflow.entity.DailyVisitTrendDTO dto : result) {
+            assertEquals(0, dto.getVisits());
+        }
     }
 }

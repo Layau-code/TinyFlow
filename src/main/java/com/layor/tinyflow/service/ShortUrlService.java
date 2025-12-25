@@ -548,6 +548,190 @@ public class ShortUrlService {
                 ));
     }
 
+    /**
+     * 获取详细统计数据
+     */
+    public DetailedStatsDTO getDetailedStats(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        
+        // 基础指标
+        long pv = clickEventRepository.countTotal(shortCode, start, end);
+        long uv = clickEventRepository.countUniqueIp(shortCode, start, end);
+        double pvUvRatio = uv > 0 ? (double) pv / uv : 0;
+        
+        // 时间分布
+        List<KeyCountDTO> hourDist = clickEventRepository.countByHour(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(formatHour(n(o[0])), n(o[1]))).toList();
+        List<KeyCountDTO> weekdayDist = clickEventRepository.countByDayOfWeek(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(formatWeekday((int)n(o[0])), n(o[1]))).toList();
+        
+        // 地理分布
+        List<KeyCountDTO> countryDist = clickEventRepository.countByCountry(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+        List<KeyCountDTO> cityDist = clickEventRepository.countByCity(shortCode, start, end, null)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+        
+        // 技术分布
+        List<KeyCountDTO> deviceDist = clickEventRepository.countByDevice(shortCode, start, end, null)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
+        List<KeyCountDTO> browserDist = clickEventRepository.countByUa(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(parseBrowser(s(o[0])), n(o[1]))).limit(10).toList();
+        
+        // 来源分布
+        List<KeyCountDTO> sourceDist = clickEventRepository.countBySource(shortCode, start, end, null)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+        List<KeyCountDTO> refererDist = clickEventRepository.countByReferer(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+        
+        // 时间信息
+        LocalDateTime firstClick = clickEventRepository.findFirstClickTime(shortCode);
+        LocalDateTime lastClick = clickEventRepository.findLastClickTime(shortCode);
+        
+        return new DetailedStatsDTO(pv, uv, pvUvRatio, hourDist, weekdayDist, 
+                countryDist, cityDist, deviceDist, browserDist, sourceDist, refererDist, 
+                firstClick, lastClick);
+    }
+
+    /**
+     * 获取全局统计数据
+     */
+    public GlobalStatsDTO getGlobalStats(String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        
+        // 基础汇总
+        long totalUrls = shortUrlRepository.count();
+        long totalClicks = clickEventRepository.countAllTotal(start, end);
+        long totalUv = clickEventRepository.countAllUniqueIp(start, end);
+        
+        // 今日数据
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime todayEnd = LocalDate.now().atTime(23, 59, 59);
+        long todayClicks = clickEventRepository.countAllTotal(todayStart, todayEnd);
+        
+        // 活跃短链
+        List<String> todayActiveCodes = dailyClickRepo.findTodayActiveCodes();
+        long activeUrls = todayActiveCodes != null ? todayActiveCodes.size() : 0;
+        
+        // 日趋势
+        List<KeyCountDTO> dailyTrend = clickEventRepository.countAllByDate(start, end)
+                .stream().map(o -> new KeyCountDTO(String.valueOf(o[0]), n(o[1]))).toList();
+        
+        // 分布数据
+        List<KeyCountDTO> deviceDist = clickEventRepository.countAllByDevice(start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
+        List<KeyCountDTO> cityTop10 = clickEventRepository.countAllByCity(start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(10).toList();
+        List<KeyCountDTO> sourceTop10 = clickEventRepository.countAllBySource(start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(10).toList();
+        
+        // 热门短链 TOP10
+        List<UrlRankDTO> topUrls = shortUrlRepository.findAll(PageRequest.of(0, 10, 
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "clickCount")))
+                .stream()
+                .map(url -> {
+                    int today = dailyClickRepo.getTodayClicksByShortCode(url.getShortCode());
+                    return new UrlRankDTO(url.getShortCode(), url.getLongUrl(), url.getClickCount(), today);
+                })
+                .toList();
+        
+        return new GlobalStatsDTO(totalUrls, totalClicks, totalUv, todayClicks, activeUrls,
+                dailyTrend, deviceDist, cityTop10, sourceTop10, topUrls);
+    }
+
+    /**
+     * 获取小时分布数据
+     */
+    public List<KeyCountDTO> getHourDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        return clickEventRepository.countByHour(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(formatHour(n(o[0])), n(o[1]))).toList();
+    }
+
+    /**
+     * 获取星期分布数据
+     */
+    public List<KeyCountDTO> getWeekdayDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        return clickEventRepository.countByDayOfWeek(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(formatWeekday((int)n(o[0])), n(o[1]))).toList();
+    }
+
+    /**
+     * 获取浏览器分布数据
+     */
+    public List<KeyCountDTO> getBrowserDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        // 合并相同浏览器
+        Map<String, Long> browserMap = new HashMap<>();
+        clickEventRepository.countByUa(shortCode, start, end).forEach(o -> {
+            String browser = parseBrowser(s(o[0]));
+            browserMap.merge(browser, n(o[1]), Long::sum);
+        });
+        return browserMap.entrySet().stream()
+                .map(e -> new KeyCountDTO(e.getKey(), e.getValue()))
+                .sorted((a, b) -> Long.compare(b.getCount(), a.getCount()))
+                .limit(10).toList();
+    }
+
+    /**
+     * 获取国家分布数据
+     */
+    public List<KeyCountDTO> getCountryDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        return clickEventRepository.countByCountry(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+    }
+
+    /**
+     * 获取Referer详细分布
+     */
+    public List<KeyCountDTO> getRefererDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        return clickEventRepository.countByReferer(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(50).toList();
+    }
+
+    /**
+     * 获取PV/UV数据
+     */
+    public Map<String, Long> getPvUv(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        long pv = clickEventRepository.countTotal(shortCode, start, end);
+        long uv = clickEventRepository.countUniqueIp(shortCode, start, end);
+        Map<String, Long> result = new HashMap<>();
+        result.put("pv", pv);
+        result.put("uv", uv);
+        return result;
+    }
+
+    private String formatHour(long hour) {
+        return String.format("%02d:00", hour);
+    }
+
+    private String formatWeekday(int dayOfWeek) {
+        String[] days = {"", "周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+        return dayOfWeek >= 1 && dayOfWeek <= 7 ? days[dayOfWeek] : "";
+    }
+
+    private String parseBrowser(String ua) {
+        if (ua == null || ua.isEmpty()) return "未知";
+        String s = ua.toLowerCase();
+        if (s.contains("edg")) return "Edge";
+        if (s.contains("chrome") && !s.contains("edg")) return "Chrome";
+        if (s.contains("safari") && !s.contains("chrome")) return "Safari";
+        if (s.contains("firefox")) return "Firefox";
+        if (s.contains("opera") || s.contains("opr")) return "Opera";
+        if (s.contains("msie") || s.contains("trident")) return "IE";
+        return "其他";
+    }
 
     @Transactional
     public void updateShortUrl(String shortCode,  String customAlias) {
