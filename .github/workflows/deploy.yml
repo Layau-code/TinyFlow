@@ -58,8 +58,32 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
 
-      # 7. 部署到服务器
-      - name: Deploy to Server
+      # 7. 上传 JAR 包到服务器
+      - name: Upload JAR to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "target/TinyFlow-0.0.1-SNAPSHOT.jar"
+          target: "/opt/TinyFlow/"
+          strip_components: 1
+
+      # 8. 上传前端构建产物到服务器
+      - name: Upload Frontend to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "web/dist/*"
+          target: "/opt/TinyFlow/web/dist/"
+          strip_components: 2
+
+      # 9. 重启服务
+      - name: Restart Service
         uses: appleboy/ssh-action@v1.0.3
         env:
           APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
@@ -73,56 +97,35 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           envs: APP_DOMAIN,DB_PASSWORD,JWT_SECRET,REDIS_PASSWORD
           script: |
-            cd /opt/TinyFlow
+            echo "🚀 开始部署..."
             
-            # 拉取最新代码并强制丢弃本地更改（重试机制）
-            for i in 1 2 3; do
-              if git fetch origin; then
-                git reset --hard origin/master
-                break
-              else
-                echo "⚠️  git fetch 失败，第 $i 次重试..."
-                sleep 2
-              fi
-            done
+            # 复制 JAR 包到运行目录
+            sudo mkdir -p /opt/tinyflow
+            sudo cp /opt/TinyFlow/TinyFlow-0.0.1-SNAPSHOT.jar /opt/tinyflow/app.jar
             
-            # 更新 systemd 配置文件中的环境变量
+            # 更新 systemd 环境变量
             sudo sed -i "s|Environment=\"APP_DOMAIN=.*\"|Environment=\"APP_DOMAIN=$APP_DOMAIN\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"DB_PASSWORD=.*\"|Environment=\"DB_PASSWORD=$DB_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"JWT_SECRET=.*\"|Environment=\"JWT_SECRET=$JWT_SECRET\"|g" /etc/systemd/system/tinyflow.service
             sudo sed -i "s|Environment=\"REDIS_PASSWORD=.*\"|Environment=\"REDIS_PASSWORD=$REDIS_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
             
-            # 重新构建前端
-            cd web
-            npm ci --prefer-offline --no-audit
-            npm run build
-            
-            # 重新构建后端
-            cd ..
-            mvn clean package -DskipTests -q
-            
-            # 创建目录并复制JAR包到运行目录
-            sudo mkdir -p /opt/tinyflow
-            sudo cp target/TinyFlow-0.0.1-SNAPSHOT.jar /opt/tinyflow/app.jar
-            
-            # 重新加载 systemd 并重启服务
+            # 重启服务
             sudo systemctl daemon-reload
             sudo systemctl restart tinyflow
             
-            # 等待服务启动（Spring Boot 应用启动较慢，需要更长时间）
             echo "⏳ 等待服务启动..."
             sleep 10
             
             # 检查服务状态
             if ! systemctl is-active --quiet tinyflow; then
               echo "❌ 服务未运行，查看日志："
-              journalctl -u tinyflow -n 100
+              journalctl -u tinyflow -n 50 --no-pager
               exit 1
             fi
             
             echo "✅ systemd服务已启动，等待应用完全就绪..."
             
-            # 健康检查（重试机制，不强制要求200状态码）
+            # 健康检查
             MAX_RETRY=12
             RETRY_COUNT=0
             while [ $RETRY_COUNT -lt $MAX_RETRY ]; do
@@ -139,18 +142,15 @@ jobs:
             done
             
             echo "❌ 健康检查超时，最后状态码: $HTTP_CODE"
-            echo "检查服务端口监听状态："
-            ss -tlnp | grep 8080 || netstat -tlnp | grep 8080 || echo "未找到监听8080端口的进程"
-            echo "查看服务完整启动日志（包含错误和警告）："
-            journalctl -u tinyflow -n 200 --no-pager | grep -E "ERROR|WARN|Started TinyFlowApplication|Failed to|Exception" || journalctl -u tinyflow -n 200 --no-pager
+            journalctl -u tinyflow -n 100 --no-pager | grep -E "ERROR|WARN|Exception" || journalctl -u tinyflow -n 50 --no-pager
             exit 1
 
-      # 8. 部署失败通知（可选）
+      # 10. 部署失败通知（可选）
       - name: Deployment Failed
         if: failure()
         run: echo "❌ TinyFlow 部署失败！请检查 GitHub Actions 日志"
 
-      # 9. 部署成功通知
+      # 11. 部署成功通知
       - name: Deployment Success
         if: success()
-        run: echo "✅ TinyFlow 部署成功！所有测试已通过，部署完成。"
+        run: echo "✅ TinyFlow 部署成功！"

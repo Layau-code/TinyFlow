@@ -1,8 +1,8 @@
 <template>
   <!-- 全屏登录页面 - 飞书风格 -->
   <div class="min-h-screen w-full flex font-sans">
-    <!-- 左侧品牌区域 - 25% 宽度（左右比例1:3），渐变背景 -->
-    <div class="hidden lg:flex flex-col w-1/4 min-w-[360px] relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <!-- 左侧品牌区域 - 25% 宽度，渐变背景 -->
+    <div class="hidden lg:flex flex-col w-1/4 min-w-[340px] relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <!-- 装饰性背景元素 -->
       <div class="absolute inset-0 overflow-hidden">
         <!-- 主装饰圆 -->
@@ -42,51 +42,51 @@
         </div>
       
       <!-- 中间主内容区域 -->
-      <div class="flex-1 flex flex-col justify-start items-end pt-60">
-        <!-- 大 Logo + 名称 - 左右并排紧挨 -->
-        <div class="flex items-center gap-1 mb-4">
-          <img src="/logo.png" alt="TinyFlow" class="h-10 w-auto flex-shrink-0" />
-          <span class="text-[55px] font-bold text-gray-800">TinyFlow</span>
+      <div class="flex-1 flex flex-col justify-start items-start pt-56 px-2">
+        <!-- 大 Logo + 名称 -->
+        <div class="flex items-center gap-1 mb-4 w-full justify-end pr-2">
+          <img src="/logo.png" alt="TinyFlow" class="h-8 w-auto flex-shrink-0" />
+          <span class="text-[44px] font-bold text-gray-800">TinyFlow</span>
         </div>
         
-        <!-- 主标语 - 上下结构，上小下大 -->
-        <div class="mb-20 text-right">
-          <h2 class="text-[30px] font-semibold text-gray-800 leading-tight">现在注册</h2>
-          <h2 class="text-[40px] font-bold gradient-text-animated leading-tight">让分享更轻松</h2>
+        <!-- 主标语 -->
+        <div class="mb-12 text-right w-full pr-2">
+          <h2 class="text-[24px] font-semibold text-gray-800 leading-tight">现在注册</h2>
+          <h2 class="text-[32px] font-bold gradient-text-animated leading-tight">让分享更轻松</h2>
         </div>
         
         <!-- 三段卖点 - 简洁线条图标 -->
         <div class="space-y-6">
-          <!-- 卖炵1 -->
+          <!-- 卖炷1 -->
           <div class="flex items-start gap-4">
-            <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
             </svg>
             <div>
-              <div class="text-[16px] font-semibold text-gray-800 mb-2">毫秒级跳转</div>
-              <div class="text-[15px] text-gray-500 leading-relaxed">基于分布式架构优化，每次跳转均控制在毫秒级，高效不失可靠</div>
+              <div class="text-[14px] font-semibold text-gray-800 mb-1">毫秒级跳转</div>
+              <div class="text-[13px] text-gray-500 leading-relaxed">基于分布式架构优化，每次跳转均控制在毫秒级，高效不失可靠</div>
             </div>
           </div>
         
-          <!-- 卖炵2 -->
+          <!-- 卖炷2 -->
           <div class="flex items-start gap-4">
-            <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
             </svg>
             <div>
-              <div class="text-[16px] font-semibold text-gray-800 mb-2">实时数据分析</div>
-              <div class="text-[15px] text-gray-500 leading-relaxed">多维度报表展示来源、设备、地域等数据分布，精准掌握用户特征与趋势</div>
+              <div class="text-[14px] font-semibold text-gray-800 mb-1">实时数据分析</div>
+              <div class="text-[13px] text-gray-500 leading-relaxed">多维度报表展示来源、设备、地域等数据分布，精准掌握用户特征与趋势</div>
             </div>
           </div>
         
-          <!-- 卖炵3 -->
+          <!-- 卖炷3 -->
           <div class="flex items-start gap-4">
-            <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
             </svg>
             <div>
-              <div class="text-[16px] font-semibold text-gray-800 mb-2">安全可靠</div>
-              <div class="text-[15px] text-gray-500 leading-relaxed">企业级侵入检测与数据加密保护，灵活的权限管理体系，构建深层防御线</div>
+              <div class="text-[14px] font-semibold text-gray-800 mb-1">安全可靠</div>
+              <div class="text-[13px] text-gray-500 leading-relaxed">企业级侵入检测与数据加密保护，灵活的权限管理体系，构建深层防御线</div>
             </div>
           </div>
         </div>
@@ -99,10 +99,10 @@
       </div>
     </div>
 
-    <!-- 右侧登录表单区域 - 70% 宽度，白色背景 -->
-    <div class="flex-1 flex items-center justify-center p-6 md:p-12 bg-white relative">
+    <!-- 右侧登录表单区域 - 75% 宽度 -->
+    <div class="flex-1 flex items-start justify-center pt-80 bg-white relative">
       <!-- 登录表单容器 -->
-      <div class="w-full max-w-[480px]">
+      <div class="w-[360px]">
         <!-- 移动端 Logo -->
         <div class="lg:hidden flex items-center gap-3 mb-10">
           <img src="/logo.png" alt="TinyFlow" class="h-10 w-auto" />
@@ -110,13 +110,13 @@
         </div>
 
         <!-- 登录卡片 -->
-        <div class="bg-white rounded-2xl p-8 md:p-10 shadow-xl border border-gray-100">
+        <div class="bg-white rounded-2xl p-8 md:p-150 shadow-xl border border-gray-100">
           <!-- 标题 -->
-          <div class="mb-8">
-            <h1 class="text-[22px] font-bold text-gray-900 mb-2">
+          <div class="mb-6">
+            <h1 class="text-[18px] font-bold text-gray-900 mb-1">
               {{ isLogin ? '欢迎使用 TinyFlow' : '创建新账户' }}
             </h1>
-            <p class="text-[14px] text-gray-500">
+            <p class="text-[13px] text-gray-500">
               {{ isLogin ? '登录以管理您的短链和统计数据' : '注册后即可享受全部功能' }}
             </p>
           </div>
@@ -125,35 +125,35 @@
           <form @submit.prevent="handleSubmit" class="space-y-5">
             <!-- 用户名 -->
             <div>
-              <label class="block text-[13px] font-medium text-gray-700 mb-2">用户名</label>
+              <label class="block text-[12px] font-medium text-gray-700 mb-1.5">用户名</label>
               <input
                 v-model="formData.username"
                 type="text"
                 required
-                class="w-full h-11 px-4 rounded-lg border border-gray-200 text-[14px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
+                class="w-full h-10 px-3 rounded-lg border border-gray-200 text-[13px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
                 :placeholder="isLogin ? '输入您的用户名' : '设置用户名'"
               />
             </div>
 
             <!-- 邮箱（仅注册时显示）-->
             <div v-if="!isLogin">
-              <label class="block text-[13px] font-medium text-gray-700 mb-2">邮箱地址</label>
+              <label class="block text-[12px] font-medium text-gray-700 mb-1.5">邮箱地址</label>
               <input
                 v-model="formData.email"
                 type="email"
-                class="w-full h-11 px-4 rounded-lg border border-gray-200 text-[14px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
+                class="w-full h-10 px-3 rounded-lg border border-gray-200 text-[13px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
                 placeholder="输入您的邮箱地址（可选）"
               />
             </div>
 
             <!-- 密码 -->
             <div>
-              <label class="block text-[13px] font-medium text-gray-700 mb-2">密码</label>
+              <label class="block text-[12px] font-medium text-gray-700 mb-1.5">密码</label>
               <input
                 v-model="formData.password"
                 type="password"
                 required
-                class="w-full h-11 px-4 rounded-lg border border-gray-200 text-[14px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
+                class="w-full h-10 px-3 rounded-lg border border-gray-200 text-[13px] transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white hover:border-gray-300"
                 :placeholder="isLogin ? '输入您的密码' : '设置密码（至少6位）'"
                 :minlength="isLogin ? 1 : 6"
               />
@@ -162,7 +162,7 @@
             <!-- 错误提示 -->
             <div
               v-if="error"
-              class="p-3 rounded-lg text-[13px] bg-red-50 border border-red-100 text-red-600"
+              class="p-2.5 rounded-lg text-[12px] bg-red-50 border border-red-100 text-red-600"
             >
               {{ error }}
             </div>
@@ -171,24 +171,24 @@
             <button
               type="submit"
               :disabled="loading"
-              class="w-full h-11 rounded-lg font-semibold text-white text-[14px] transition-all duration-200 hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-500 hover:bg-blue-600"
+              class="w-full h-10 rounded-lg font-semibold text-white text-[13px] transition-all duration-200 hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed bg-blue-500 hover:bg-blue-600"
             >
               {{ loading ? '处理中...' : (isLogin ? '登录' : '创建账户') }}
             </button>
           </form>
 
           <!-- 跳过登录 -->
-          <div class="mt-5 text-center">
+          <div class="mt-4 text-center">
             <button
               @click="skipLogin"
-              class="text-[13px] text-gray-400 hover:text-blue-500 transition-colors"
+              class="text-[12px] text-gray-400 hover:text-blue-500 transition-colors"
             >
               暂不登录，先看看 →
             </button>
           </div>
 
           <!-- 底部切换提示 -->
-          <div class="mt-5 pt-5 border-t border-gray-100 text-center text-[13px] text-gray-500">
+          <div class="mt-4 pt-4 border-t border-gray-100 text-center text-[12px] text-gray-500">
             {{ isLogin ? '还没有账户？' : '已有账户？' }}
             <button
               @click="isLogin = !isLogin"
