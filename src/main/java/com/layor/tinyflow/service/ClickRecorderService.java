@@ -1,6 +1,7 @@
 package com.layor.tinyflow.service;
 
 import com.layor.tinyflow.config.RabbitMQConfig;
+import com.layor.tinyflow.entity.ClickEvent;
 import com.layor.tinyflow.entity.ClickMessage;
 import com.layor.tinyflow.entity.DailyClick;
 import com.layor.tinyflow.repository.DailyClickRepository;
@@ -17,6 +18,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
@@ -32,6 +40,8 @@ public class ClickRecorderService {
     private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     @Autowired
     private RabbitTemplate rabbitTemplate;
+    @Autowired(required = false)
+    private IpLocationService ipLocationService;
 
     @Value("${clicks.mode:mq}")
     private String counterMode;
@@ -39,8 +49,12 @@ public class ClickRecorderService {
     @Value("${events.sampleRate:0.0}")
     private double sampleRate;
 
-    private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong> localTotal = new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong> localDay = new java.util.concurrent.ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AtomicLong> localTotal = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AtomicLong> localDay = new ConcurrentHashMap<>();
+    
+    // 详细事件批量缓冲队列
+    private final ConcurrentLinkedQueue<ClickEvent> eventBuffer = new ConcurrentLinkedQueue<>();
+    private static final int EVENT_BATCH_SIZE = 100;
 
     /**
      * 记录点击事件
@@ -53,36 +67,94 @@ public class ClickRecorderService {
     @Async
     public void recordClick(String shortCode) {
         // 所有模式都先写本地内存（最快）
-        localTotal.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong())
+        localTotal.computeIfAbsent(shortCode, k -> new AtomicLong())
                   .incrementAndGet();
-        localDay.computeIfAbsent(shortCode, k -> new java.util.concurrent.atomic.AtomicLong())
+        localDay.computeIfAbsent(shortCode, k -> new AtomicLong())
                 .incrementAndGet();
         
         log.debug("[LOCAL] Click recorded: {}", shortCode);
     }
 
+    /**
+     * 记录详细点击事件（包含 IP 地理位置解析）
+     * 使用批量缓冲队列，定时批量写入数据库
+     */
     @Async
     public void recordClickEvent(String shortCode, String referer, String ua, String ip, String host, String device) {
         if (sampleRate <= 0.0) return;
         if (sampleRate < 1.0) {
-            if (java.util.concurrent.ThreadLocalRandom.current().nextDouble() >= sampleRate) return;
+            if (ThreadLocalRandom.current().nextDouble() >= sampleRate) return;
         }
-//        封装
-        com.layor.tinyflow.entity.ClickEvent ev = com.layor.tinyflow.entity.ClickEvent.builder()
+        
+        // IP 地理位置解析
+        String city = "";
+        String country = "";
+        if (ipLocationService != null && ip != null && !ip.isEmpty()) {
+            try {
+                city = ipLocationService.getCity(ip);
+                country = ipLocationService.getCountry(ip);
+            } catch (Exception e) {
+                log.debug("[EVENT] IP location parse failed for {}: {}", ip, e.getMessage());
+            }
+        }
+        
+        // 构建事件对象
+        ClickEvent ev = ClickEvent.builder()
                 .shortCode(shortCode)
-                .ts(java.time.LocalDateTime.now())
+                .ts(LocalDateTime.now())
                 .referer(referer)
                 .ua(ua)
                 .ip(ip)
                 .sourceHost(host)
                 .deviceType(device)
-                .city("")
-                .country("")
+                .city(city)
+                .country(country)
                 .build();
-//        保存
-        clickEventRepository.save(ev);
+        
+        // 加入批量缓冲队列
+        eventBuffer.offer(ev);
+        
+        // 缓冲区达到阈值时触发批量写入
+        if (eventBuffer.size() >= EVENT_BATCH_SIZE) {
+            flushEventBuffer();
+        }
+        
+        log.debug("[EVENT] Buffered click event: code={}, city={}, country={}", shortCode, city, country);
     }
     
+    /**
+     * 定时刷新事件缓冲区（5秒一次）
+     */
+    @Scheduled(fixedDelay = 5000)
+    @Transactional
+    public void flushEventBuffer() {
+        if (eventBuffer.isEmpty()) return;
+        
+        long startTime = System.currentTimeMillis();
+        List<ClickEvent> batch = new ArrayList<>();
+        
+        // 每次最多处理 500 条
+        int count = 0;
+        while (!eventBuffer.isEmpty() && count < 500) {
+            ClickEvent ev = eventBuffer.poll();
+            if (ev != null) {
+                batch.add(ev);
+                count++;
+            }
+        }
+        
+        if (!batch.isEmpty()) {
+            try {
+                clickEventRepository.saveAll(batch);
+                long duration = System.currentTimeMillis() - startTime;
+                log.info("[EVENT FLUSH] Saved {} click events to DB, duration={}ms", batch.size(), duration);
+            } catch (Exception e) {
+                log.error("[EVENT FLUSH ERROR] Failed to save click events: {}", e.getMessage(), e);
+                // 失败时重新放回队列
+                eventBuffer.addAll(batch);
+            }
+        }
+    }
 
     /**
      * 第一阶段：定期快照到 Redis（10 秒一次）

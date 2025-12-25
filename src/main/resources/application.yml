@@ -131,7 +131,7 @@ management:
       endpoint: http://localhost:9411/api/v2/spans
 
 events:
-  sampleRate: 0.0
+  sampleRate: 1.0  # 100%记录详细点击事件，支持分布图统计
 
 # 点击计数模式：使用本地内存 + Redis 快照方案
 # 方案 C：第一阶段(10s)本地→Redis快照，第二阶段(60s)Redis→数据库

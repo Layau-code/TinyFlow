@@ -10,6 +10,54 @@
         </div>
       </div>
 
+      <!-- 新增：全局统计概览 -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="stats-overview-card">
+          <div class="stats-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+          </div>
+          <div class="stats-content">
+            <div class="stats-label">总短链数</div>
+            <div class="stats-value">{{ totalUrls }}</div>
+          </div>
+        </div>
+        <div class="stats-overview-card">
+          <div class="stats-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+            </svg>
+          </div>
+          <div class="stats-content">
+            <div class="stats-label">总点击数</div>
+            <div class="stats-value">{{ totalClicks }}</div>
+          </div>
+        </div>
+        <div class="stats-overview-card">
+          <div class="stats-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div class="stats-content">
+            <div class="stats-label">今日点击</div>
+            <div class="stats-value">{{ todayClicks }}</div>
+          </div>
+        </div>
+        <div class="stats-overview-card">
+          <div class="stats-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <div class="stats-content">
+            <div class="stats-label">活跃短链</div>
+            <div class="stats-value">{{ activeUrls }}</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 今日与总点击分布饼图 / 近七天趋势切换 -->
       <div class="flex items-center justify-between mb-3">
         <div class="text-[14px] font-medium" style="color:var(--tf-text-body)">{{ $t('dashboard.overview') }}</div>
@@ -294,6 +342,13 @@ const filteredList = computed(() => {
 
 const totalPages = computed(() => Math.max(1, Number((meta?.value && meta.value.totalPages) || 1)))
 const pagedList = computed(() => filteredList.value)
+
+// 全局统计
+const totalUrls = computed(() => (meta?.value && meta.value.totalElements) || (list.value || []).length)
+const totalClicks = computed(() => (clickStatsRef.value || []).reduce((sum, item) => sum + Number(item.totalVisits || 0), 0))
+const todayClicks = computed(() => (clickStatsRef.value || []).reduce((sum, item) => sum + Number(item.todayVisits || 0), 0))
+const activeUrls = computed(() => (clickStatsRef.value || []).filter(item => Number(item.todayVisits || 0) > 0).length)
+
 async function prev(){ page.value = Math.max(1, page.value-1); await refresh() }
 async function next(){ page.value = Math.min(totalPages.value, page.value+1); await refresh() }
 
@@ -321,4 +376,52 @@ async function remove(code){
 </script>
 
 <style scoped>
+.stats-overview-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.stats-overview-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+.stats-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stats-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stats-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.stats-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1;
+}
 </style>

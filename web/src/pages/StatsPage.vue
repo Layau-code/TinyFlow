@@ -113,30 +113,59 @@
         </div>
       </div>
 
-      <!-- 关键指标卡片 -->
+      <!-- 关键指标卡片 - 扩展版 -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="stat-card">
-          <div class="stat-label">总访问量</div>
-          <div class="stat-value">{{ overview?.totalVisits ?? '-' }}</div>
-          <div class="stat-unit">次</div>
+          <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">总访问量</div>
+            <div class="stat-value">{{ overview?.totalVisits ?? '-' }}</div>
+            <div class="stat-unit">次</div>
+          </div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">今日访问量</div>
-          <div class="stat-value">{{ overview?.todayVisits ?? '-' }}</div>
-          <div class="stat-unit">次</div>
+          <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">今日访问量</div>
+            <div class="stat-value">{{ overview?.todayVisits ?? '-' }}</div>
+            <div class="stat-unit">次</div>
+          </div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">创建时间</div>
-          <div class="stat-value-text">{{ formatDate(overview?.createdAt) }}</div>
+          <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">峰值访问</div>
+            <div class="stat-value">{{ peakVisits }}</div>
+            <div class="stat-unit">次/天</div>
+          </div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">访问转化</div>
-          <div class="stat-value">{{ overview?.totalVisits ? Math.round((overview.todayVisits / overview.totalVisits) * 100) : 0 }}%</div>
-          <div class="stat-unit">今日占比</div>
+          <div class="stat-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">日均访问</div>
+            <div class="stat-value">{{ avgVisits }}</div>
+            <div class="stat-unit">次/天</div>
+          </div>
         </div>
       </div>
 
-      <!-- 短链详情与Top城市 -->
+      <!-- 短链详情与 Top 城市 -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="col-span-1 md:col-span-2">
           <div class="q-card p-6">
@@ -153,6 +182,10 @@
               <div class="detail-row">
                 <span class="detail-label">原始链接</span>
                 <div class="mt-2 text-xs font-mono bg-gray-100 p-2 rounded break-all text-gray-600">{{ overview?.longUrl || '-' }}</div>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">创建时间</span>
+                <span class="detail-value">{{ formatDate(overview?.createdAt) }}</span>
               </div>
             </div>
           </div>
@@ -176,6 +209,32 @@
           </div>
         </div>
       </div>
+      
+      <!-- 新增：浏览器/操作系统 + 24小时热力图 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="q-card p-5">
+          <div class="q-card-title mb-3">浏览器 & 操作系统</div>
+          <Suspense>
+            <BrowserOSChart :data="eventsRef || []" />
+            <template #fallback><SkeletonLoader :count="1" :height="320" variant="card" /></template>
+          </Suspense>
+        </div>
+        <div class="q-card p-5">
+          <Suspense>
+            <HeatmapChart :data="eventsRef || []" :loading="loadingEvents" />
+            <template #fallback><SkeletonLoader :count="1" :height="320" variant="card" /></template>
+          </Suspense>
+        </div>
+      </div>
+      
+      <!-- 新增：实时事件流 -->
+      <div class="q-card p-5">
+        <div class="q-card-title mb-3">访问事件记录</div>
+        <Suspense>
+          <EventStream :events="eventsRef || []" :loading="loadingEvents" />
+          <template #fallback><SkeletonLoader :count="3" :height="100" variant="card" /></template>
+        </Suspense>
+      </div>
 
       <!-- Error -->
       <div v-if="errorMsg" class="p-4 rounded q-card">
@@ -190,14 +249,16 @@
 
 <script setup>
 import { ref, onMounted, defineAsyncComponent, computed, watch } from 'vue'
-  import { useI18n } from 'vue-i18n'
-import { useFetchOverview, useFetchDistribution, useFetchTrend, exportStats } from '../composables/useStats'
-  import { SHORT_BASE } from '../composables/shortBase'
+import { useI18n } from 'vue-i18n'
+import { useFetchOverview, useFetchDistribution, useFetchTrend, useFetchEvents, exportStats } from '../composables/useStats'
+import { SHORT_BASE } from '../composables/shortBase'
 const DistributionChart = defineAsyncComponent(() => import('../components/DistributionChart.vue'))
 const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
 const SourceHBarChart = defineAsyncComponent(() => import('../components/charts/SourceHBarChart.vue'))
-/* DevicePieChart removed in favor of unified DistributionChart pie */
-const CityBarChart = defineAsyncComponent(() => import('../components/charts/CityBarChart.vue'))
+const EventStream = defineAsyncComponent(() => import('../components/charts/EventStream.vue'))
+const BrowserOSChart = defineAsyncComponent(() => import('../components/charts/BrowserOSChart.vue'))
+const HeatmapChart = defineAsyncComponent(() => import('../components/charts/HeatmapChart.vue'))
+const SkeletonLoader = defineAsyncComponent(() => import('../components/SkeletonLoader.vue'))
 
 import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '../composables/useStats'
@@ -210,8 +271,9 @@ const { copy } = useClipboard()
 const { t } = useI18n()
 
 const { data: overviewRef, loading: loadingOverview, error: errorOverview, refresh: refreshOverview } = useFetchOverview(shortCode)
-const filters = ref({ start: '', end: '', source: '', device: '', city: '', page: 0, size: 20 })
+const filters = ref({ start: '', end: '', source: '', device: '', city: '', page: 0, size: 100 })
 const { data: distRef, loading: loadingDistRef, error: errorDist, refresh: refreshDist } = useFetchDistribution(shortCode, filters)
+const { data: eventsRef, loading: loadingEvents, error: errorEvents, refresh: refreshEvents } = useFetchEvents(shortCode, filters)
 const selectedDays = ref(7)
 const { data: trendRef, loading: loadingTrendRef, error: errorTrend, refresh: refreshTrend } = useFetchTrend(shortCode, selectedDays)
 
@@ -230,12 +292,24 @@ const loadingTrend = loadingTrendRef
 const trendLabels = ref([])
 const trendValues = ref([])
 
+// 计算峰值和平均访问量
+const peakVisits = computed(() => {
+  if (!trendValues.value || trendValues.value.length === 0) return 0
+  return Math.max(...trendValues.value)
+})
+
+const avgVisits = computed(() => {
+  if (!trendValues.value || trendValues.value.length === 0) return 0
+  const sum = trendValues.value.reduce((a, b) => a + b, 0)
+  return Math.round(sum / trendValues.value.length)
+})
+
 function formatDate(ts){ try { return new Date(ts).toLocaleString() } catch { return String(ts) } }
 
 async function refreshAll(){
   errorMsg.value = ''
-  await Promise.all([refreshOverview(), refreshDist(), refreshTrend()])
-  if (errorOverview.value || errorDist.value || errorTrend.value) {
+  await Promise.all([refreshOverview(), refreshDist(), refreshTrend(), refreshEvents()])
+  if (errorOverview.value || errorDist.value || errorTrend.value || errorEvents.value) {
     errorMsg.value = t('stats.errorNotFound')
   }
   const dist = distRef.value || {}
@@ -328,15 +402,33 @@ svg { width: 20px; height: 20px; }
 .stat-card {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border: 1px solid rgba(226, 232, 240, 0.6);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 20px;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.15);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
   border-color: rgba(37, 99, 235, 0.3);
+}
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.stat-content {
+  flex: 1;
+  min-width: 0;
 }
 .stat-label {
   font-size: 13px;

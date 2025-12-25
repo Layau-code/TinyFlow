@@ -207,6 +207,36 @@ export function useFetchClickStats() {
   return { ...state, refresh }
 }
 
+// 获取事件列表 /api/stats/events
+export function useFetchEvents(shortCode, filtersRef) {
+  const state = createApiState()
+  const refresh = async () => {
+    state.loading.value = true
+    state.error.value = null
+    try {
+      const raw = (filtersRef && filtersRef.value) ? { ...filtersRef.value } : {}
+      const body = { code: shortCode, ...Object.fromEntries(Object.entries(raw).filter(([k,v]) => v !== undefined && v !== null && String(v).trim() !== '')) }
+      const res = await axios.post('/api/stats/events', body, { headers: { 'Content-Type': 'application/json;charset=utf-8' } })
+      const payload = res?.data ?? null
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload?.items)
+            ? payload.items
+            : Array.isArray(payload?.content)
+              ? payload.content
+              : []
+      state.data.value = list
+    } catch (e) {
+      state.error.value = e
+    } finally {
+      state.loading.value = false
+    }
+  }
+  return { ...state, refresh }
+}
+
 // 导出 CSV/JSON（直接触发浏览器下载）
 export async function exportStats(shortCode, params = {}, format = 'csv') {
   const url = `/api/stats/export?format=${encodeURIComponent(format)}`
