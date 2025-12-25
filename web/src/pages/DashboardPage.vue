@@ -57,23 +57,14 @@
           </div>
         </div>
 
-        <!-- 设备分布 -->
+        <!-- 设备分布 - 饼图 -->
         <div class="card">
           <div class="card-header">设备分布</div>
           <div class="card-body">
-            <div class="distribution-list">
-              <div v-for="item in deviceDistribution" :key="item.key" class="dist-item">
-                <div class="dist-info">
-                  <span class="dist-name">{{ item.key || '未知' }}</span>
-                  <span class="dist-count">{{ item.count }}</span>
-                  <span class="dist-percent">{{ getPercent(item.count, deviceTotal) }}%</span>
-                </div>
-                <div class="dist-bar">
-                  <div class="dist-fill" :style="{ width: getPercent(item.count, deviceTotal) + '%' }"></div>
-                </div>
-              </div>
-              <div v-if="!deviceDistribution.length" class="empty-state">暂无数据</div>
-            </div>
+            <Suspense>
+              <PieDonut :data="devicePieData" :colors="['#2563eb', '#60a5fa', '#93c5fd', '#bfdbfe']" />
+              <template #fallback><div class="chart-placeholder"></div></template>
+            </Suspense>
           </div>
         </div>
 
@@ -220,6 +211,7 @@ import axios from 'axios'
 import { API_BASE, SHORT_BASE } from '../composables/shortBase'
 
 const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
+const PieDonut = defineAsyncComponent(() => import('../components/charts/PieDonut.vue'))
 
 const { t } = useI18n()
 
@@ -244,6 +236,14 @@ const dailyTrendValues = ref([])
 
 // 计算属性
 const deviceTotal = computed(() => deviceDistribution.value.reduce((a, b) => a + b.count, 0))
+
+// 饼图数据转换
+const devicePieData = computed(() => {
+  return deviceDistribution.value.map(item => ({
+    label: item.key || '未知',
+    value: item.count
+  }))
+})
 
 const filteredList = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()

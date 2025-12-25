@@ -1,6 +1,5 @@
 <template>
   <div class="w-full">
-    <div class="text-xs text-[var(--text-secondary)] text-center mb-1">[调试] Pie 组件已挂载，hasData={{hasData?'是':'否'}}</div>
     <div class="flex flex-wrap items-center justify-center gap-3 mb-3">
       <div class="flex items-center gap-2" v-for="(item,i) in data" :key="i"
            @mouseenter="setHover(i)" @mouseleave="clearHover()">
@@ -42,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({ data: { type: Array, default: () => [] }, colors: { type: Array, default: () => [] } })
 
@@ -82,13 +81,6 @@ const clearHover = ()=> { hoverIndex.value = null }
 const hoverItem = computed(()=> hoverIndex.value==null ? null : props.data[hoverIndex.value])
 const hoverColor = computed(()=> hoverIndex.value==null ? 'var(--text-secondary)' : colorsComputed.value[hoverIndex.value % colorsComputed.value.length])
 const hasData = computed(()=> (props.data||[]).some(d => Number(d.value||0) > 0))
-
-console.log('[Pie] data length:', (props.data||[]).length, 'total:', totalRaw.value)
-watch(()=> props.data, (val)=> {
-  const arr = (val||[]).map(d=> Number(d.value||0))
-  const sum = arr.reduce((a,b)=> a+b, 0)
-  console.log('[Pie] data updated length:', arr.length, 'total:', sum)
-}, { deep: true })
 
 </script>
 
