@@ -58,6 +58,9 @@ html, body {
 }
 
 .fs-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--tf-brand-primary);
   color: #fff;
   border: none;
@@ -67,6 +70,7 @@ html, body {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  line-height: 1;
 }
 .fs-btn-primary:hover {
   background: var(--tf-brand-hover);

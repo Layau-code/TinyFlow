@@ -58,6 +58,7 @@ public class SecurityConfig {
                                 "/api/redirect/**",       // 短链跳转（核心功能）
                                 "/api/shorten",           // 创建短链（允许匿名）
                                 "/api/urls",              // 查询短链列表（允许匿名）
+                                "/api/urls/click-stats",  // 点击统计（允许匿名）
                                 "/api/stats/**",          // 统计接口（允许匿名）
                                 "/actuator/**",           // 监控端点
                                 "/error",                 // 错误页面
@@ -97,7 +98,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174", "http://localhost:8080"));
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173", 
+                "http://localhost:5174", 
+                "http://localhost:8080",
+                "http://47.97.110.128"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
