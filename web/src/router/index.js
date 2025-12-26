@@ -14,11 +14,13 @@ const routes = [
   { path: '/stats/:shortCode', component: StatsPage },
   { path: '/about', component: AboutPage, meta: { public: true } },
   // 短链跳转路由（匹配 4-8 位字母数字组合）
-  { 
-    path: '/:shortCode(\\w{4,8})', 
-    component: RedirectPage, 
-    meta: { public: true, hideNav: true } 
-  },
+  // 注意：短链跳转应直接访问后端API，而不是前端路由
+  // 此路由仅作为备用，正常情况下应该由 Nginx 直接转发到后端
+  // { 
+  //   path: '/:shortCode(\\w{4,8})', 
+  //   component: RedirectPage, 
+  //   meta: { public: true, hideNav: true } 
+  // },
 ]
 
 const router = createRouter({

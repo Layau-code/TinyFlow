@@ -5,7 +5,8 @@
 export function copyToClipboard(text) {
   return new Promise((resolve, reject) => {
     // 方法1: 现代浏览器的 Clipboard API (需要 HTTPS)
-    if (navigator.clipboard && navigator.clipboard.writeText) {
+    // 使用可选链操作符避免访问未定义的 navigator.clipboard
+    if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(text)
         .then(() => resolve())
         .catch(() => {
