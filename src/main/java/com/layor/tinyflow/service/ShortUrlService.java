@@ -631,7 +631,8 @@ public class ShortUrlService {
                 org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "clickCount")))
                 .stream()
                 .map(url -> {
-                    int today = dailyClickRepo.getTodayClicksByShortCode(url.getShortCode());
+                    Integer urlTodayClicks = dailyClickRepo.getTodayClicksByShortCode(url.getShortCode());
+                    int today = urlTodayClicks != null ? urlTodayClicks : 0;
                     return new UrlRankDTO(url.getShortCode(), url.getLongUrl(), url.getClickCount(), today);
                 })
                 .toList();
