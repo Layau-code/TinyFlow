@@ -5,6 +5,7 @@ const StatsPage = () => import('../pages/StatsPage.vue')
 const LoginPage = () => import('../pages/LoginPage.vue')
 const AboutPage = () => import('../pages/AboutPage.vue')
 const HomePage = () => import('../pages/HomePage.vue')
+const RedirectPage = () => import('../pages/RedirectPage.vue')
 
 const routes = [
   { path: '/', component: HomePage, meta: { public: true, hideNav: false } },
@@ -12,6 +13,8 @@ const routes = [
   { path: '/dashboard', component: DashboardPage },
   { path: '/stats/:shortCode', component: StatsPage },
   { path: '/about', component: AboutPage, meta: { public: true } },
+  // 短链跳转路由（匹配所有未定义的路径）
+  { path: '/:shortCode', component: RedirectPage, meta: { public: true, hideNav: true } },
 ]
 
 const router = createRouter({
