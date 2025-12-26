@@ -13,8 +13,12 @@ const routes = [
   { path: '/dashboard', component: DashboardPage },
   { path: '/stats/:shortCode', component: StatsPage },
   { path: '/about', component: AboutPage, meta: { public: true } },
-  // 短链跳转路由（匹配所有未定义的路径）
-  { path: '/:shortCode', component: RedirectPage, meta: { public: true, hideNav: true } },
+  // 短链跳转路由（匹配 4-8 位字母数字组合）
+  { 
+    path: '/:shortCode(\\w{4,8})', 
+    component: RedirectPage, 
+    meta: { public: true, hideNav: true } 
+  },
 ]
 
 const router = createRouter({
