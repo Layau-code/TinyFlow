@@ -78,9 +78,10 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "web/dist/*"
-          target: "/opt/TinyFlow/web/dist/"
-          strip_components: 2
+          source: "web/dist/"
+          target: "/opt/TinyFlow/"
+          strip_components: 1
+          rm: true  # 删除旧文件再上传，确保清除旧的hash文件
 
       # 9. 重启服务
       - name: Restart Service
@@ -103,15 +104,16 @@ jobs:
             sudo mkdir -p /opt/tinyflow
             sudo cp /opt/TinyFlow/TinyFlow-0.0.1-SNAPSHOT.jar /opt/tinyflow/app.jar
             
-            # 更新 systemd 环境变量
-            sudo sed -i "s|Environment=\"APP_DOMAIN=.*\"|Environment=\"APP_DOMAIN=$APP_DOMAIN\"|g" /etc/systemd/system/tinyflow.service
-            sudo sed -i "s|Environment=\"DB_PASSWORD=.*\"|Environment=\"DB_PASSWORD=$DB_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
-            sudo sed -i "s|Environment=\"JWT_SECRET=.*\"|Environment=\"JWT_SECRET=$JWT_SECRET\"|g" /etc/systemd/system/tinyflow.service
-            sudo sed -i "s|Environment=\"REDIS_PASSWORD=.*\"|Environment=\"REDIS_PASSWORD=$REDIS_PASSWORD\"|g" /etc/systemd/system/tinyflow.service
+            # 清理旧的前端资源并确保新资源已上传
+            echo "🧹 检查前端资源..."
+            ls -la /opt/TinyFlow/web/dist/assets/ | head -10 || echo "资源目录不存在"
             
             # 重启服务
             sudo systemctl daemon-reload
             sudo systemctl restart tinyflow
+            
+            # 重载 Nginx 以确保静态资源更新
+            sudo nginx -s reload
             
             echo "⏳ 等待服务启动..."
             sleep 10
