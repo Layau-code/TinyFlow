@@ -67,8 +67,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "target/TinyFlow-0.0.1-SNAPSHOT.jar"
-          target: "/opt/TinyFlow/"
+          target: "/opt/TinyFlow/target/"
           strip_components: 1
+          overwrite: true
 
       # 8. 上传前端构建产物到服务器
       - name: Upload Frontend to Server
@@ -100,19 +101,32 @@ jobs:
           script: |
             echo "🚀 开始部署..."
             
-            # 复制 JAR 包到运行目录
-            sudo mkdir -p /opt/tinyflow
-            sudo cp /opt/TinyFlow/TinyFlow-0.0.1-SNAPSHOT.jar /opt/tinyflow/app.jar
+            # 确保目录存在
+            sudo mkdir -p /opt/TinyFlow/target
+            sudo mkdir -p /opt/TinyFlow/web/dist
             
-            # 清理旧的前端资源并确保新资源已上传
-            echo "🧹 检查前端资源..."
-            ls -la /opt/TinyFlow/web/dist/assets/ | head -10 || echo "资源目录不存在"
+            # 检查文件是否上传成功
+            echo "📦 检查部署文件..."
+            if [ ! -f "/opt/TinyFlow/target/TinyFlow-0.0.1-SNAPSHOT.jar" ]; then
+              echo "❌ JAR 文件不存在"
+              exit 1
+            fi
+            echo "✅ JAR 文件已上传"
+            
+            if [ ! -d "/opt/TinyFlow/web/dist" ]; then
+              echo "❌ 前端资源目录不存在"
+              exit 1
+            fi
+            echo "✅ 前端资源已上传"
+            ls -la /opt/TinyFlow/web/dist/assets/ | head -5
             
             # 重启服务
+            echo "🔄 重启服务..."
             sudo systemctl daemon-reload
             sudo systemctl restart tinyflow
             
             # 重载 Nginx 以确保静态资源更新
+            echo "🔄 重载 Nginx..."
             sudo nginx -s reload
             
             echo "⏳ 等待服务启动..."
