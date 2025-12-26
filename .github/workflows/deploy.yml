@@ -67,8 +67,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "target/TinyFlow-0.0.1-SNAPSHOT.jar"
-          target: "/opt/TinyFlow/target/"
-          strip_components: 1
+          target: "/opt/TinyFlow/"
           overwrite: true
 
       # 8. 上传前端构建产物到服务器
@@ -80,9 +79,8 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "web/dist/"
-          target: "/opt/TinyFlow/"
-          strip_components: 1
-          rm: true  # 删除旧文件再上传，确保清除旧的hash文件
+          target: "/opt/TinyFlow/web/"
+          overwrite: true
 
       # 9. 重启服务
       - name: Restart Service
