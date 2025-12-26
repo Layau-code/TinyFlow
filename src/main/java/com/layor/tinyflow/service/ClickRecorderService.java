@@ -38,7 +38,7 @@ public class ClickRecorderService {
     private com.layor.tinyflow.repository.ClickEventRepository clickEventRepository;
     @Autowired
     private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
-    @Autowired
+    @Autowired(required = false)
     private RabbitTemplate rabbitTemplate;
     @Autowired(required = false)
     private IpLocationService ipLocationService;
