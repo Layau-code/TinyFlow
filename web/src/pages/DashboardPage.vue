@@ -209,6 +209,7 @@ import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { API_BASE, SHORT_BASE } from '../composables/shortBase'
+import { copyToClipboard } from '../composables/useCopy'
 
 const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
 const PieDonut = defineAsyncComponent(() => import('../components/charts/PieDonut.vue'))
@@ -273,9 +274,14 @@ function getSharePercent(url) {
   return totalClicks.value > 0 ? (Number(url.totalVisits || 0) / totalClicks.value * 100) : 0
 }
 
-function copyUrl(shortCode) {
+async function copyUrl(shortCode) {
   const url = `${SHORT_BASE}/${shortCode}`
-  try { navigator.clipboard.writeText(url) } catch {}
+  try {
+    await copyToClipboard(url)
+    // 可以添加提示，但需要状态管理
+  } catch (e) {
+    console.error('复制失败:', e)
+  }
 }
 
 // API调用

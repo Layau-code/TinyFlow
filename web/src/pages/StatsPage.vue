@@ -317,6 +317,7 @@ import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { SHORT_BASE, API_BASE } from '../composables/shortBase'
+import { copyToClipboard } from '../composables/useCopy'
 import axios from 'axios'
 
 const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
@@ -380,8 +381,12 @@ function getPercent(value, total) {
   return total > 0 ? Math.round(value / total * 100) : 0
 }
 
-function copy(text) {
-  try { navigator.clipboard.writeText(text) } catch {}
+async function copy(text) {
+  try {
+    await copyToClipboard(text)
+  } catch (e) {
+    console.error('复制失败:', e)
+  }
 }
 
 // API调用
