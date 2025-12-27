@@ -46,9 +46,9 @@
           <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div class="min-w-0 flex-1 text-left">
               <div class="text-sm mb-2" style="color:var(--tf-text-muted)">{{ $t('result.created') }}</div>
-              <button @click="redirectViaApi({ shortUrl })" class="underline break-all text-[16px] font-medium" style="color:var(--tf-brand-primary);background:none;border:none;padding:0;cursor:pointer">
+              <a :href="shortUrl" target="_blank" class="underline break-all text-[16px] font-medium hover:opacity-80" style="color:var(--tf-brand-primary);text-decoration:underline;cursor:pointer;display:inline-block">
                 {{ decodeUrlText(shortUrl) }}
-              </button>
+              </a>
               <div class="mt-4 flex gap-3">
                 <button @click="copyShortUrl" class="fs-btn-secondary px-4 py-2">
                   {{ $t('result.copy') }}
@@ -94,7 +94,7 @@
                 <Favicon :long-url="normalizeUrl(resolveLongUrl(item)) || (location.origin + (item.shortUrl || ''))" />
                 <div class="min-w-0">
                   <div class="flex items-center gap-2 min-w-0">
-                    <button @click="redirectViaApi(item)" class="truncate text-[14px] font-medium hover:underline" style="color:var(--tf-brand-primary);max-width:52vw;background:none;border:none;padding:0;cursor:pointer">{{ displayShortUrlText(item) }}</button>
+                    <a :href="displayShortUrl(item)" target="_blank" class="truncate text-[14px] font-medium hover:underline hover:opacity-80" style="color:var(--tf-brand-primary);max-width:52vw;text-decoration:none">{{ displayShortUrlText(item) }}</a>
                     <span class="px-2 py-0.5 text-[12px] rounded" style="background:var(--tf-brand-lighter);color:var(--tf-brand-primary)">{{ extractCode(item) }}</span>
                   </div>
                   <div class="mt-1 truncate text-[13px]" style="color:var(--tf-text-muted);max-width:60vw">{{ item.longUrl }}</div>
@@ -164,6 +164,7 @@ import LoadingSpinner from '../components/LoadingSpinner.vue'
 import QrcodeVue from 'qrcode.vue'
 import Favicon from '../components/Favicon.vue'
 import { SHORT_BASE } from '/src/composables/shortBase'
+import { copyToClipboard } from '../composables/useCopy'
 
 const api = axios
 
@@ -292,12 +293,13 @@ export default {
     async copyShortUrl() {
       if (!this.shortUrl) return
       try {
-        await navigator.clipboard.writeText(this.shortUrl)
+        await copyToClipboard(this.shortUrl)
         this.copyLabel = '已复制'
         clearTimeout(this.copyTimer)
         this.copyTimer = setTimeout(() => { this.copyLabel = '复制链接' }, 2000)
       } catch (e) {
         console.error('复制失败:', e)
+        alert('复制失败，请手动复制')
       }
     },
     confirmClearAll() {
@@ -374,12 +376,13 @@ export default {
     },
     async copyLink(url, id) {
       try {
-        await navigator.clipboard.writeText(url)
+        await copyToClipboard(url)
         this.copiedId = id
         clearTimeout(this.copyItemTimer)
         this.copyItemTimer = setTimeout(() => { this.copiedId = null }, 2000)
       } catch (e) {
         console.error('复制失败:', e)
+        alert('复制失败，请手动复制')
       }
     },
     async refreshHistory() {

@@ -118,7 +118,11 @@
               <tbody>
                 <tr v-for="(url, idx) in topUrls" :key="url.shortCode">
                   <td><span class="rank-badge">{{ idx + 1 }}</span></td>
-                  <td><code class="code-badge">{{ url.shortCode }}</code></td>
+                  <td>
+                    <a :href="`${SHORT_BASE}/${url.shortCode}`" target="_blank" class="code-badge hover:underline" style="color: #3b82f6; text-decoration: none;">
+                      {{ url.shortCode }}
+                    </a>
+                  </td>
                   <td class="truncate max-w-[300px]">{{ url.longUrl }}</td>
                   <td class="font-semibold text-blue-600">{{ url.totalClicks }}</td>
                   <td>{{ url.todayClicks }}</td>
@@ -160,7 +164,11 @@
               </thead>
               <tbody>
                 <tr v-for="url in filteredList" :key="url.shortCode">
-                  <td><code class="code-badge">{{ url.shortCode }}</code></td>
+                  <td>
+                    <a :href="`${SHORT_BASE}/${url.shortCode}`" target="_blank" class="code-badge hover:underline" style="color: #3b82f6; text-decoration: none;">
+                      {{ url.shortCode }}
+                    </a>
+                  </td>
                   <td class="truncate max-w-[300px]">{{ url.longUrl }}</td>
                   <td class="font-semibold text-blue-600">{{ url.totalVisits ?? '-' }}</td>
                   <td>{{ url.todayVisits === 0 ? '-' : url.todayVisits }}</td>
