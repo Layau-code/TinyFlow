@@ -8,7 +8,9 @@
           <button @click="goDashboard" class="btn btn-secondary">数据看板</button>
         </div>
         <div class="flex items-center gap-3">
-          <button @click="copy(shortUrl)" class="btn btn-secondary">复制短链</button>
+          <button @click="copy(shortUrl)" class="btn btn-secondary">
+            {{ copying ? '已复制' : '复制短链' }}
+          </button>
           <button @click="openFilter" class="btn btn-primary">筛选</button>
           <button @click="exportCsv" class="btn btn-secondary">导出CSV</button>
         </div>
@@ -381,11 +383,21 @@ function getPercent(value, total) {
   return total > 0 ? Math.round(value / total * 100) : 0
 }
 
+// 复制状态
+const copying = ref(false)
+
 async function copy(text) {
   try {
+    copying.value = true
     await copyToClipboard(text)
+    // 显示复制成功提示
+    setTimeout(() => {
+      copying.value = false
+    }, 2000)
   } catch (e) {
     console.error('复制失败:', e)
+    alert('复制失败，请手动复制')
+    copying.value = false
   }
 }
 
@@ -406,6 +418,7 @@ async function fetchDetailedStats() {
     detailedStats.value = res.data
     
     // 解析分布数据
+    console.log('Detailed stats response:', res.data) // 调试信息
     hourDistribution.value = (res.data.hourDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
     weekdayDistribution.value = (res.data.weekdayDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
     deviceDistribution.value = (res.data.deviceDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
@@ -414,7 +427,12 @@ async function fetchDetailedStats() {
     countryDistribution.value = (res.data.countryDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
     sourceDistribution.value = (res.data.sourceDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
     refererDistribution.value = (res.data.refererDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
-  } catch (e) { console.error('fetchDetailedStats error:', e) }
+    
+    console.log('Hour distribution:', hourDistribution.value)
+    console.log('Device distribution:', deviceDistribution.value)
+  } catch (e) { 
+    console.error('fetchDetailedStats error:', e) 
+  }
 }
 
 async function fetchTrend() {

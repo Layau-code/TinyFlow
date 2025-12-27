@@ -1,7 +1,7 @@
 <template>
   <!-- Fallback: 首字母徽标 -->
   <div v-if="!hasValidSource || !hasIcon" class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold"
-       style="flex:none;transition: all 0.2s ease; background: linear-gradient(135deg, #1D9BF0 0%, #2B6BFF 50%, #37B4FF 100%); color: #FFFFFF">
+       style="flex:none;transition: all 0.2s ease; background: #3b82f6; color: #FFFFFF">
     {{ initial }}
   </div>
   <!-- Favicon with multi-source fallback -->
@@ -28,17 +28,14 @@ const parsed = computed(() => {
 const domain = computed(() => (parsed.value?.hostname || '').replace(/^www\./, ''))
 const origin = computed(() => parsed.value?.origin || '')
 
-// 更“国内友好”的回退顺序：站点本身 → DuckDuckGo → iowen → Clearbit
+// 更"国内友好"的回退顺序：站点本身 → DuckDuckGo → 直接显示首字母
 const sources = computed(() => {
   const d = domain.value
   if (!d) return []
   const arr = []
+  // 只尝试两个来源：站点本身和 DuckDuckGo
   if (origin.value) arr.push(() => `${origin.value}/favicon.ico`)
-  arr.push(
-    () => `https://icons.duckduckgo.com/ip3/${d}.ico`,
-    () => `https://api.iowen.cn/favicon/${d}.png`,
-    () => `https://logo.clearbit.com/${d}`,
-  )
+  arr.push(() => `https://icons.duckduckgo.com/ip3/${d}.ico`)
   return arr
 })
 
@@ -51,8 +48,12 @@ const src = computed(() => {
 const initial = computed(() => (domain.value[0] || '?').toUpperCase())
 
 function showFallback(){
-  if (current.value < sources.value.length - 1) current.value++
-  else hasIcon.value = false
+  if (current.value < sources.value.length - 1) {
+    current.value++
+  } else {
+    // 所有源都失败，显示首字母徽标
+    hasIcon.value = false
+  }
 }
 </script>
 
