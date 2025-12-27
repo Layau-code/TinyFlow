@@ -129,7 +129,9 @@
                   <td>
                     <div class="flex gap-2">
                       <router-link :to="'/stats/' + url.shortCode" class="action-link">详情</router-link>
-                      <button @click="copyUrl(url.shortCode)" class="action-link">复制</button>
+                      <button @click="copyUrl(url.shortCode)" class="action-link">
+                        {{ copyingCode === url.shortCode ? '已复制' : '复制' }}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -182,7 +184,9 @@
                   <td>
                     <div class="flex gap-2">
                       <router-link :to="'/stats/' + url.shortCode" class="action-link">详情</router-link>
-                      <button @click="copyUrl(url.shortCode)" class="action-link">复制</button>
+                      <button @click="copyUrl(url.shortCode)" class="action-link">
+                        {{ copyingCode === url.shortCode ? '已复制' : '复制' }}
+                      </button>
                       <button @click="deleteUrl(url.shortCode)" class="action-link text-red-500">删除</button>
                     </div>
                   </td>
@@ -282,13 +286,22 @@ function getSharePercent(url) {
   return totalClicks.value > 0 ? (Number(url.totalVisits || 0) / totalClicks.value * 100) : 0
 }
 
+// 复制状态
+const copyingCode = ref(null)
+
 async function copyUrl(shortCode) {
   const url = `${SHORT_BASE}/${shortCode}`
   try {
+    copyingCode.value = shortCode
     await copyToClipboard(url)
-    // 可以添加提示，但需要状态管理
+    // 显示复制成功提示
+    setTimeout(() => {
+      copyingCode.value = null
+    }, 2000)
   } catch (e) {
     console.error('复制失败:', e)
+    alert('复制失败，请手动复制')
+    copyingCode.value = null
   }
 }
 

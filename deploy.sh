@@ -376,13 +376,17 @@ server {
     access_log /var/log/nginx/tinyflow_access.log;
     error_log /var/log/nginx/tinyflow_error.log;
 
-    # 前端路由
-    location / {
-        try_files \$uri \$uri/ /index.html;
+    # 重要：短链接跳转（必须放在前端路由之前，使用正则匹配）
+    location ~ ^/[a-zA-Z0-9]{4,8}\$ {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
-    # 后端 API 代理
-    location /api {
+    # 后端 API 代理（使用 ^~ 提高优先级）
+    location ^~ /api {
         proxy_pass http://localhost:8080;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -394,18 +398,22 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # 短链接跳转
-    location ~ ^/[a-zA-Z0-9]{4,8}\$ {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-
-    # 健康检查
-    location /actuator {
+    # 健康检查（使用 ^~ 提高优先级）
+    location ^~ /actuator {
         proxy_pass http://localhost:8080;
         allow 127.0.0.1;
         deny all;
+    }
+
+    # 静态资源缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)\$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # 前端路由（放在最后）
+    location / {
+        try_files \$uri \$uri/ /index.html;
     }
 
     # Gzip 压缩
