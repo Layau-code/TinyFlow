@@ -16,22 +16,37 @@
         <div class="metric-card">
           <div class="metric-label">总短链数</div>
           <div class="metric-value">{{ globalStats?.totalUrls ?? '-' }}</div>
+          <div class="metric-trend" v-if="globalStats?.totalUrls">
+            <span class="trend-icon">•</span> 系统总计
+          </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">总点击量(PV)</div>
           <div class="metric-value">{{ globalStats?.totalClicks ?? '-' }}</div>
+          <div class="metric-trend positive" v-if="globalStats?.totalClicks">
+            <span class="trend-icon">↑</span> 累计访问
+          </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">独立访客(UV)</div>
           <div class="metric-value">{{ globalStats?.totalUniqueIps ?? '-' }}</div>
+          <div class="metric-trend" v-if="globalStats?.totalUniqueIps">
+            <span class="trend-icon">•</span> 独立 IP
+          </div>
         </div>
-        <div class="metric-card">
+        <div class="metric-card highlight">
           <div class="metric-label">今日点击</div>
           <div class="metric-value">{{ globalStats?.todayClicks ?? '-' }}</div>
+          <div class="metric-trend positive" v-if="globalStats?.todayClicks">
+            <span class="trend-icon">•</span> 实时数据
+          </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">活跃短链</div>
           <div class="metric-value">{{ globalStats?.activeUrls ?? '-' }}</div>
+          <div class="metric-trend" v-if="globalStats?.activeUrls">
+            <span class="trend-icon">•</span> 有访问记录
+          </div>
         </div>
       </div>
 
@@ -48,11 +63,15 @@
             </div>
           </div>
           <div class="card-body">
-            <div class="chart-container">
+            <div class="chart-container-enhanced">
               <Suspense>
                 <TrendChart :values="dailyTrendValues" :labels="dailyTrendLabels" :showValues="true" />
-                <template #fallback><div class="chart-placeholder"></div></template>
+                <template #fallback><div class="chart-placeholder">加载中...</div></template>
               </Suspense>
+              <!-- 数据洞察提示 -->
+              <div v-if="trendInsight" class="chart-insight">
+                <span class="insight-text">{{ trendInsight }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -61,10 +80,16 @@
         <div class="card">
           <div class="card-header">设备分布</div>
           <div class="card-body">
-            <Suspense>
-              <PieDonut :data="devicePieData" :colors="['#2563eb', '#60a5fa', '#93c5fd', '#bfdbfe']" />
-              <template #fallback><div class="chart-placeholder"></div></template>
-            </Suspense>
+            <div class="chart-container-enhanced">
+              <Suspense>
+                <PieDonut :data="devicePieData" :colors="['#2563eb', '#60a5fa', '#93c5fd', '#bfdbfe']" />
+                <template #fallback><div class="chart-placeholder">加载中...</div></template>
+              </Suspense>
+              <!-- 设备统计说明 -->
+              <div v-if="deviceSummary" class="chart-insight">
+                <span class="insight-text">{{ deviceSummary }}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -72,13 +97,19 @@
         <div class="card">
           <div class="card-header">城市 TOP 10</div>
           <div class="card-body">
-            <div class="rank-list">
-              <div v-for="(item, idx) in cityTop10" :key="item.key" class="rank-item">
-                <span class="rank-num">{{ idx + 1 }}</span>
+            <div class="rank-list-enhanced">
+              <div v-for="(item, idx) in cityTop10" :key="item.key" class="rank-item-enhanced">
+                <span class="rank-badge" :class="{ 'rank-top3': idx < 3 }">{{ idx + 1 }}</span>
                 <span class="rank-name">{{ item.key || '未知' }}</span>
+                <div class="rank-bar">
+                  <div class="rank-bar-fill" :style="{ width: getBarWidth(item.count, cityTop10) + '%' }"></div>
+                </div>
                 <span class="rank-count">{{ item.count }}</span>
               </div>
-              <div v-if="!cityTop10.length" class="empty-state">暂无数据</div>
+              <div v-if="!cityTop10.length" class="empty-state-enhanced">
+                <div class="empty-text">暂无城市数据</div>
+                <div class="empty-hint">当有访问者点击短链时，此处将显示城市分布</div>
+              </div>
             </div>
           </div>
         </div>
@@ -87,13 +118,19 @@
         <div class="card">
           <div class="card-header">来源域名 TOP 10</div>
           <div class="card-body">
-            <div class="rank-list">
-              <div v-for="(item, idx) in sourceTop10" :key="item.key" class="rank-item">
-                <span class="rank-num">{{ idx + 1 }}</span>
+            <div class="rank-list-enhanced">
+              <div v-for="(item, idx) in sourceTop10" :key="item.key" class="rank-item-enhanced">
+                <span class="rank-badge" :class="{ 'rank-top3': idx < 3 }">{{ idx + 1 }}</span>
                 <span class="rank-name truncate">{{ item.key || '直接访问' }}</span>
+                <div class="rank-bar">
+                  <div class="rank-bar-fill" :style="{ width: getBarWidth(item.count, sourceTop10) + '%' }"></div>
+                </div>
                 <span class="rank-count">{{ item.count }}</span>
               </div>
-              <div v-if="!sourceTop10.length" class="empty-state">暂无数据</div>
+              <div v-if="!sourceTop10.length" class="empty-state-enhanced">
+                <div class="empty-text">暂无来源数据</div>
+                <div class="empty-hint">系统将记录访问者来源，分析流量渠道</div>
+              </div>
             </div>
           </div>
         </div>
@@ -258,6 +295,44 @@ const devicePieData = computed(() => {
   }))
 })
 
+// 趋势洞察
+const trendInsight = computed(() => {
+  const values = dailyTrendValues.value
+  if (!values || values.length < 2) return ''
+  
+  const total = values.reduce((a, b) => a + b, 0)
+  const avg = Math.round(total / values.length)
+  const lastValue = values[values.length - 1]
+  const prevValue = values[values.length - 2]
+  
+  if (lastValue > prevValue) {
+    const growth = Math.round((lastValue - prevValue) / Math.max(prevValue, 1) * 100)
+    return `近${trendDays.value}天平均每天 ${avg} 次访问，最近一天增长 ${growth}%`
+  } else if (lastValue < prevValue) {
+    return `近${trendDays.value}天平均每天 ${avg} 次访问，最近一天略有下降`
+  } else {
+    return `近${trendDays.value}天平均每天 ${avg} 次访问，访问量保持稳定`
+  }
+})
+
+// 设备分布总结
+const deviceSummary = computed(() => {
+  const devices = deviceDistribution.value
+  if (!devices || devices.length === 0) return ''
+  
+  const total = devices.reduce((a, b) => a + b.count, 0)
+  const topDevice = devices.reduce((max, item) => item.count > max.count ? item : max, devices[0])
+  const percent = Math.round(topDevice.count / total * 100)
+  
+  const deviceName = {
+    'desktop': '桌面设备',
+    'mobile': '移动设备',
+    'tablet': '平板设备'
+  }[topDevice.key] || topDevice.key
+  
+  return `${deviceName}访问占比最高，达 ${percent}%`
+})
+
 const filteredList = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   const list = urlList.value || []
@@ -284,6 +359,13 @@ function getPercent(value, total) {
 
 function getSharePercent(url) {
   return totalClicks.value > 0 ? (Number(url.totalVisits || 0) / totalClicks.value * 100) : 0
+}
+
+// 计算条形图宽度
+function getBarWidth(count, dataArray) {
+  if (!dataArray || dataArray.length === 0) return 0
+  const maxCount = Math.max(...dataArray.map(item => item.count))
+  return maxCount > 0 ? (count / maxCount * 100) : 0
 }
 
 // 复制状态
@@ -334,11 +416,15 @@ async function fetchUrlList() {
   try {
     const res = await axios.get(`${API_BASE}/api/urls?page=${page.value - 1}&size=${pageSize}`)
     const data = res.data
+    console.log('fetchUrlList response:', data) // 调试信息
     urlList.value = Array.isArray(data) ? data : (data.content || data.items || [])
     totalElements.value = data.totalElements || urlList.value.length
     totalPages.value = data.totalPages || Math.ceil(totalElements.value / pageSize) || 1
+    console.log('urlList.value:', urlList.value) // 调试信息
+    console.log('totalElements:', totalElements.value)
   } catch (e) {
     console.error('fetchUrlList error:', e)
+    urlList.value = []
   } finally {
     loading.value = false
   }
@@ -747,5 +833,143 @@ tr:nth-child(n+4) .rank-badge {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ========== 新增：增强视觉样式 ========== */
+
+/* 指标卡片增强 */
+.metric-card.highlight {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.metric-trend {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.metric-trend.positive {
+  color: #16a34a;
+}
+
+.trend-icon {
+  font-size: 14px;
+}
+
+/* 图表容器增强 */
+.chart-container-enhanced {
+  min-height: 320px;
+  position: relative;
+}
+
+.chart-placeholder {
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 14px;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+}
+
+/* 图表洞察提示 */
+.chart-insight {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #1e40af;
+}
+
+.insight-text {
+  line-height: 1.5;
+}
+
+/* 排名列表增强 */
+.rank-list-enhanced {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 200px;
+}
+
+.rank-item-enhanced {
+  display: grid;
+  grid-template-columns: 32px 1fr 100px 60px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.rank-item-enhanced:last-child {
+  border-bottom: none;
+}
+
+.rank-badge {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #cbd5e1;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rank-badge.rank-top3 {
+  background: #3b82f6;
+}
+
+.rank-bar {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.rank-bar-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* 空状态增强 */
+.empty-state-enhanced {
+  padding: 60px 20px;
+  text-align: center;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.empty-hint {
+  font-size: 13px;
+  color: #94a3b8;
+  max-width: 300px;
+  line-height: 1.6;
 }
 </style>
