@@ -59,12 +59,12 @@ function initChart() {
     .encode('y', props.yField)
     .encode('shape', props.smooth ? 'smooth' : 'line')
     .style('stroke', props.color)
-    .style('lineWidth', 2)
+    .style('lineWidth', 3)
     .tooltip({
       title: (d) => d[props.xField],
       items: [(d) => ({ name: '访问量', value: d[props.yField] })]
     })
-    .animate('enter', { type: 'pathIn', duration: 800 })
+    .animate('enter', { type: 'pathIn', duration: 1000 })
 
   // 面积填充
   chart
@@ -74,24 +74,25 @@ function initChart() {
     .encode('y', props.yField)
     .encode('shape', props.smooth ? 'smooth' : 'area')
     .style('fill', props.color)
-    .style('fillOpacity', 0.15)
+    .style('fillOpacity', 0.2)
     .tooltip(false)
-    .animate('enter', { type: 'fadeIn', duration: 800 })
+    .animate('enter', { type: 'fadeIn', duration: 1000 })
 
-  // 数据点
+  // 数据点 - 增大尺寸，更明显
   chart
     .point()
     .data(props.data)
     .encode('x', props.xField)
     .encode('y', props.yField)
-    .encode('size', 4)
+    .encode('size', 6)
     .encode('shape', 'point')
-    .style('fill', '#fff')
-    .style('stroke', props.color)
-    .style('lineWidth', 2)
+    .style('fill', props.color)
+    .style('stroke', '#fff')
+    .style('lineWidth', 3)
     .tooltip(false)
-    .state('active', { fill: props.color })
+    .state('active', { r: 8 })
     .interaction('elementHighlight', true)
+    .animate('enter', { type: 'scaleInY', duration: 800, delay: 500 })
 
   // 坐标轴配置
   chart.axis('y', {

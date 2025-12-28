@@ -47,7 +47,7 @@ function initChart() {
     height: props.height,
   })
 
-  chart.coordinate({ type: 'theta', outerRadius: 0.8, innerRadius: 0.5 })
+  chart.coordinate({ type: 'theta', outerRadius: 0.75, innerRadius: 0.45 })
 
   chart
     .interval()
@@ -58,25 +58,41 @@ function initChart() {
     .scale('color', { range: props.colors })
     .legend('color', {
       position: 'right',
-      layout: { justifyContent: 'center' }
+      layout: { justifyContent: 'center' },
+      itemMarker: {
+        symbol: 'circle',
+        style: { r: 5 }
+      }
     })
     .label({
       text: (d) => {
         const total = props.data.reduce((sum, item) => sum + item[props.valueField], 0)
         const percent = ((d[props.valueField] / total) * 100).toFixed(1)
-        return `${d[props.labelField]}\n${percent}%`
+        return `${percent}%`
       },
       position: 'outside',
-      fontSize: 12,
-      fill: '#64748b'
+      fontSize: 14,
+      fontWeight: 600,
+      fill: '#334155',
+      connectorDistance: 8,
+      connectorStroke: '#cbd5e1',
+      connectorStrokeWidth: 1
     })
     .tooltip({
       items: [(d) => ({ 
         name: d[props.labelField], 
-        value: d[props.valueField] 
+        value: d[props.valueField] + ' (' + ((d[props.valueField] / props.data.reduce((sum, item) => sum + item[props.valueField], 0)) * 100).toFixed(1) + '%)'
       })]
     })
-    .animate('enter', { type: 'waveIn', duration: 800 })
+    .style('stroke', '#fff')
+    .style('lineWidth', 3)
+    .animate('enter', { type: 'waveIn', duration: 1000 })
+    .state('active', { 
+      style: { 
+        lineWidth: 4,
+        stroke: '#2563eb'
+      } 
+    })
     .interaction('elementHighlight', true)
 
   chart.render()
