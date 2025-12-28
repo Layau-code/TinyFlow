@@ -25,6 +25,7 @@
     "vite": "^5.3.1"
   },
   "dependencies": {
+    "@antv/g2": "^5.4.7",
     "@tsparticles/vue3": "^3.0.1",
     "axios": "^1.6.0",
     "echarts": "^6.0.0",

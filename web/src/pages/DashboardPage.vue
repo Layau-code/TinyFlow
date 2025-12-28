@@ -15,35 +15,45 @@
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div class="metric-card">
           <div class="metric-label">总短链数</div>
-          <div class="metric-value">{{ globalStats?.totalUrls ?? '-' }}</div>
+          <div class="metric-value">
+            <AnimatedNumber :value="globalStats?.totalUrls ?? 0" :duration="1200" />
+          </div>
           <div class="metric-trend" v-if="globalStats?.totalUrls">
             <span class="trend-icon">•</span> 系统总计
           </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">总点击量(PV)</div>
-          <div class="metric-value">{{ globalStats?.totalClicks ?? '-' }}</div>
+          <div class="metric-value">
+            <AnimatedNumber :value="globalStats?.totalClicks ?? 0" :duration="1200" />
+          </div>
           <div class="metric-trend positive" v-if="globalStats?.totalClicks">
             <span class="trend-icon">↑</span> 累计访问
           </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">独立访客(UV)</div>
-          <div class="metric-value">{{ globalStats?.totalUniqueIps ?? '-' }}</div>
+          <div class="metric-value">
+            <AnimatedNumber :value="globalStats?.totalUniqueIps ?? 0" :duration="1200" />
+          </div>
           <div class="metric-trend" v-if="globalStats?.totalUniqueIps">
             <span class="trend-icon">•</span> 独立 IP
           </div>
         </div>
         <div class="metric-card highlight">
           <div class="metric-label">今日点击</div>
-          <div class="metric-value">{{ globalStats?.todayClicks ?? '-' }}</div>
+          <div class="metric-value">
+            <AnimatedNumber :value="globalStats?.todayClicks ?? 0" :duration="1200" />
+          </div>
           <div class="metric-trend positive" v-if="globalStats?.todayClicks">
             <span class="trend-icon">•</span> 实时数据
           </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">活跃短链</div>
-          <div class="metric-value">{{ globalStats?.activeUrls ?? '-' }}</div>
+          <div class="metric-value">
+            <AnimatedNumber :value="globalStats?.activeUrls ?? 0" :duration="1200" />
+          </div>
           <div class="metric-trend" v-if="globalStats?.activeUrls">
             <span class="trend-icon">•</span> 有访问记录
           </div>
@@ -65,7 +75,14 @@
           <div class="card-body">
             <div class="chart-container-enhanced">
               <Suspense>
-                <TrendChart :values="dailyTrendValues" :labels="dailyTrendLabels" :showValues="true" />
+                <G2LineChart 
+                  :data="trendChartData" 
+                  :height="280" 
+                  x-field="date" 
+                  y-field="value"
+                  color="#3b82f6" 
+                  :smooth="true" 
+                />
                 <template #fallback><div class="chart-placeholder">加载中...</div></template>
               </Suspense>
               <!-- 数据洞察提示 -->
@@ -82,7 +99,13 @@
           <div class="card-body">
             <div class="chart-container-enhanced">
               <Suspense>
-                <PieDonut :data="devicePieData" :colors="['#2563eb', '#60a5fa', '#93c5fd', '#bfdbfe']" />
+                <G2PieChart 
+                  :data="devicePieData" 
+                  :height="280"
+                  value-field="value"
+                  label-field="label"
+                  :colors="['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe']" 
+                />
                 <template #fallback><div class="chart-placeholder">加载中...</div></template>
               </Suspense>
               <!-- 设备统计说明 -->
@@ -97,19 +120,19 @@
         <div class="card">
           <div class="card-header">城市 TOP 10</div>
           <div class="card-body">
-            <div class="rank-list-enhanced">
-              <div v-for="(item, idx) in cityTop10" :key="item.key" class="rank-item-enhanced">
-                <span class="rank-badge" :class="{ 'rank-top3': idx < 3 }">{{ idx + 1 }}</span>
-                <span class="rank-name">{{ item.key || '未知' }}</span>
-                <div class="rank-bar">
-                  <div class="rank-bar-fill" :style="{ width: getBarWidth(item.count, cityTop10) + '%' }"></div>
-                </div>
-                <span class="rank-count">{{ item.count }}</span>
-              </div>
-              <div v-if="!cityTop10.length" class="empty-state-enhanced">
-                <div class="empty-text">暂无城市数据</div>
-                <div class="empty-hint">当有访问者点击短链时，此处将显示城市分布</div>
-              </div>
+            <Suspense>
+              <G2HBarChart 
+                v-if="cityChartData.length > 0"
+                :data="cityChartData" 
+                :height="280"
+                x-field="count"
+                y-field="name"
+              />
+              <template #fallback><div class="chart-placeholder">加载中...</div></template>
+            </Suspense>
+            <div v-if="!cityTop10.length" class="empty-state-enhanced">
+              <div class="empty-text">暂无城市数据</div>
+              <div class="empty-hint">当有访问者点击短链时，此处将显示城市分布</div>
             </div>
           </div>
         </div>
@@ -118,19 +141,19 @@
         <div class="card">
           <div class="card-header">来源域名 TOP 10</div>
           <div class="card-body">
-            <div class="rank-list-enhanced">
-              <div v-for="(item, idx) in sourceTop10" :key="item.key" class="rank-item-enhanced">
-                <span class="rank-badge" :class="{ 'rank-top3': idx < 3 }">{{ idx + 1 }}</span>
-                <span class="rank-name truncate">{{ item.key || '直接访问' }}</span>
-                <div class="rank-bar">
-                  <div class="rank-bar-fill" :style="{ width: getBarWidth(item.count, sourceTop10) + '%' }"></div>
-                </div>
-                <span class="rank-count">{{ item.count }}</span>
-              </div>
-              <div v-if="!sourceTop10.length" class="empty-state-enhanced">
-                <div class="empty-text">暂无来源数据</div>
-                <div class="empty-hint">系统将记录访问者来源，分析流量渠道</div>
-              </div>
+            <Suspense>
+              <G2HBarChart 
+                v-if="sourceChartData.length > 0"
+                :data="sourceChartData" 
+                :height="280"
+                x-field="count"
+                y-field="name"
+              />
+              <template #fallback><div class="chart-placeholder">加载中...</div></template>
+            </Suspense>
+            <div v-if="!sourceTop10.length" class="empty-state-enhanced">
+              <div class="empty-text">暂无来源数据</div>
+              <div class="empty-hint">系统将记录访问者来源，分析流量渠道</div>
             </div>
           </div>
         </div>
@@ -139,44 +162,43 @@
       <!-- 热门短链排行 -->
       <div class="card">
         <div class="card-header">热门短链 TOP 10</div>
-        <div class="card-body p-0">
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>排名</th>
-                  <th>短码</th>
-                  <th>原始链接</th>
-                  <th>总点击</th>
-                  <th>今日点击</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(url, idx) in topUrls" :key="url.shortCode">
-                  <td><span class="rank-badge">{{ idx + 1 }}</span></td>
-                  <td>
-                    <a :href="`${SHORT_BASE}/${url.shortCode}`" target="_blank" class="code-badge hover:underline" style="color: #3b82f6; text-decoration: none;">
-                      {{ url.shortCode }}
-                    </a>
-                  </td>
-                  <td class="truncate max-w-[300px]">{{ url.longUrl }}</td>
-                  <td class="font-semibold text-blue-600">{{ url.totalClicks }}</td>
-                  <td>{{ url.todayClicks }}</td>
-                  <td>
-                    <div class="flex gap-2">
-                      <router-link :to="'/stats/' + url.shortCode" class="action-link">详情</router-link>
-                      <button @click="copyUrl(url.shortCode)" class="action-link">
-                        {{ copyingCode === url.shortCode ? '已复制' : '复制' }}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="!topUrls.length">
-                  <td colspan="6" class="empty-state">暂无数据</td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="card-body">
+          <div class="hoturl-list">
+            <div v-for="(url, idx) in topUrls" :key="url.shortCode" class="hoturl-item">
+              <!-- 排名徽章 -->
+              <span class="rank-badge" :class="{ 'rank-top3': idx < 3 }">{{ idx + 1 }}</span>
+              
+              <!-- 短链信息 -->
+              <div class="hoturl-info">
+                <div class="hoturl-header">
+                  <a :href="`${SHORT_BASE}/${url.shortCode}`" target="_blank" class="hoturl-code">
+                    {{ url.shortCode }}
+                  </a>
+                  <span class="hoturl-clicks">{{ url.totalClicks }} 次</span>
+                </div>
+                <div class="hoturl-url">{{ url.longUrl }}</div>
+                
+                <!-- 可视化条形图 -->
+                <div class="hoturl-bar">
+                  <div class="hoturl-bar-bg">
+                    <div class="hoturl-bar-fill" :style="{ width: getHotUrlPercent(url.totalClicks, topUrls) + '%' }"></div>
+                  </div>
+                  <div class="hoturl-stats">
+                    <span class="stat-item">今日: {{ url.todayClicks || 0 }}</span>
+                    <span class="stat-divider">|</span>
+                    <router-link :to="'/stats/' + url.shortCode" class="stat-link">详情</router-link>
+                    <button @click="copyUrl(url.shortCode)" class="stat-link">
+                      {{ copyingCode === url.shortCode ? '已复制' : '复制' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="!topUrls.length" class="empty-state-enhanced">
+              <div class="empty-text">暂无热门短链</div>
+              <div class="empty-hint">创建短链并获得访问后，此处将显示热门排行</div>
+            </div>
           </div>
         </div>
       </div>
@@ -262,6 +284,12 @@ import { copyToClipboard } from '../composables/useCopy'
 
 const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
 const PieDonut = defineAsyncComponent(() => import('../components/charts/PieDonut.vue'))
+const G2LineChart = defineAsyncComponent(() => import('../components/charts/G2LineChart.vue'))
+const G2PieChart = defineAsyncComponent(() => import('../components/charts/G2PieChart.vue'))
+const G2BarChart = defineAsyncComponent(() => import('../components/charts/G2BarChart.vue'))
+const G2HBarChart = defineAsyncComponent(() => import('../components/charts/G2HBarChart.vue'))
+const G2HeatmapChart = defineAsyncComponent(() => import('../components/charts/G2HeatmapChart.vue'))
+const AnimatedNumber = defineAsyncComponent(() => import('../components/AnimatedNumber.vue'))
 
 const { t } = useI18n()
 
@@ -292,6 +320,30 @@ const devicePieData = computed(() => {
   return deviceDistribution.value.map(item => ({
     label: item.key || '未知',
     value: item.count
+  }))
+})
+
+// G2 折线图数据转换
+const trendChartData = computed(() => {
+  return dailyTrendLabels.value.map((date, index) => ({
+    date,
+    value: dailyTrendValues.value[index] || 0
+  }))
+})
+
+// G2 横向柱状图数据转换 - 城市
+const cityChartData = computed(() => {
+  return cityTop10.value.slice(0, 10).map(item => ({
+    name: item.key || '未知',
+    count: item.count
+  }))
+})
+
+// G2 横向柱状图数据转换 - 来源
+const sourceChartData = computed(() => {
+  return sourceTop10.value.slice(0, 10).map(item => ({
+    name: item.key || '直接访问',
+    count: item.count
   }))
 })
 
@@ -366,6 +418,13 @@ function getBarWidth(count, dataArray) {
   if (!dataArray || dataArray.length === 0) return 0
   const maxCount = Math.max(...dataArray.map(item => item.count))
   return maxCount > 0 ? (count / maxCount * 100) : 0
+}
+
+// 计算热门短链百分比
+function getHotUrlPercent(clicks, urlArray) {
+  if (!urlArray || urlArray.length === 0) return 0
+  const maxClicks = Math.max(...urlArray.map(u => u.totalClicks || 0))
+  return maxClicks > 0 ? (clicks / maxClicks * 100) : 0
 }
 
 // 复制状态
@@ -971,5 +1030,119 @@ tr:nth-child(n+4) .rank-badge {
   color: #94a3b8;
   max-width: 300px;
   line-height: 1.6;
+}
+
+/* 热门短链可视化列表 */
+.hoturl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hoturl-item {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.hoturl-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.hoturl-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.hoturl-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.hoturl-code {
+  font-size: 16px;
+  font-weight: 600;
+  color: #3b82f6;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.hoturl-code:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.hoturl-clicks {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.hoturl-url {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hoturl-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hoturl-bar-bg {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hoturl-bar-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.hoturl-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.stat-item {
+  color: #64748b;
+}
+
+.stat-divider {
+  color: #cbd5e1;
+}
+
+.stat-link {
+  color: #3b82f6;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  transition: color 0.2s ease;
+}
+
+.stat-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
 }
 </style>
