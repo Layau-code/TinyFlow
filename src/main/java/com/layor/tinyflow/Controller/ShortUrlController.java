@@ -22,6 +22,7 @@ public class ShortUrlController {
      * 生成短链（支持自定义别名）
      */
     @PostMapping("/api/shorten")
+    @io.github.resilience4j.ratelimiter.annotation.RateLimiter(name = "createLimit")
     public Result<ShortUrlDTO> shorten(@Valid @RequestBody ShortenRequest request) throws Exception {
             ShortUrlDTO dto = shortUrlService.createShortUrl(request.getLongUrl(), request.getCustomAlias());
             return Result.success(dto);
@@ -44,6 +45,7 @@ public class ShortUrlController {
 
 
     @GetMapping("/api/urls")
+    @io.github.resilience4j.ratelimiter.annotation.RateLimiter(name = "queryLimit")
     public Result<PageResponseDTO<UrlListResponseDTO>> getUrls(
             Pageable pageable) {
 

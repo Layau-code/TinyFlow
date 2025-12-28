@@ -20,8 +20,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.google.common.hash.BloomFilter;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -63,6 +65,17 @@ public class ShortUrlService {
     HashidsStrategy codeStrategy;
     @Autowired
     private AuthService authService; // 注入认证服务
+    @Autowired(required = false)
+    private RabbitTemplate rabbitTemplate;
+    
+    @Autowired
+    private BloomFilter<String> shortCodeBloomFilter;
+    
+    @Value("${shorturl.async.enabled:false}")
+    private boolean asyncWriteEnabled;
+    
+    // 缓存默认用户ID，避免重复查询
+    private Long cachedDefaultUserId = null;
     
     @Value("${APP_DOMAIN:http://localhost:8080}")
     private String baseUrl;
@@ -78,10 +91,7 @@ public class ShortUrlService {
         
         // 如果未登录，使用默认用户 "user" 的ID
         if (userId == null) {
-            User defaultUser = userRepository.findByUsername("user").orElse(null);
-            if (defaultUser != null) {
-                userId = defaultUser.getId();
-            }
+            userId = getDefaultUserId();
         }
         
         //1.1如果长链接已经存在且属于当前用户，直接返回对应的短链
@@ -122,9 +132,20 @@ public class ShortUrlService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        // 3. 存入数据库
-        shortUrlRepository.save(shortUrl);
-        log.info("用户 {} 创建短链: {} -> {}", userId, shortCode, longUrl);
+        // 3. 存入数据库（根据配置选择同步/异步）
+        if (asyncWriteEnabled) {
+            // 异步模式：先写Redis，再异步写DB
+            saveShortUrlAsync(shortUrl);
+            log.info("用户 {} 创建短链（异步）: {} -> {}", userId, shortCode, longUrl);
+        } else {
+            // 同步模式：直接写DB
+            shortUrlRepository.save(shortUrl);
+            log.info("用户 {} 创建短链: {} -> {}", userId, shortCode, longUrl);
+        }
+        
+        // ⭐ 将短链添加到布隆过滤器
+        shortCodeBloomFilter.put(shortCode);
+        log.debug("[BLOOM FILTER] 已添加短链: {}", shortCode);
         
         // 4. 构造返回结果
         ShortUrlDTO dto = ShortUrlDTO.builder()
@@ -135,6 +156,50 @@ public class ShortUrlService {
                 .build();
 
         return dto;
+    }
+    
+    /**
+     * 获取默认用户ID（带缓存）
+     */
+    private Long getDefaultUserId() {
+        if (cachedDefaultUserId != null) {
+            return cachedDefaultUserId;
+        }
+        
+        User defaultUser = userRepository.findByUsername("user").orElse(null);
+        if (defaultUser != null) {
+            cachedDefaultUserId = defaultUser.getId();
+            log.info("缓存默认用户ID: {}", cachedDefaultUserId);
+        }
+        return cachedDefaultUserId;
+    }
+    
+    /**
+     * 异步保存短链：先写Redis，再通过MQ异步写DB
+     */
+    private void saveShortUrlAsync(ShortUrl shortUrl) {
+        try {
+            // 1. 立即写入Redis，确保短链立即可用
+            redisTemplate.opsForValue().set(
+                "short_url:" + shortUrl.getShortCode(), 
+                shortUrl.getLongUrl(), 
+                java.time.Duration.ofHours(72)  // 72小时过期，给DB充足时间
+            );
+            
+            // 2. 发送到MQ异步持久化
+            if (rabbitTemplate != null) {
+                rabbitTemplate.convertAndSend("shorturl.persist", shortUrl);
+                log.debug("短链 {} 已发送到MQ异步持久化", shortUrl.getShortCode());
+            } else {
+                // 降级：MQ不可用时直接同步写
+                shortUrlRepository.save(shortUrl);
+                log.warn("MQ不可用，降级为同步写入");
+            }
+        } catch (Exception e) {
+            log.error("异步写入失败，降级为同步: {}", e.getMessage());
+            // 异常时降级为同步写入
+            shortUrlRepository.save(shortUrl);
+        }
     }
 
     private String generateRandomCode() {
@@ -171,7 +236,7 @@ public class ShortUrlService {
             Pageable topN = PageRequest.of(0, warmupSize);
             Page<ShortUrl> hotUrls = shortUrlRepository.findAll(topN);
             
-            int l1Loaded = 0, l2Loaded = 0;
+            int l1Loaded = 0, l2Loaded = 0, bloomLoaded = 0;
             for (ShortUrl url : hotUrls.getContent()) {
                 String shortCode = url.getShortCode();
                 String longUrl = url.getLongUrl();
@@ -191,9 +256,14 @@ public class ShortUrlService {
                 } catch (Exception e) {
                     log.warn("Redis warmup failed for {}: {}", shortCode, e.getMessage());
                 }
+                
+                // ⭐ 预热布隆过滤器
+                shortCodeBloomFilter.put(shortCode);
+                bloomLoaded++;
             }
             
-            log.info("Cache warmup completed: L1(本地)={}条, L2(Redis)={}条", l1Loaded, l2Loaded);
+            log.info("Cache warmup completed: L1(本地)={}条, L2(Redis)={}条, BloomFilter={}条", 
+                l1Loaded, l2Loaded, bloomLoaded);
         } catch (Exception e) {
             log.error("Cache warmup failed: {}", e.getMessage(), e);
         }
@@ -303,6 +373,12 @@ public class ShortUrlService {
     @io.github.resilience4j.retry.annotation.Retry(name = "redisRetry")
     public String getLongUrlByShortCode(String shortCode) {
         long startTime = System.currentTimeMillis();
+        
+        // ⭐ 布隆过滤器：快速判断短链是否可能存在（防缓存穿透）
+        if (!shortCodeBloomFilter.mightContain(shortCode)) {
+            log.warn("[BLOOM FILTER] shortCode={} 不存在（布隆过滤器拦截）", shortCode);
+            return null;  // 确定不存在，直接返回，防止缓存穿透
+        }
         
         // L1: 本地 Caffeine 缓存
         String cachedUrl = localCache.getIfPresent(shortCode);

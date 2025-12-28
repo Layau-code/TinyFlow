@@ -148,8 +148,21 @@ cache:
 resilience4j:
   ratelimiter:
     instances:
+      # 短链跳转限流（全局）
       redirectLimit:
-        limitForPeriod: 3500
+        limitForPeriod: 3000          # 每秒3000次（2核4G极限）
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0              # 不等待，立即拒绝
+      
+      # 短链生成限流（更严格）
+      createLimit:
+        limitForPeriod: 100             # 每秒100次
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0
+      
+      # API查询限流
+      queryLimit:
+        limitForPeriod: 500             # 每秒500次
         limitRefreshPeriod: 1s
         timeoutDuration: 0
   
