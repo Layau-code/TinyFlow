@@ -10,6 +10,7 @@ import com.layor.tinyflow.repository.ClickEventRepository;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
 import com.layor.tinyflow.repository.UserRepository;
+import com.google.common.hash.BloomFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -72,6 +73,9 @@ class ShortUrlServiceTest {
 
     @Mock
     private ValueOperations<String, String> valueOperations;
+    
+    @Mock
+    private BloomFilter<String> shortCodeBloomFilter;
 
     @InjectMocks
     private ShortUrlService shortUrlService;
@@ -85,6 +89,11 @@ class ShortUrlServiceTest {
     void setUp() {
         ReflectionTestUtils.setField(shortUrlService, "baseUrl", BASE_URL);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        
+        // Mock 布隆过滤器行为：默认返回 true（可能存在）
+        when(shortCodeBloomFilter.mightContain(anyString())).thenReturn(true);
+        // put 方法返回 true（模拟添加成功）
+        when(shortCodeBloomFilter.put(anyString())).thenReturn(true);
     }
 
     @Test
