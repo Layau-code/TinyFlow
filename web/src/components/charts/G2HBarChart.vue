@@ -37,6 +37,27 @@ function initChart() {
     return
   }
 
+  // 确保 DOM 元素存在
+  const container = document.getElementById(chartId.value)
+  if (!container) {
+    console.warn('Chart container not found:', chartId.value)
+    return
+  }
+
+  // 数据验证
+  const validData = props.data.filter(d => 
+    d && 
+    typeof d === 'object' && 
+    d[props.xField] !== undefined && 
+    d[props.yField] !== undefined &&
+    typeof d[props.xField] === 'number'
+  )
+
+  if (validData.length === 0) {
+    console.warn('No valid data for bar chart')
+    return
+  }
+
   chart = new Chart({
     container: chartId.value,
     autoFit: true,
@@ -47,7 +68,7 @@ function initChart() {
 
   chart
     .interval()
-    .data(props.data)
+    .data(validData)
     .encode('x', props.yField)
     .encode('y', props.xField)
     .encode('color', (d, idx) => {
@@ -87,11 +108,15 @@ function initChart() {
 }
 
 onMounted(() => {
-  initChart()
+  setTimeout(() => {
+    initChart()
+  }, 100)
 })
 
 watch(() => props.data, () => {
-  initChart()
+  setTimeout(() => {
+    initChart()
+  }, 50)
 }, { deep: true })
 
 onBeforeUnmount(() => {

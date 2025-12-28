@@ -34,6 +34,7 @@ const props = defineProps({
 })
 
 const chartId = ref(`g2-line-${Math.random().toString(36).substr(2, 9)}`)
+const chartRef = ref(null)
 let chart = null
 
 function initChart() {
@@ -42,6 +43,26 @@ function initChart() {
   }
 
   if (!props.data || props.data.length === 0) {
+    return
+  }
+
+  // 确保 DOM 元素存在
+  const container = document.getElementById(chartId.value)
+  if (!container) {
+    console.warn('Chart container not found:', chartId.value)
+    return
+  }
+
+  // 数据验证
+  const validData = props.data.filter(d => 
+    d && 
+    typeof d === 'object' && 
+    d[props.xField] !== undefined && 
+    d[props.yField] !== undefined
+  )
+
+  if (validData.length === 0) {
+    console.warn('No valid data for chart')
     return
   }
 
@@ -54,7 +75,7 @@ function initChart() {
   // 折线
   chart
     .line()
-    .data(props.data)
+    .data(validData)
     .encode('x', props.xField)
     .encode('y', props.yField)
     .encode('shape', props.smooth ? 'smooth' : 'line')
@@ -69,7 +90,7 @@ function initChart() {
   // 面积填充
   chart
     .area()
-    .data(props.data)
+    .data(validData)
     .encode('x', props.xField)
     .encode('y', props.yField)
     .encode('shape', props.smooth ? 'smooth' : 'area')
@@ -81,7 +102,7 @@ function initChart() {
   // 数据点 - 增大尺寸，更明显
   chart
     .point()
-    .data(props.data)
+    .data(validData)
     .encode('x', props.xField)
     .encode('y', props.yField)
     .encode('size', 6)
@@ -106,11 +127,17 @@ function initChart() {
 }
 
 onMounted(() => {
-  initChart()
+  // 延迟初始化，确保 DOM 已挂载
+  setTimeout(() => {
+    initChart()
+  }, 100)
 })
 
 watch(() => props.data, () => {
-  initChart()
+  // 延迟更新，避免频繁重渲染
+  setTimeout(() => {
+    initChart()
+  }, 50)
 }, { deep: true })
 
 onBeforeUnmount(() => {

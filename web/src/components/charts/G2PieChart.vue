@@ -41,6 +41,27 @@ function initChart() {
     return
   }
 
+  // 确保 DOM 元素存在
+  const container = document.getElementById(chartId.value)
+  if (!container) {
+    console.warn('Chart container not found:', chartId.value)
+    return
+  }
+
+  // 数据验证
+  const validData = props.data.filter(d => 
+    d && 
+    typeof d === 'object' && 
+    d[props.valueField] !== undefined && 
+    d[props.labelField] !== undefined &&
+    typeof d[props.valueField] === 'number'
+  )
+
+  if (validData.length === 0) {
+    console.warn('No valid data for pie chart')
+    return
+  }
+
   chart = new Chart({
     container: chartId.value,
     autoFit: true,
@@ -51,7 +72,7 @@ function initChart() {
 
   chart
     .interval()
-    .data(props.data)
+    .data(validData)
     .transform({ type: 'stackY' })
     .encode('y', props.valueField)
     .encode('color', props.labelField)
@@ -66,7 +87,7 @@ function initChart() {
     })
     .label({
       text: (d) => {
-        const total = props.data.reduce((sum, item) => sum + item[props.valueField], 0)
+        const total = validData.reduce((sum, item) => sum + item[props.valueField], 0)
         const percent = ((d[props.valueField] / total) * 100).toFixed(1)
         return `${percent}%`
       },
@@ -81,7 +102,7 @@ function initChart() {
     .tooltip({
       items: [(d) => ({ 
         name: d[props.labelField], 
-        value: d[props.valueField] + ' (' + ((d[props.valueField] / props.data.reduce((sum, item) => sum + item[props.valueField], 0)) * 100).toFixed(1) + '%)'
+        value: d[props.valueField] + ' (' + ((d[props.valueField] / validData.reduce((sum, item) => sum + item[props.valueField], 0)) * 100).toFixed(1) + '%)'
       })]
     })
     .style('stroke', '#fff')
@@ -99,11 +120,15 @@ function initChart() {
 }
 
 onMounted(() => {
-  initChart()
+  setTimeout(() => {
+    initChart()
+  }, 100)
 })
 
 watch(() => props.data, () => {
-  initChart()
+  setTimeout(() => {
+    initChart()
+  }, 50)
 }, { deep: true })
 
 onBeforeUnmount(() => {
