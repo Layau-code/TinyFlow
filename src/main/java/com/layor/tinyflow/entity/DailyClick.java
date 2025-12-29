@@ -27,6 +27,8 @@ public class DailyClick {
 
     @Column(name = "date", nullable = false)
     private LocalDate date;
+    
     @Column(name = "clicks", nullable = false)
+    @Builder.Default
     private Integer clicks = 0;
 }
