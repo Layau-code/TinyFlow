@@ -101,6 +101,7 @@
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
+                <button @click="viewStats(item)" class="fs-btn-secondary px-3 py-1 text-[13px]">详情</button>
                 <button @click="copyLink(displayShortUrl(item), item.id)" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('actions.copy') }}</button>
                 <button @click="startEdit(item)" class="fs-btn-secondary px-3 py-1 text-[13px]">{{ $t('actions.edit') }}</button>
                 <button @click="deleteHistoryItem(item)" :disabled="deletingIds.has(item.id)" class="fs-btn-secondary px-2 py-1 text-[13px] hover:border-red-500 hover:text-red-500" :title="$t('actions.delete')">
@@ -507,6 +508,11 @@ export default {
     },
     resolveLongUrl(item) {
       return item?.longUrl || item?.url || item?.originalUrl || item?.destinationUrl || item?.targetUrl || ''
+    },
+    viewStats(item) {
+      const code = this.extractCode(item)
+      if (!code) return
+      this.$router.push(`/stats/${encodeURIComponent(code)}`)
     },
   },
   mounted() {

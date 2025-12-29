@@ -20,9 +20,16 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
     
     // ========== 队列名称常量 ==========
+    
+    // 点击计数队列
     public static final String CLICK_QUEUE = "tinyflow.click.queue";
     public static final String CLICK_EXCHANGE = "tinyflow.click.exchange";
     public static final String CLICK_ROUTING_KEY = "click";
+    
+    // 短链持久化队列
+    public static final String SHORTURL_QUEUE = "tinyflow.shorturl.queue";
+    public static final String SHORTURL_EXCHANGE = "tinyflow.shorturl.exchange";
+    public static final String SHORTURL_ROUTING_KEY = "shorturl.persist";
     
     // ========== 死信队列 ==========
     public static final String DLX_QUEUE = "tinyflow.click.dlq";
@@ -120,5 +127,37 @@ public class RabbitMQConfig {
         });
         
         return template;
+    }
+    
+    // ========== 短链持久化队列 ==========
+    
+    /**
+     * 短链持久化交换机
+     */
+    @Bean
+    public DirectExchange shortUrlExchange() {
+        return new DirectExchange(SHORTURL_EXCHANGE, true, false);
+    }
+    
+    /**
+     * 短链持久化队列（配置死信队列）
+     */
+    @Bean
+    public Queue shortUrlQueue() {
+        return QueueBuilder.durable(SHORTURL_QUEUE)
+                // 配置死信交换机
+                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", DLX_ROUTING_KEY)
+                .build();
+    }
+    
+    /**
+     * 绑定短链队列到交换机
+     */
+    @Bean
+    public Binding shortUrlBinding() {
+        return BindingBuilder.bind(shortUrlQueue())
+                .to(shortUrlExchange())
+                .with(SHORTURL_ROUTING_KEY);
     }
 }

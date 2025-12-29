@@ -134,18 +134,17 @@ public class ShortUrlService {
 
         // 3. 存入数据库（根据配置选择同步/异步）
         if (asyncWriteEnabled) {
-            // 异步模式：先写Redis，再异步写DB
+            // 异步模式：先写Caffeine和Redis，再异步写DB
             saveShortUrlAsync(shortUrl);
             log.info("用户 {} 创建短链（异步）: {} -> {}", userId, shortCode, longUrl);
         } else {
             // 同步模式：直接写DB
             shortUrlRepository.save(shortUrl);
+            
+            // 同步模式也需要添加到布隆过滤器
+            shortCodeBloomFilter.put(shortCode);
             log.info("用户 {} 创建短链: {} -> {}", userId, shortCode, longUrl);
         }
-        
-        // ⭐ 将短链添加到布隆过滤器
-        shortCodeBloomFilter.put(shortCode);
-        log.debug("[BLOOM FILTER] 已添加短链: {}", shortCode);
         
         // 4. 构造返回结果
         ShortUrlDTO dto = ShortUrlDTO.builder()
@@ -175,28 +174,58 @@ public class ShortUrlService {
     }
     
     /**
-     * 异步保存短链：先写Redis，再通过MQ异步写DB
+     * 异步保存短链：先写Caffeine和Redis，再通过MQ异步写DB
+     * 
+     * 工作流程：
+     * 1. Caffeine本地缓存（立即可用）
+     * 2. Redis缓存（多实例共享）
+     * 3. MQ异步持久化到DB
+     * 4. 布隆过滤器（防穿透）
      */
     private void saveShortUrlAsync(ShortUrl shortUrl) {
         try {
-            // 1. 立即写入Redis，确保短链立即可用
+            String shortCode = shortUrl.getShortCode();
+            String longUrl = shortUrl.getLongUrl();
+            
+            // 1. 立即写入Caffeine本地缓存（极速）
+            localCache.put(shortCode, longUrl);
+            log.debug("[L1] Caffeine缓存已更新: {}", shortCode);
+            
+            // 2. 写入Redis（多实例共享）
             redisTemplate.opsForValue().set(
-                "short_url:" + shortUrl.getShortCode(), 
-                shortUrl.getLongUrl(), 
+                "short_url:" + shortCode, 
+                longUrl, 
                 java.time.Duration.ofHours(72)  // 72小时过期，给DB充足时间
             );
+            log.debug("[L2] Redis缓存已更新: {}", shortCode);
             
-            // 2. 发送到MQ异步持久化
+            // 3. 布隆过滤器（防穿透）
+            shortCodeBloomFilter.put(shortCode);
+            log.debug("[BLOOM] 布隆过滤器已更新: {}", shortCode);
+            
+            // 4. 发送MQ消息异步持久化
             if (rabbitTemplate != null) {
-                rabbitTemplate.convertAndSend("shorturl.persist", shortUrl);
-                log.debug("短链 {} 已发送到MQ异步持久化", shortUrl.getShortCode());
+                ShortUrlMessage message = ShortUrlMessage.builder()
+                        .shortCode(shortCode)
+                        .longUrl(longUrl)
+                        .userId(shortUrl.getUserId())
+                        .createdAt(shortUrl.getCreatedAt())
+                        .retryCount(0)
+                        .build();
+                
+                rabbitTemplate.convertAndSend(
+                    "tinyflow.shorturl.exchange", 
+                    "shorturl.persist", 
+                    message
+                );
+                log.info("[MQ] 短链 {} 已发送到MQ异步持久化", shortCode);
             } else {
                 // 降级：MQ不可用时直接同步写
+                log.warn("[FALLBACK] MQ不可用，降级为同步写入DB: {}", shortCode);
                 shortUrlRepository.save(shortUrl);
-                log.warn("MQ不可用，降级为同步写入");
             }
         } catch (Exception e) {
-            log.error("异步写入失败，降级为同步: {}", e.getMessage());
+            log.error("[ERROR] 异步写入失败，降级为同步: {}", e.getMessage());
             // 异常时降级为同步写入
             shortUrlRepository.save(shortUrl);
         }
@@ -257,7 +286,7 @@ public class ShortUrlService {
                     log.warn("Redis warmup failed for {}: {}", shortCode, e.getMessage());
                 }
                 
-                // ⭐ 预热布隆过滤器
+                // 预热布隆过滤器
                 shortCodeBloomFilter.put(shortCode);
                 bloomLoaded++;
             }
@@ -374,7 +403,7 @@ public class ShortUrlService {
     public String getLongUrlByShortCode(String shortCode) {
         long startTime = System.currentTimeMillis();
         
-        // ⭐ 布隆过滤器：快速判断短链是否可能存在（防缓存穿透）
+        // 布隆过滤器：快速判断短链是否可能存在（防缓存穿透）
         if (!shortCodeBloomFilter.mightContain(shortCode)) {
             log.warn("[BLOOM FILTER] shortCode={} 不存在（布隆过滤器拦截）", shortCode);
             return null;  // 确定不存在，直接返回，防止缓存穿透

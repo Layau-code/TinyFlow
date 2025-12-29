@@ -88,11 +88,16 @@
           </div>
         </div>
         <div class="card-body">
-          <div class="chart-container">
+          <div class="chart-container-enhanced">
             <Suspense>
-              <TrendChart :values="trendValues" :labels="trendLabels" :showValues="true" />
-              <template #fallback><div class="chart-placeholder"></div></template>
+              <TrendChart v-if="trendLabels.length > 0" :values="trendValues" :labels="trendLabels" :showValues="true" :height="280" />
+              <template #fallback><div class="chart-placeholder">加载中...</div></template>
             </Suspense>
+            <div v-if="trendLabels.length === 0" class="empty-state">暂无趋势数据</div>
+            <!-- 趋势洞察 -->
+            <div v-if="trendInsight" class="chart-insight">
+              <span class="insight-text">{{ trendInsight }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -368,6 +373,26 @@ const hourMax = computed(() => Math.max(...hourDistribution.value.map(i => i.cou
 const weekdayMax = computed(() => Math.max(...weekdayDistribution.value.map(i => i.count), 1))
 const deviceTotal = computed(() => deviceDistribution.value.reduce((a, b) => a + b.count, 0))
 const browserTotal = computed(() => browserDistribution.value.reduce((a, b) => a + b.count, 0))
+
+// 趋势洞察
+const trendInsight = computed(() => {
+  const values = trendValues.value
+  if (!values || values.length < 2) return ''
+  
+  const total = values.reduce((a, b) => a + b, 0)
+  const avg = Math.round(total / values.length)
+  const lastValue = values[values.length - 1]
+  const prevValue = values[values.length - 2]
+  
+  if (lastValue > prevValue) {
+    const growth = Math.round((lastValue - prevValue) / Math.max(prevValue, 1) * 100)
+    return `近${selectedDays.value}天平均每天 ${avg} 次访问，最近一天增长 ${growth}%`
+  } else if (lastValue < prevValue) {
+    return `近${selectedDays.value}天平均每天 ${avg} 次访问，最近一天略有下降`
+  } else {
+    return `近${selectedDays.value}天平均每天 ${avg} 次访问，访问量保持稳定`
+  }
+})
 
 // 工具函数
 function formatDate(ts) {
@@ -667,9 +692,36 @@ onMounted(() => {
   border-radius: 6px;
 }
 
+.chart-container-enhanced {
+  min-height: 320px;
+  position: relative;
+}
+
 .chart-placeholder {
   height: 280px;
   background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #94a3b8;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+}
+
+/* 图表洞察提示 */
+.chart-insight {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border-left: 3px solid #2563eb;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #1e40af;
+}
+
+.insight-text {
+  line-height: 1.5;
 }
 
 /* 柱状图 */

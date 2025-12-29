@@ -31,35 +31,35 @@ spring:
             max-wait: 1s
             min-idle: 50
   
-  # RabbitMQ 配置（暂时禁用，未安装）
-#  rabbitmq:
-#    host: localhost
-#    port: 5672
-#    username: guest
-#    password: guest
-#    virtual-host: /
-#    # 生产者确认机制，保证消息不丢失
-#    publisher-confirm-type: correlated
-#    publisher-returns: true
-#    template:
-#      mandatory: true
-#    # 消费者配置
-#    listener:
-#      simple:
-#        # 手动确认模式，保证消息处理成功
-#        acknowledge-mode: manual
-#        # 并发消费者数量
-#        concurrency: 4
-#        max-concurrency: 8
-#        # 预取数量（批量消费）
-#        prefetch: 100
-#        # 重试机制
-#        retry:
-#          enabled: true
-#          max-attempts: 3
-#          initial-interval: 1000
-#          multiplier: 2
-#          max-interval: 10000
+  # RabbitMQ 配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: rabbit
+    virtual-host: /
+    # 生产者确认机制，保证消息不丢失
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    # 消费者配置
+    listener:
+      simple:
+        # 手动确认模式，保证消息处理成功
+        acknowledge-mode: auto
+        # 并发消费者数量（ClickCountAggregator使用）
+        concurrency: 2
+        max-concurrency: 5
+        # 预取数量（批量消费）
+        prefetch: 50
+        # 重试机制
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+          multiplier: 2
+          max-interval: 10000
 
 
 server:
@@ -132,11 +132,22 @@ management:
 
 events:
   sampleRate: 1.0  # 100%记录详细点击事件，支持分布图统计
+  buffer:
+    maxSize: 10000              # 事件缓冲队列最大容量
+  flush:
+    minBatchSize: 100           # 最小批量大小（队列压力小时）
+    maxBatchSize: 1000          # 最大批量大小（队列压力大时）
+    strategy: jdbc              # 刷新策略: jdbc（高性能）, jpa（兼容性）, auto（自动选择）
 
-# 点击计数模式：使用本地内存 + Redis 快照方案
-# 方案 C：第一阶段(10s)本地→Redis快照，第二阶段(60s)Redis→数据库
+# 点击计数模式：使用MQ异步聚合方案
+# 工作流程：点击 → MQ → 消费者聚合(1秒) → Redis → DB(60秒)
 clicks:
-  mode: local  # 仍配置为 local（第一阶段），第二阶段由定时任务驱动
+  mode: mq
+
+# 短链生成配置
+shorturl:
+  async:
+    enabled: true  # 启用异步模式（先写Caffeine+Redis，再异步持久化）
 
 cache:
   caffeine:

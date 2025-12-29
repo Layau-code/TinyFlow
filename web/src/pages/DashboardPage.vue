@@ -100,6 +100,7 @@
             <div class="chart-container-enhanced">
               <Suspense>
                 <G2PieChart 
+                  v-if="devicePieData.length > 0"
                   :data="devicePieData" 
                   :height="280"
                   value-field="value"
@@ -108,6 +109,10 @@
                 />
                 <template #fallback><div class="chart-placeholder">加载中...</div></template>
               </Suspense>
+              <div v-if="devicePieData.length === 0" class="empty-state-enhanced">
+                <div class="empty-text">暂无设备数据</div>
+                <div class="empty-hint">当有访问者点击短链时，此处将显示设备分布</div>
+              </div>
               <!-- 设备统计说明 -->
               <div v-if="deviceSummary" class="chart-insight">
                 <span class="insight-text">{{ deviceSummary }}</span>
