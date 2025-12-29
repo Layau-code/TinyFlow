@@ -2,8 +2,15 @@ package com.layor.tinyflow;
 
 import org.junit.jupiter.api.DisplayName;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
+@ActiveProfiles("test")
+@TestPropertySource(properties = {
+    "spring.rabbitmq.host=",
+    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration"
+})
 @DisplayName("TinyFlow 应用整体测试 - 需要完整环境配置")
 class TinyFlowApplicationTests {
 
