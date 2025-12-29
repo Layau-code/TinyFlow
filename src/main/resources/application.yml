@@ -33,7 +33,6 @@ spring:
   
   # RabbitMQ 配置
   rabbitmq:
-    # 注意：服务器RabbitMQ只监听IPv6，使用IPv6 loopback地址
     host: localhost
     port: 5672
     username: admin

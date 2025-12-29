@@ -1,0 +1,5 @@
+spring:
+  # 测试环境禁用 RabbitMQ
+  # 不配置 spring.rabbitmq.host 时，RabbitMQConfig 不会被加载（因为使用了 @ConditionalOnProperty）
+  # 同时主应用类已经排除了 RabbitAutoConfiguration，所以测试环境不会尝试连接 RabbitMQ
+
