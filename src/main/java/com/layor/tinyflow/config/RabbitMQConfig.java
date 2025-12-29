@@ -1,10 +1,12 @@
 package com.layor.tinyflow.config;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
  * 配置点击事件队列、死信队列、消息转换器等
  * 
  * 只有在配置了 spring.rabbitmq.host 时才启用
+ * 由于排除了 RabbitAutoConfiguration，需要手动创建 ConnectionFactory
  */
 @Configuration
 @ConditionalOnProperty(name = "spring.rabbitmq.host")
@@ -93,6 +96,26 @@ public class RabbitMQConfig {
     @Bean
     public MessageConverter messageConverter() {
         return new Jackson2JsonMessageConverter();
+    }
+    
+    /**
+     * 创建 RabbitMQ 连接工厂
+     * 由于排除了 RabbitAutoConfiguration，需要手动创建 ConnectionFactory
+     */
+    @Bean
+    public ConnectionFactory connectionFactory(
+            @Value("${spring.rabbitmq.host}") String host,
+            @Value("${spring.rabbitmq.port:5672}") int port,
+            @Value("${spring.rabbitmq.username}") String username,
+            @Value("${spring.rabbitmq.password}") String password,
+            @Value("${spring.rabbitmq['virtual-host']:/}") String virtualHost) {
+        CachingConnectionFactory factory = new CachingConnectionFactory();
+        factory.setHost(host);
+        factory.setPort(port);
+        factory.setUsername(username);
+        factory.setPassword(password);
+        factory.setVirtualHost(virtualHost);
+        return factory;
     }
     
     /**
