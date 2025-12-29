@@ -1,9 +1,6 @@
 package com.layor.tinyflow.Controller;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import com.layor.tinyflow.service.ClickCountAggregator;
-import com.layor.tinyflow.service.ClickRecorderService;
-import com.layor.tinyflow.service.ShortUrlPersistenceConsumer;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -33,15 +30,6 @@ public class MonitorController {
     @Autowired
     @Qualifier("localUrlCache")
     private Cache<String, String> localCache;
-    
-    @Autowired
-    private ClickRecorderService clickRecorderService;
-    
-    @Autowired(required = false)
-    private ClickCountAggregator clickCountAggregator;
-    
-    @Autowired(required = false)
-    private ShortUrlPersistenceConsumer shortUrlPersistenceConsumer;
 
     /**
      * 获取系统健康状态
@@ -120,62 +108,6 @@ public class MonitorController {
         result.put("success", true);
         result.put("removedEntries", sizeBefore);
         result.put("message", "Cache cleared successfully");
-        return result;
-    }
-    
-    /**
-     * 获取事件缓冲区监控指标
-     * GET /api/monitor/events/metrics
-     */
-    @GetMapping("/events/metrics")
-    public Map<String, Object> getEventMetrics() {
-        String metricsText = clickRecorderService.getMetrics();
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("timestamp", System.currentTimeMillis());
-        result.put("metrics", metricsText);
-        result.put("status", "OK");
-        
-        return result;
-    }
-    
-    /**
-     * 获取MQ点击计数聚合器监控指标
-     * GET /api/monitor/clicks/metrics
-     */
-    @GetMapping("/clicks/metrics")
-    public Map<String, Object> getClickMetrics() {
-        Map<String, Object> result = new HashMap<>();
-        result.put("timestamp", System.currentTimeMillis());
-        
-        if (clickCountAggregator != null) {
-            result.put("metrics", clickCountAggregator.getMetrics());
-            result.put("status", "OK");
-        } else {
-            result.put("status", "DISABLED");
-            result.put("message", "ClickCountAggregator not available (RabbitMQ not configured)");
-        }
-        
-        return result;
-    }
-    
-    /**
-     * 获取短链持久化消费者监控指标
-     * GET /api/monitor/shorturl/metrics
-     */
-    @GetMapping("/shorturl/metrics")
-    public Map<String, Object> getShortUrlMetrics() {
-        Map<String, Object> result = new HashMap<>();
-        result.put("timestamp", System.currentTimeMillis());
-        
-        if (shortUrlPersistenceConsumer != null) {
-            result.put("metrics", shortUrlPersistenceConsumer.getMetrics());
-            result.put("status", "OK");
-        } else {
-            result.put("status", "DISABLED");
-            result.put("message", "ShortUrlPersistenceConsumer not available (RabbitMQ not configured)");
-        }
-        
         return result;
     }
 }
