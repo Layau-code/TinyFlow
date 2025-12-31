@@ -1,7 +1,11 @@
 <template>
-  <div class="min-h-screen stats-page pt-24 md:pt-28">
+  <div class="min-h-screen stats-page pt-24 md:pt-28" :class="{ 'tf-card-root': useDarkTheme }">
     <div class="max-w-7xl mx-auto p-6 space-y-6">
       <!-- 顶部操作栏 -->
+      <!-- DEMO 横幅（仅 demo 模式显示） -->
+      <div v-if="isDemo" class="demo-banner">
+        正在演示模式 (DEMO)：页面使用本地示例数据。如需真实数据，请关闭 demo 参数或在后端提供数据。
+      </div>
       <div class="flex items-center justify-between flex-wrap gap-4">
         <div class="flex items-center gap-3">
           <button @click="goHome" class="btn btn-secondary">返回首页</button>
@@ -13,6 +17,11 @@
           </button>
           <button @click="openFilter" class="btn btn-primary">筛选</button>
           <button @click="exportCsv" class="btn btn-secondary">导出CSV</button>
+          <button @click="exportPng" class="btn btn-secondary">导出PNG</button>
+          <button @click="refreshAll" class="btn btn-secondary">刷新</button>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" v-model="realtime" /> 实时
+          </label>
         </div>
       </div>
 
@@ -20,15 +29,24 @@
       <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <div class="metric-card">
           <div class="metric-label">总PV</div>
-          <div class="metric-value">{{ detailedStats?.pv ?? overview?.totalVisits ?? '-' }}</div>
+          <div class="metric-value">
+            <AnimatedNumber v-if="totalPvNum" :value="totalPvNum" :duration="1000" />
+            <span v-else>-</span>
+          </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">总UV</div>
-          <div class="metric-value">{{ detailedStats?.uv ?? '-' }}</div>
+          <div class="metric-value">
+            <AnimatedNumber v-if="totalUvNum" :value="totalUvNum" :duration="1000" />
+            <span v-else>-</span>
+          </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">今日PV</div>
-          <div class="metric-value">{{ overview?.todayVisits ?? '-' }}</div>
+          <div class="metric-value">
+            <AnimatedNumber v-if="todayPvNum" :value="todayPvNum" :duration="1000" />
+            <span v-else>-</span>
+          </div>
         </div>
         <div class="metric-card">
           <div class="metric-label">PV/UV比</div>
@@ -45,7 +63,7 @@
       </div>
 
       <!-- 短链信息卡片 -->
-      <div class="card">
+      <div :class="['card', useDarkTheme ? 'tf-card' : '']">
         <div class="card-header">短链信息</div>
         <div class="card-body">
           <div class="info-grid">
@@ -78,7 +96,7 @@
       </div>
 
       <!-- 趋势图表 -->
-      <div class="card">
+      <div :class="['card', useDarkTheme ? 'tf-card' : '']">
         <div class="card-header flex items-center justify-between">
           <span>访问趋势</span>
           <div class="flex gap-2">
@@ -89,11 +107,13 @@
         </div>
         <div class="card-body">
           <div class="chart-container-enhanced">
-            <Suspense>
-              <TrendChart v-if="trendLabels.length > 0" :values="trendValues" :labels="trendLabels" :showValues="true" :height="280" />
-              <template #fallback><div class="chart-placeholder">加载中...</div></template>
-            </Suspense>
-            <div v-if="trendLabels.length === 0" class="empty-state">暂无趋势数据</div>
+            <AsyncChartLoader :loader="TrendChartLoader" :passThroughProps="{ labels: trendLabels, values: trendValues, height: 280 }" ref="trendChartRef" @point-click="onTrendPointClick">
+              <template #fallback>
+                <SkeletonLoader variant="card" :height="280" />
+              </template>
+            </AsyncChartLoader>
+            <div v-if="!loadingTrend && trendLabels.length === 0" class="empty-state">暂无趋势数据</div>
+            <div v-if="loadingTrend" class="mt-4"><SkeletonLoader :height="120" /></div>
             <!-- 趋势洞察 -->
             <div v-if="trendInsight" class="chart-insight">
               <span class="insight-text">{{ trendInsight }}</span>
@@ -178,33 +198,23 @@
           </div>
         </div>
 
-        <!-- 城市TOP10 -->
+        <!-- 城市TOP10 (按需 ECharts 柱状图) -->
         <div class="card">
           <div class="card-header">城市 TOP 10</div>
           <div class="card-body">
-            <div class="rank-list">
-              <div v-for="(item, idx) in cityDistribution.slice(0, 10)" :key="item.key" class="rank-item">
-                <span class="rank-num">{{ idx + 1 }}</span>
-                <span class="rank-name">{{ item.key || '未知' }}</span>
-                <span class="rank-count">{{ item.count }}</span>
-              </div>
-              <div v-if="!cityDistribution.length" class="empty-state">暂无数据</div>
+            <div class="chart-placeholder">
+              <AsyncChartLoader :loader="CityBarLoader" :passThroughProps="{ labels: cityDistribution.slice(0,10).map(i => i.key), values: cityDistribution.slice(0,10).map(i => i.count), height: 260 }" @point-click="(p) => drillCity(p.label)" />
             </div>
+            <div v-if="!cityDistribution.length" class="empty-state">暂无数据</div>
           </div>
         </div>
 
-        <!-- 国家分布 -->
+        <!-- 国家分布 (按需 ECharts 饼图) -->
         <div class="card">
           <div class="card-header">国家/地区分布</div>
           <div class="card-body">
-            <div class="rank-list">
-              <div v-for="(item, idx) in countryDistribution.slice(0, 10)" :key="item.key" class="rank-item">
-                <span class="rank-num">{{ idx + 1 }}</span>
-                <span class="rank-name">{{ item.key || '未知' }}</span>
-                <span class="rank-count">{{ item.count }}</span>
-              </div>
-              <div v-if="!countryDistribution.length" class="empty-state">暂无数据</div>
-            </div>
+            <AsyncChartLoader :loader="CountryPieLoader" :passThroughProps="{ data: countryDistribution.slice(0,10).map(i => ({ label: i.key, name: i.key, value: i.count })), height: 260 }" @point-click="(p) => { const name = p?.name || p?.data?.name; if (name) drillCity(name) }" />
+            <div v-if="!countryDistribution.length" class="empty-state">暂无数据</div>
           </div>
         </div>
 
@@ -258,7 +268,10 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(event, idx) in eventsList.slice(0, 50)" :key="idx">
+                <tr v-if="loadingEvents">
+                  <td colspan="6"><SkeletonLoader :height="120" /></td>
+                </tr>
+                <tr v-else v-for="(event, idx) in eventsList.slice(0, 50)" :key="idx">
                   <td>{{ formatDate(event.ts) }}</td>
                   <td>{{ event.ip || '-' }}</td>
                   <td><span class="device-tag">{{ event.deviceType || '-' }}</span></td>
@@ -266,7 +279,7 @@
                   <td>{{ event.country || '-' }}</td>
                   <td class="truncate max-w-[200px]">{{ event.sourceHost || '-' }}</td>
                 </tr>
-                <tr v-if="!eventsList.length">
+                <tr v-if="!loadingEvents && !eventsList.length">
                   <td colspan="6" class="empty-state">暂无访问记录</td>
                 </tr>
               </tbody>
@@ -320,20 +333,31 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, defineAsyncComponent, watch } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent, watch, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { SHORT_BASE, API_BASE } from '../composables/shortBase'
 import { copyToClipboard } from '../composables/useCopy'
+import { subscribeRealtime } from '../composables/useRealtime'
 import axios from 'axios'
-
-const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
+import demoData from '../mock/demoData'
+import AsyncChartLoader from '../components/AsyncChartLoader.vue'
+const TrendChartLoader = () => import('../components/charts/TrendEChartsLine.vue')
+const AnimatedNumber = defineAsyncComponent(() => import('../components/AnimatedNumber.vue'))
+const SkeletonLoader = defineAsyncComponent(() => import('../components/SkeletonLoader.vue'))
+const CityBarLoader = () => import('../components/charts/EChartsBar.vue')
+const CountryPieLoader = () => import('../components/charts/EChartsPie.vue')
+import '../style/charts-theme.css'
+const useDarkTheme = true // 只在统计页启用企业冷静风主题
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 
-const shortCode = route.params.shortCode
+const routeShortCode = route.params.shortCode
+const isDemo = route.query && (route.query.demo === '1' || route.query.demo === 'true')
+// 当处于 demo 模式并且没有在路由中提供 shortCode 时，使用 demo 的短码
+const shortCode = isDemo ? (routeShortCode || 'demo123') : routeShortCode
 const shortUrl = `${SHORT_BASE}/${encodeURIComponent(shortCode)}`
 
 // 数据状态
@@ -343,6 +367,13 @@ const eventsList = ref([])
 const trendLabels = ref([])
 const trendValues = ref([])
 const selectedDays = ref(7)
+
+
+// loading states
+const loadingOverview = ref(false)
+const loadingDetailed = ref(false)
+const loadingTrend = ref(false)
+const loadingEvents = ref(false)
 
 // 分布数据
 const hourDistribution = ref([])
@@ -361,6 +392,9 @@ const filterEnd = ref('')
 const filterSource = ref('')
 const filterDevice = ref('')
 const filterCity = ref('')
+
+// 实时开关
+const realtime = ref(false)
 
 // 计算属性
 const peakVisits = computed(() => trendValues.value.length ? Math.max(...trendValues.value) : 0)
@@ -429,19 +463,33 @@ async function copy(text) {
 // API调用
 async function fetchOverview() {
   try {
+    loadingOverview.value = true
+    if (isDemo) { overview.value = demoData.overview; return }
     const res = await axios.get(`${API_BASE}/api/stats/overview/${encodeURIComponent(shortCode)}`)
     overview.value = res.data
-  } catch (e) { console.error('fetchOverview error:', e) }
+  } catch (e) { console.error('fetchOverview error:', e) } finally { loadingOverview.value = false }
 }
 
 async function fetchDetailedStats() {
   try {
+    loadingDetailed.value = true
+    if (isDemo) {
+      detailedStats.value = demoData.detailed
+      hourDistribution.value = demoData.detailed.hourDistribution
+      weekdayDistribution.value = demoData.detailed.weekdayDistribution
+      deviceDistribution.value = demoData.detailed.deviceDistribution
+      browserDistribution.value = demoData.detailed.browserDistribution
+      cityDistribution.value = demoData.detailed.cityDistribution
+      countryDistribution.value = demoData.detailed.countryDistribution
+      sourceDistribution.value = demoData.detailed.sourceDistribution
+      refererDistribution.value = demoData.detailed.refererDistribution
+      return
+    }
     const params = new URLSearchParams()
     if (filterStart.value) params.set('start', filterStart.value)
     if (filterEnd.value) params.set('end', filterEnd.value)
     const res = await axios.get(`${API_BASE}/api/stats/detailed/${encodeURIComponent(shortCode)}?${params}`)
     detailedStats.value = res.data
-    
     // 解析分布数据
     console.log('Detailed stats response:', res.data) // 调试信息
     hourDistribution.value = (res.data.hourDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
@@ -457,11 +505,19 @@ async function fetchDetailedStats() {
     console.log('Device distribution:', deviceDistribution.value)
   } catch (e) { 
     console.error('fetchDetailedStats error:', e) 
-  }
+  } finally { loadingDetailed.value = false }
 }
 
 async function fetchTrend() {
   try {
+    loadingTrend.value = true
+    if (isDemo) {
+      const data = demoData.trend
+      const labels = data.map(d => d.date).sort()
+      trendLabels.value = labels
+      trendValues.value = labels.map(l => { const item = data.find(d => d.date === l); return item ? Number(item.visits || item.count || 0) : 0 })
+      return
+    }
     const res = await axios.get(`${API_BASE}/api/stats/trend/${encodeURIComponent(shortCode)}?days=${selectedDays.value}`)
     const data = Array.isArray(res.data) ? res.data : []
     const labels = data.map(d => d.date).sort()
@@ -470,15 +526,17 @@ async function fetchTrend() {
       const item = data.find(d => d.date === l)
       return item ? Number(item.visits || item.count || 0) : 0
     })
-  } catch (e) { console.error('fetchTrend error:', e) }
+  } catch (e) { console.error('fetchTrend error:', e) } finally { loadingTrend.value = false }
 }
 
 async function fetchEvents() {
   try {
+    loadingEvents.value = true
+    if (isDemo) { eventsList.value = demoData.events; return }
     const body = { code: shortCode, start: filterStart.value, end: filterEnd.value, source: filterSource.value, device: filterDevice.value, city: filterCity.value, page: 0, size: 100 }
     const res = await axios.post(`${API_BASE}/api/stats/events`, body)
     eventsList.value = Array.isArray(res.data) ? res.data : []
-  } catch (e) { console.error('fetchEvents error:', e) }
+  } catch (e) { console.error('fetchEvents error:', e) } finally { loadingEvents.value = false }
 }
 
 async function refreshAll() {
@@ -491,18 +549,37 @@ function selectDays(d) {
 
 watch(selectedDays, () => fetchTrend())
 
-// 筛选
-function openFilter() { showFilter.value = true }
-function closeFilter() { showFilter.value = false }
-function resetFilters() {
-  filterStart.value = ''
-  filterEnd.value = ''
-  filterSource.value = ''
-  filterDevice.value = ''
-  filterCity.value = ''
+// 点击折线点钻取到详情页
+function onTrendPointClick(payload) {
+  try {
+    const date = payload?.label
+    if (!date) return
+    // 导航到详情页，传入 date 作为 query
+    router.push({ path: `/stats/${encodeURIComponent(shortCode)}/detail`, query: { date } })
+  } catch (e) { console.error(e) }
 }
+
+function drillCity(city){
+  if (!city) return
+  router.push({ path: `/stats/${encodeURIComponent(shortCode)}/detail`, query: { city } })
+}
+
+// numeric wrappers for AnimatedNumber (fallback to 0)
+const totalPvNum = computed(() => Number(detailedStats.value?.pv ?? overview.value?.totalVisits ?? 0))
+const totalUvNum = computed(() => Number(detailedStats.value?.uv ?? 0))
+const todayPvNum = computed(() => Number(overview.value?.todayVisits ?? 0))
+
 function applyFilters() {
   closeFilter()
+  // 将筛选写入 URL 的 query，便于分享和回退
+  const q = {}
+  if (filterStart.value) q.start = filterStart.value
+  if (filterEnd.value) q.end = filterEnd.value
+  if (filterSource.value) q.source = filterSource.value
+  if (filterDevice.value) q.device = filterDevice.value
+  if (filterCity.value) q.city = filterCity.value
+  // 保持 path 为当前 shortCode 的 stats 页面
+  router.replace({ path: `/stats/${encodeURIComponent(shortCode)}`, query: q })
   refreshAll()
 }
 
@@ -520,6 +597,72 @@ async function exportCsv() {
   } catch (e) { console.error('export error:', e) }
 }
 
+const trendChartRef = ref(null)
+
+async function exportPng() {
+  try {
+    const loaderComp = trendChartRef.value
+    if (!loaderComp || !loaderComp.getInnerInstance) {
+      alert('图表未就绪，无法导出')
+      return
+    }
+    const inner = loaderComp.getInnerInstance()
+    if (!inner || !inner.getDataURL) { alert('图表尚未加载或不支持导出'); return }
+    const dataUrl = inner.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#ffffff' })
+    if (!dataUrl) { alert('导出失败'); return }
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = `trend-chart-${shortCode}.png`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  } catch (e) {
+    console.error('导出PNG失败:', e)
+    alert('导出PNG失败，请重试')
+  }
+}
+
+// 实时轮询
+let pollTimer = null
+let sseSub = null
+watch(realtime, (val) => {
+  try {
+    if (val) {
+      // 首先尝试 SSE
+      if (sseSub) { sseSub.stop(); sseSub = null }
+      sseSub = subscribeRealtime(shortCode, (msg) => {
+        // msg: { type, data }
+        if (!msg) return
+        if (msg.type === 'trend' && msg.data) {
+          // 简单合并：假设 data 为 { date, visits }
+          // 更复杂的合并可以由后端保证或在此实现
+          // 直接刷新全部以保证一致性
+          fetchTrend()
+        }
+        if (msg.type === 'event' || msg.type === 'events') { fetchEvents() }
+      }, (info) => {
+        if (!info || !info.ok) {
+          // SSE 不可用，回退到短轮询
+          console.warn('SSE unavailable, fallback to short-poll', info)
+          refreshAll()
+          pollTimer = setInterval(() => { refreshAll() }, 15000)
+        } else {
+          // SSE 成功连接时可选择仅加载必要数据
+          refreshAll()
+        }
+      })
+      // 设置一个保底短轮询，以防 SSE 中断（但避免重复）
+      pollTimer = setInterval(() => { refreshAll() }, 60000)
+    } else {
+      if (sseSub) { sseSub.stop(); sseSub = null }
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+    }
+  } catch (e) { console.error('realtime watch error', e) }
+})
+
+// cleanup on unmount
+onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer); if (sseSub) sseSub.stop() })
+
 // 导航
 function goHome() { router.push('/') }
 function goDashboard() { router.push('/dashboard') }
@@ -529,6 +672,15 @@ onMounted(() => {
   const now = new Date()
   filterStart.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   filterEnd.value = now.toISOString().split('T')[0]
+  // 如果 URL 有 query，优先应用
+  const q = route.query
+  if (q) {
+    if (q.start) filterStart.value = q.start
+    if (q.end) filterEnd.value = q.end
+    if (q.source) filterSource.value = q.source
+    if (q.device) filterDevice.value = q.device
+    if (q.city) filterCity.value = q.city
+  }
   refreshAll()
 })
 </script>
@@ -685,11 +837,11 @@ onMounted(() => {
 }
 
 /* 图表容器 */
-.chart-container {
-  height: 280px;
+.chart-container { /* removed unused style to avoid lint warning - kept for reference */
+/*   height: 280px;
   background: #fafbfc;
   border: 1px dashed #e2e8f0;
-  border-radius: 6px;
+  border-radius: 6px; */
 }
 
 .chart-container-enhanced {
@@ -1024,5 +1176,21 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.rank-item { cursor: default; }
+.rank-item.clickable { cursor: pointer; }
+.rank-item.clickable:hover { background: #fbfcfe; }
+
+/* DEMO 横幅样式 */
+.demo-banner {
+  padding: 12px 16px;
+  background: #2563eb;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  text-align: center;
 }
 </style>

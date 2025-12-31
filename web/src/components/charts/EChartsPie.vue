@@ -6,7 +6,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineExpose } from 'vue'
 
 const props = defineProps({ data: { type: Array, default: () => [] }, colors: { type: Array, default: () => [] } })
 
@@ -104,11 +104,28 @@ async function updateChart() {
   setTimeout(() => { try { chart && chart.resize() } catch {} }, 120)
 }
 
+// 新增：对外导出方法与事件转发
+function getDataURL(options = { type: 'png', pixelRatio: 2, backgroundColor: '#ffffff' }){
+  try { if (!chart) return null; return chart.getDataURL(options) } catch (e) { console.error('getDataURL error', e); return null }
+}
+
+function bindClick(){
+  try {
+    if (!chart) return
+    chart.off('click')
+    chart.on('click', params => {
+      // 发出 Vue 事件，父组件可使用 v-on:point-click 监听
+      emit('point-click', params)
+    })
+  } catch (e) { console.error('bindClick error', e) }
+}
+
 onMounted(async () => {
   console.log('=== [EChartsPie] Mounted ===')
   console.log('[EChartsPie] props.data:', props.data)
   loading.value = true
   await updateChart()
+  bindClick()
   loading.value = false
 })
 
@@ -116,10 +133,13 @@ watch(()=> props.data, async (val) => {
   console.log('[EChartsPie] data changed:', val)
   loading.value = true
   await updateChart()
+  bindClick()
   loading.value = false
 }, { deep: true })
 
 onUnmounted(()=> { try { ro && ro.disconnect() } catch {} ro = null; try { chart && chart.dispose() } catch {} chart = null })
+
+defineExpose({ getDataURL })
 </script>
 
 <style scoped>
