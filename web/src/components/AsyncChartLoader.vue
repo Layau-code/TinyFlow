@@ -18,7 +18,8 @@ const props = defineProps({
   height: { type: Number, default: 280 },
   rootMargin: { type: String, default: '200px 0px' },
   threshold: { type: Number, default: 0.1 },
-  passThroughProps: { type: Object, default: () => ({}) }
+  passThroughProps: { type: Object, default: () => ({}) },
+  eager: { type: Boolean, default: false }
 })
 const emit = defineEmits(['loaded', 'error'])
 
@@ -50,6 +51,11 @@ function onIntersect(entries) {
 
 onMounted(() => {
   try {
+    // 如果标记为 eager（演示模式），直接加载，否则使用 IntersectionObserver
+    if (props.eager) {
+      load()
+      return
+    }
     observer = new IntersectionObserver(onIntersect, { root: null, rootMargin: props.rootMargin, threshold: props.threshold })
     if (root.value) observer.observe(root.value)
   } catch (e) {

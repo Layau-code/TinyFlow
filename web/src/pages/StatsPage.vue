@@ -107,7 +107,7 @@
         </div>
         <div class="card-body">
           <div class="chart-container-enhanced">
-            <AsyncChartLoader :loader="TrendChartLoader" :passThroughProps="{ labels: trendLabels, values: trendValues, height: 280 }" ref="trendChartRef" @point-click="onTrendPointClick">
+            <AsyncChartLoader :loader="TrendChartLoader" :passThroughProps="{ labels: trendLabels, values: trendValues, height: 280 }" ref="trendChartRef" :eager="isDemo" @point-click="onTrendPointClick">
               <template #fallback>
                 <SkeletonLoader variant="card" :height="280" />
               </template>
@@ -203,7 +203,7 @@
           <div class="card-header">城市 TOP 10</div>
           <div class="card-body">
             <div class="chart-placeholder">
-              <AsyncChartLoader :loader="CityBarLoader" :passThroughProps="{ labels: cityDistribution.slice(0,10).map(i => i.key), values: cityDistribution.slice(0,10).map(i => i.count), height: 260 }" @point-click="(p) => drillCity(p.label)" />
+              <AsyncChartLoader :loader="CityBarLoader" :passThroughProps="{ labels: cityDistribution.slice(0,10).map(i => i.key), values: cityDistribution.slice(0,10).map(i => i.count), height: 260 }" :eager="isDemo" @point-click="(p) => drillCity(p.label)" />
             </div>
             <div v-if="!cityDistribution.length" class="empty-state">暂无数据</div>
           </div>
@@ -213,7 +213,7 @@
         <div class="card">
           <div class="card-header">国家/地区分布</div>
           <div class="card-body">
-            <AsyncChartLoader :loader="CountryPieLoader" :passThroughProps="{ data: countryDistribution.slice(0,10).map(i => ({ label: i.key, name: i.key, value: i.count })), height: 260 }" @point-click="(p) => { const name = p?.name || p?.data?.name; if (name) drillCity(name) }" />
+            <AsyncChartLoader :loader="CountryPieLoader" :passThroughProps="{ data: countryDistribution.slice(0,10).map(i => ({ label: i.key, name: i.key, value: i.count })), height: 260 }" :eager="isDemo" @point-click="(p) => { const name = p?.name || p?.data?.name; if (name) drillCity(name) }" />
             <div v-if="!countryDistribution.length" class="empty-state">暂无数据</div>
           </div>
         </div>
