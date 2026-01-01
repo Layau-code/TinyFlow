@@ -1,0 +1,511 @@
+/* Dashboard 单色优化样式 - 统一的单色原则 */
+.dashboard-page {
+  background: var(--tf-gray-50);
+  min-height: 100vh;
+}
+
+/* 头部样式 */
+.dashboard-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tf-space-1);
+}
+
+.dashboard-title {
+  font-size: var(--tf-text-2xl);
+  font-weight: var(--tf-font-semibold);
+  color: var(--tf-gray-800);
+  margin: 0;
+}
+
+.dashboard-subtitle {
+  font-size: var(--tf-text-sm);
+  color: var(--tf-gray-600);
+}
+
+/* 搜索框 */
+.search-input {
+  padding: var(--tf-space-3);
+  border: 1px solid var(--tf-gray-300);
+  border-radius: var(--tf-radius-md);
+  font-size: var(--tf-text-sm);
+  width: 200px;
+  background: white;
+  color: var(--tf-gray-800);
+  transition: all var(--tf-duration-normal) var(--tf-ease-in-out);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--tf-gray-600);
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.1);
+}
+
+.search-input::placeholder {
+  color: var(--tf-gray-500);
+}
+
+/* 指标卡片网格 */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--tf-space-4);
+}
+
+.metric-card {
+  position: relative;
+  padding: var(--tf-space-5);
+  border-radius: var(--tf-radius-lg);
+  background: white;
+  border: 1px solid var(--tf-gray-300);
+  transition: all var(--tf-duration-normal) var(--tf-ease-in-out);
+}
+
+.metric-card.highlight {
+  background: var(--tf-gray-900);
+  color: white;
+  border-color: var(--tf-gray-800);
+}
+
+.metric-card.highlight .metric-label,
+.metric-card.highlight .metric-value,
+.metric-card.highlight .metric-trend {
+  color: white;
+}
+
+.metric-card.highlight .metric-icon {
+  opacity: 1;
+}
+
+.metric-icon {
+  font-size: 20px;
+  margin-bottom: var(--tf-space-3);
+  opacity: 0.6;
+}
+
+.metric-card.highlight .metric-icon {
+  opacity: 0.9;
+}
+
+.metric-content {
+  margin-bottom: var(--tf-space-2);
+}
+
+.metric-label {
+  font-size: var(--tf-text-sm);
+  color: var(--tf-gray-600);
+  font-weight: var(--tf-font-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--tf-space-2);
+}
+
+.metric-value {
+  font-size: var(--tf-text-3xl);
+  font-weight: var(--tf-font-bold);
+  color: var(--tf-gray-800);
+  line-height: 1;
+}
+
+.metric-trend {
+  display: flex;
+  align-items: center;
+  gap: var(--tf-space-1);
+  font-size: var(--tf-text-xs);
+  color: var(--tf-gray-500);
+  margin-top: var(--tf-space-2);
+}
+
+.metric-trend.positive {
+  color: var(--tf-gray-700);
+}
+
+.trend-icon {
+  font-size: var(--tf-text-sm);
+}
+
+/* 图表区域网格 */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: var(--tf-space-6);
+}
+
+.chart-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+  background: white;
+  border: 1px solid var(--tf-gray-300);
+  border-radius: var(--tf-radius-lg);
+  overflow: hidden;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--tf-space-5);
+  border-bottom: 1px solid var(--tf-gray-300);
+  background: var(--tf-gray-50);
+}
+
+.chart-title {
+  display: flex;
+  align-items: center;
+  gap: var(--tf-space-2);
+  font-size: var(--tf-text-lg);
+  font-weight: var(--tf-font-semibold);
+  color: var(--tf-gray-800);
+}
+
+.title-icon {
+  font-size: 18px;
+  opacity: 0.7;
+}
+
+.chart-actions {
+  display: flex;
+  gap: var(--tf-space-2);
+}
+
+.chart-action-btn {
+  padding: var(--tf-space-2) var(--tf-space-3);
+  border: 1px solid var(--tf-gray-300);
+  border-radius: var(--tf-radius);
+  font-size: var(--tf-text-sm);
+  background: white;
+  color: var(--tf-gray-600);
+  cursor: pointer;
+  transition: all var(--tf-duration-normal) var(--tf-ease-in-out);
+}
+
+.chart-action-btn:hover {
+  border-color: var(--tf-gray-600);
+  background: var(--tf-gray-100);
+  color: var(--tf-gray-800);
+}
+
+.chart-body {
+  flex: 1;
+  padding: var(--tf-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tf-space-4);
+  background: white;
+}
+
+/* 图表洞察 */
+.chart-insight-enhanced {
+  display: flex;
+  align-items: center;
+  gap: var(--tf-space-2);
+  padding: var(--tf-space-3) var(--tf-space-4);
+  background: var(--tf-gray-100);
+  border-left: 3px solid var(--tf-gray-500);
+  border-radius: var(--tf-radius);
+  font-size: var(--tf-text-sm);
+}
+
+.insight-icon {
+  font-size: 16px;
+  opacity: 0.7;
+}
+
+.insight-text {
+  color: var(--tf-gray-700);
+  line-height: 1.4;
+}
+
+.distribution-insight {
+  display: flex;
+  align-items: center;
+  gap: var(--tf-space-2);
+  padding: var(--tf-space-3);
+  background: var(--tf-gray-100);
+  border-radius: var(--tf-radius);
+  font-size: var(--tf-text-sm);
+  color: var(--tf-gray-700);
+}
+
+/* 地理分布网格 */
+.geo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--tf-space-4);
+}
+
+.geo-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tf-space-3);
+}
+
+.sub-title {
+  font-size: var(--tf-text-sm);
+  font-weight: var(--tf-font-medium);
+  color: var(--tf-gray-800);
+}
+
+.geo-chart-container {
+  height: 120px;
+}
+
+/* 实时数据样式 */
+.real-time-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--tf-space-2);
+  font-size: var(--tf-text-sm);
+  color: var(--tf-gray-700);
+}
+
+.indicator-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--tf-gray-600);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.real-time-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--tf-space-4);
+}
+
+.real-time-item {
+  text-align: center;
+  padding: var(--tf-space-3);
+  background: var(--tf-gray-100);
+  border-radius: var(--tf-radius);
+}
+
+.rt-label {
+  font-size: var(--tf-text-xs);
+  color: var(--tf-gray-600);
+  margin-bottom: var(--tf-space-1);
+}
+
+.rt-value {
+  font-size: var(--tf-text-xl);
+  font-weight: var(--tf-font-bold);
+  color: var(--tf-gray-800);
+}
+
+.rt-status {
+  font-size: var(--tf-text-sm);
+  font-weight: var(--tf-font-medium);
+  padding: var(--tf-space-1) var(--tf-space-2);
+  border-radius: var(--tf-radius-full);
+  background: var(--tf-gray-200);
+  color: var(--tf-gray-700);
+}
+
+.rt-status.normal {
+  background: var(--tf-gray-300);
+  color: var(--tf-gray-800);
+}
+
+/* 加载状态 */
+.chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--tf-gray-500);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--tf-gray-300);
+  border-top: 3px solid var(--tf-gray-600);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: var(--tf-space-3);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 空状态 */
+.chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--tf-gray-500);
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: var(--tf-space-3);
+  opacity: 0.3;
+}
+
+.empty-text {
+  font-size: var(--tf-text-lg);
+  font-weight: var(--tf-font-medium);
+  margin-bottom: var(--tf-space-1);
+  color: var(--tf-gray-600);
+}
+
+.empty-desc {
+  font-size: var(--tf-text-sm);
+  color: var(--tf-gray-500);
+  max-width: 200px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .geo-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .real-time-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-header {
+    align-items: center;
+    text-align: center;
+  }
+
+  .search-input {
+    width: 100%;
+    margin-top: var(--tf-space-2);
+  }
+}
+
+@media (max-width: 480px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-header {
+    flex-direction: column;
+    gap: var(--tf-space-3);
+    align-items: stretch;
+  }
+
+  .chart-actions {
+    justify-content: center;
+  }
+}
+
+/* 动画效果 */
+.metric-card {
+  animation: fadeInUp 0.6s var(--tf-ease-out);
+}
+
+.chart-section {
+  animation: fadeIn 0.8s var(--tf-ease-out);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 暗色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .dashboard-page {
+    background: var(--tf-gray-900);
+  }
+
+  .metric-card:not(.highlight) {
+    background: var(--tf-gray-800);
+    border-color: var(--tf-gray-700);
+    color: var(--tf-gray-100);
+  }
+
+  .metric-card:not(.highlight) .metric-value,
+  .metric-card:not(.highlight) .metric-label {
+    color: var(--tf-gray-100);
+  }
+
+  .metric-card.highlight {
+    background: var(--tf-gray-700);
+  }
+
+  .search-input {
+    background: var(--tf-gray-800);
+    border-color: var(--tf-gray-600);
+    color: var(--tf-gray-100);
+  }
+
+  .search-input:focus {
+    border-color: var(--tf-gray-400);
+    box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.2);
+  }
+
+  .chart-section {
+    background: var(--tf-gray-800);
+    border-color: var(--tf-gray-700);
+  }
+
+  .chart-header {
+    background: var(--tf-gray-800);
+    border-color: var(--tf-gray-700);
+    color: var(--tf-gray-100);
+  }
+
+  .chart-title {
+    color: var(--tf-gray-100);
+  }
+}
+
+/* 无障碍支持 */
+@media (prefers-reduced-motion: reduce) {
+  .metric-card,
+  .chart-section,
+  .indicator-dot {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .chart-actions,
+  .real-time-indicator,
+  .search-input {
+    display: none;
+  }
+
+  .metric-card {
+    break-inside: avoid;
+  }
+}
