@@ -1,35 +1,39 @@
+/* 引入 TinyFlow 设计系统 */
+@import './style/tinyflow-design-system.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* 兼容性保留 - 使用设计系统中的变量重新定义 */
 :root {
-  /* 飞书设计系统配色 */
-  --tf-brand-primary: #1D9BF0;
-  --tf-brand-hover: #1A7FE0;
-  --tf-brand-pressed: #1554C0;
-  --tf-brand-light: #E6F3FF;
-  --tf-brand-lighter: #F2F7FF;
-  
-  --tf-bg-page: #F7F8FA;
-  --tf-bg-card: #FFFFFF;
-  --tf-bg-hover: #F2F3F5;
-  
-  --tf-border: #E4E6EB;
-  --tf-border-hover: #3370FF;
-  --tf-divider: #EBEEF2;
-  
-  --tf-text-title: #1F2329;
-  --tf-text-body: #646A73;
-  --tf-text-muted: #8F959E;
-  --tf-text-disabled: #C9CDD4;
-  
-  --tf-success: #00C875;
-  --tf-warning: #FFAB00;
-  --tf-error: #F54A45;
-  
-  --tf-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --tf-shadow-hover: 0 4px 12px rgba(51, 112, 255, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
-  --tf-shadow-modal: 0 12px 40px rgba(31, 35, 41, 0.12);
+  /* 兼容旧变量 */
+  --tf-brand-primary: var(--tf-brand-primary);
+  --tf-brand-hover: var(--tf-brand-primary-hover);
+  --tf-brand-pressed: var(--tf-brand-primary-pressed);
+  --tf-brand-light: var(--tf-brand-primary-light);
+  --tf-brand-lighter: var(--tf-brand-primary-lighter);
+
+  --tf-bg-page: var(--tf-bg-page);
+  --tf-bg-card: var(--tf-bg-card);
+  --tf-bg-hover: var(--tf-bg-hover);
+
+  --tf-border: var(--tf-border-light);
+  --tf-border-hover: var(--tf-brand-primary);
+  --tf-divider: var(--tf-border-light);
+
+  --tf-text-title: var(--tf-text-primary);
+  --tf-text-body: var(--tf-text-secondary);
+  --tf-text-muted: var(--tf-text-muted);
+  --tf-text-disabled: var(--tf-text-disabled);
+
+  --tf-success: var(--tf-success);
+  --tf-warning: var(--tf-warning);
+  --tf-error: var(--tf-error);
+
+  --tf-shadow-card: var(--tf-shadow-card);
+  --tf-shadow-hover: var(--tf-shadow-card-hover);
+  --tf-shadow-modal: var(--tf-shadow-modal);
 }
 
 html {

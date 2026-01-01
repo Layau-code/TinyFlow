@@ -3,276 +3,373 @@
     <div class="max-w-7xl mx-auto p-6 space-y-6">
       <!-- 顶部操作栏 -->
       <div class="flex items-center justify-between flex-wrap gap-4">
-        <h1 class="text-xl font-semibold text-gray-800">数据看板</h1>
+        <div class="dashboard-header">
+          <h1 class="dashboard-title">数据看板</h1>
+          <div class="dashboard-subtitle">实时监控短链接访问数据</div>
+        </div>
         <div class="flex items-center gap-3">
           <input v-model="searchQuery" type="text" placeholder="搜索短链..." class="search-input" />
-          <button @click="refreshAll" class="btn btn-secondary">刷新</button>
-          <button @click="exportCSV" class="btn btn-secondary">导出CSV</button>
+          <button @click="refreshAll" class="action-btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="mr-1">
+              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            刷新
+          </button>
+          <button @click="exportCSV" class="action-btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="mr-1">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            导出CSV
+          </button>
         </div>
       </div>
 
+      <!-- 数据筛选 -->
+      <DataFilter @filterChange="handleFilterChange" />
       <!-- 全局统计概览 -->
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div class="metric-card">
-          <div class="metric-label">总短链数</div>
-          <div class="metric-value">
-            <AnimatedNumber :value="globalStats?.totalUrls ?? 0" :duration="1200" />
-          </div>
-          <div class="metric-trend" v-if="globalStats?.totalUrls">
-            <span class="trend-icon">•</span> 系统总计
-          </div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">总点击量(PV)</div>
-          <div class="metric-value">
-            <AnimatedNumber :value="globalStats?.totalClicks ?? 0" :duration="1200" />
-          </div>
-          <div class="metric-trend positive" v-if="globalStats?.totalClicks">
-            <span class="trend-icon">↑</span> 累计访问
-          </div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">独立访客(UV)</div>
-          <div class="metric-value">
-            <AnimatedNumber :value="globalStats?.totalUniqueIps ?? 0" :duration="1200" />
-          </div>
-          <div class="metric-trend" v-if="globalStats?.totalUniqueIps">
-            <span class="trend-icon">•</span> 独立 IP
-          </div>
-        </div>
-        <div class="metric-card highlight">
-          <div class="metric-label">今日点击</div>
-          <div class="metric-value">
-            <AnimatedNumber :value="globalStats?.todayClicks ?? 0" :duration="1200" />
-          </div>
-          <div class="metric-trend positive" v-if="globalStats?.todayClicks">
-            <span class="trend-icon">•</span> 实时数据
-          </div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">活跃短链</div>
-          <div class="metric-value">
-            <AnimatedNumber :value="globalStats?.activeUrls ?? 0" :duration="1200" />
-          </div>
-          <div class="metric-trend" v-if="globalStats?.activeUrls">
-            <span class="trend-icon">•</span> 有访问记录
-          </div>
-        </div>
-      </div>
-
-      <!-- 图表区域 -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- 访问趋势 -->
-        <div class="card">
-          <div class="card-header flex items-center justify-between">
-            <span>访问趋势</span>
-            <div class="flex gap-2">
-              <button class="btn-tab" :class="{ active: trendDays === 7 }" @click="setTrendDays(7)">7天</button>
-              <button class="btn-tab" :class="{ active: trendDays === 14 }" @click="setTrendDays(14)">14天</button>
-              <button class="btn-tab" :class="{ active: trendDays === 30 }" @click="setTrendDays(30)">30天</button>
+      <div class="metrics-grid">
+        <div class="metric-card tf-card">
+          <div class="metric-icon">🔗</div>
+          <div class="metric-content">
+            <div class="metric-label">总短链数</div>
+            <div class="metric-value">
+              <AnimatedNumber :value="globalStats?.totalUrls ?? 0" :duration="1200" />
             </div>
           </div>
-          <div class="card-body">
-            <div class="chart-container-enhanced">
-              <Suspense>
-                <G2LineChart 
-                  :data="trendChartData" 
-                  :height="280" 
-                  x-field="date" 
-                  y-field="value"
-                  color="#3b82f6" 
-                  :smooth="true" 
-                />
-                <template #fallback><div class="chart-placeholder">加载中...</div></template>
-              </Suspense>
-              <!-- 数据洞察提示 -->
-              <div v-if="trendInsight" class="chart-insight">
-                <span class="insight-text">{{ trendInsight }}</span>
-              </div>
+          <div class="metric-trend" v-if="globalStats?.totalUrls">
+            <span class="trend-icon">📈</span> 系统总计
+          </div>
+        </div>
+
+        <div class="metric-card tf-card">
+          <div class="metric-icon">👁️</div>
+          <div class="metric-content">
+            <div class="metric-label">总点击量(PV)</div>
+            <div class="metric-value">
+              <AnimatedNumber :value="globalStats?.totalClicks ?? 0" :duration="1200" />
+            </div>
+          </div>
+          <div class="metric-trend positive" v-if="globalStats?.totalClicks">
+            <span class="trend-icon">↗️</span> 累计访问
+          </div>
+        </div>
+
+        <div class="metric-card tf-card">
+          <div class="metric-icon">👥</div>
+          <div class="metric-content">
+            <div class="metric-label">独立访客(UV)</div>
+            <div class="metric-value">
+              <AnimatedNumber :value="globalStats?.totalUniqueIps ?? 0" :duration="1200" />
+            </div>
+          </div>
+          <div class="metric-trend" v-if="globalStats?.totalUniqueIps">
+            <span class="trend-icon">📍</span> 独立 IP
+          </div>
+        </div>
+
+        <div class="metric-card tf-card highlight">
+          <div class="metric-icon">🔥</div>
+          <div class="metric-content">
+            <div class="metric-label">今日点击</div>
+            <div class="metric-value">
+              <AnimatedNumber :value="globalStats?.todayClicks ?? 0" :duration="1200" />
+            </div>
+          </div>
+          <div class="metric-trend positive" v-if="globalStats?.todayClicks">
+            <span class="trend-icon">⚡</span> 实时数据
+          </div>
+        </div>
+
+        <div class="metric-card tf-card">
+          <div class="metric-icon">✅</div>
+          <div class="metric-content">
+            <div class="metric-label">活跃短链</div>
+            <div class="metric-value">
+              <AnimatedNumber :value="globalStats?.activeUrls ?? 0" :duration="1200" />
+            </div>
+          </div>
+          <div class="metric-trend" v-if="globalStats?.activeUrls">
+            <span class="trend-icon">🎯</span> 有访问记录
+          </div>
+        </div>
+
+        <div class="metric-card tf-card">
+          <div class="metric-icon">📊</div>
+          <div class="metric-content">
+            <div class="metric-label">PV/UV 比率</div>
+            <div class="metric-value">
+              {{ pvUvRatio.toFixed(2) }}
+            </div>
+          </div>
+          <div class="metric-trend">
+            <span class="trend-icon">📐</span> 平均访问深度
+          </div>
+        </div>
+      </div>
+      <!-- 图表区域 -->
+      <div class="charts-grid">
+        <!-- 高级趋势图表 -->
+        <div class="chart-section tf-card">
+          <div class="chart-header">
+            <div class="chart-title">
+              <span class="title-icon">📈</span>
+              访问趋势分析
+            </div>
+            <div class="chart-actions">
+              <button class="chart-action-btn" @click="toggleDataMode">
+                {{ showRealTime ? '历史数据' : '实时数据' }}
+              </button>
+            </div>
+          </div>
+          <div class="chart-body">
+            <AdvancedTrendChart
+              :data="trendChartData"
+              :height="320"
+              :show-stats="true"
+            />
+            <div v-if="trendInsight" class="chart-insight-enhanced">
+              <span class="insight-icon">💡</span>
+              <span class="insight-text">{{ trendInsight }}</span>
             </div>
           </div>
         </div>
 
         <!-- 设备分布 - 饼图 -->
-        <div class="card">
-          <div class="card-header">设备分布</div>
-          <div class="card-body">
-            <div class="chart-container-enhanced">
+        <div class="tf-card">
+          <div class="tf-card-header tf-font-semibold">设备分布</div>
+          <div class="tf-card-body">
+            <div class="tf-chart-container">
               <Suspense>
-                <G2PieChart 
+                <G2PieChart
                   v-if="devicePieData.length > 0"
-                  :data="devicePieData" 
+                  :data="devicePieData"
                   :height="280"
                   value-field="value"
                   label-field="label"
-                  :colors="['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe']" 
+                  :colors="['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe']"
                 />
-                <template #fallback><div class="chart-placeholder">加载中...</div></template>
+                <template #fallback><div class="tf-chart-placeholder">加载中...</div></template>
               </Suspense>
-              <div v-if="devicePieData.length === 0" class="empty-state-enhanced">
-                <div class="empty-text">暂无设备数据</div>
-                <div class="empty-hint">当有访问者点击短链时，此处将显示设备分布</div>
+              <div v-if="devicePieData.length === 0" class="tf-empty-state">
+                <div class="tf-empty-icon">📱</div>
+                <div class="tf-empty-title">暂无设备数据</div>
+                <div class="tf-empty-description">当有访问者点击短链时，此处将显示设备分布</div>
               </div>
               <!-- 设备统计说明 -->
-              <div v-if="deviceSummary" class="chart-insight">
+              <div v-if="deviceSummary" class="tf-chart-insight">
                 <span class="insight-text">{{ deviceSummary }}</span>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- 城市TOP10 -->
-        <div class="card">
-          <div class="card-header">城市 TOP 10</div>
-          <div class="card-body">
-            <Suspense>
-              <G2HBarChart 
-                v-if="cityChartData.length > 0"
-                :data="cityChartData" 
-                :height="280"
-                x-field="count"
-                y-field="name"
-              />
-              <template #fallback><div class="chart-placeholder">加载中...</div></template>
-            </Suspense>
-            <div v-if="!cityTop10.length" class="empty-state-enhanced">
-              <div class="empty-text">暂无城市数据</div>
-              <div class="empty-hint">当有访问者点击短链时，此处将显示城市分布</div>
+        <!-- 设备与OS分布 -->
+        <div class="chart-section tf-card">
+          <div class="chart-header">
+            <div class="chart-title">
+              <span class="title-icon">💻</span>
+              设备与系统分布
+            </div>
+          </div>
+          <div class="chart-body">
+            <BrowserOSChart :data="allEvents" />
+            <div class="distribution-insight" v-if="deviceSummary">
+              <span class="insight-icon">📱</span>
+              <span class="insight-text">{{ deviceSummary }}</span>
             </div>
           </div>
         </div>
 
-        <!-- 来源TOP10 -->
-        <div class="card">
-          <div class="card-header">来源域名 TOP 10</div>
-          <div class="card-body">
-            <Suspense>
-              <G2HBarChart 
-                v-if="sourceChartData.length > 0"
-                :data="sourceChartData" 
-                :height="280"
-                x-field="count"
-                y-field="name"
-              />
-              <template #fallback><div class="chart-placeholder">加载中...</div></template>
-            </Suspense>
-            <div v-if="!sourceTop10.length" class="empty-state-enhanced">
-              <div class="empty-text">暂无来源数据</div>
-              <div class="empty-hint">系统将记录访问者来源，分析流量渠道</div>
+        <!-- 地理分布 -->
+        <div class="chart-section tf-card">
+          <div class="chart-header">
+            <div class="chart-title">
+              <span class="title-icon">🌍</span>
+              地理分布分析
+            </div>
+          </div>
+          <div class="chart-body">
+            <div class="geo-grid">
+              <div class="geo-section">
+                <div class="sub-title">城市 TOP 10</div>
+                <div class="geo-chart-container">
+                  <Suspense>
+                    <G2HBarChart
+                      v-if="cityChartData.length > 0"
+                      :data="cityChartData"
+                      :height="120"
+                      x-field="count"
+                      y-field="name"
+                    />
+                    <template #fallback><div class="chart-placeholder">加载中...</div></template>
+                  </Suspense>
+                </div>
+              </div>
+              <div class="geo-section">
+                <div class="sub-title">来源域名 TOP 10</div>
+                <div class="geo-chart-container">
+                  <Suspense>
+                    <G2HBarChart
+                      v-if="sourceChartData.length > 0"
+                      :data="sourceChartData"
+                      :height="120"
+                      x-field="count"
+                      y-field="name"
+                    />
+                    <template #fallback><div class="chart-placeholder">加载中...</div></template>
+                  </Suspense>
+                </div>
+              </div>
+            </div>
+            <div v-if="geoInsight" class="chart-insight-enhanced">
+              <span class="insight-icon">📍</span>
+              <span class="insight-text">{{ geoInsight }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 实时数据 -->
+        <div class="chart-section tf-card" v-if="showRealTime">
+          <div class="chart-header">
+            <div class="chart-title">
+              <span class="title-icon">⚡</span>
+              实时访问监控
+            </div>
+            <div class="real-time-indicator">
+              <span class="indicator-dot"></span>
+              实时更新
+            </div>
+          </div>
+          <div class="chart-body">
+            <div class="real-time-stats">
+              <div class="real-time-item">
+                <div class="rt-label">当前在线</div>
+                <div class="rt-value">{{ realTimeStats.onlineUsers }}</div>
+              </div>
+              <div class="real-time-item">
+                <div class="rt-label">近5分钟PV</div>
+                <div class="rt-value">{{ realTimeStats.last5MinPV }}</div>
+              </div>
+              <div class="real-time-item">
+                <div class="rt-label">服务器状态</div>
+                <div class="rt-status" :class="realTimeStats.serverStatus">
+                  {{ realTimeStats.serverStatus === 'normal' ? '正常' : '异常' }}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 热门短链排行 -->
-      <div class="card">
-        <div class="card-header">热门短链 TOP 10</div>
-        <div class="card-body">
-          <div class="hoturl-list">
-            <div v-for="(url, idx) in topUrls" :key="url.shortCode" class="hoturl-item">
+      <div class="tf-card tf-mb-6">
+        <div class="tf-card-header tf-font-semibold">热门短链 TOP 10</div>
+        <div class="tf-card-body">
+          <div class="tf-hoturl-list">
+            <div v-for="(url, idx) in topUrls" :key="url.shortCode" class="tf-hoturl-item">
               <!-- 排名徽章 -->
-              <span class="rank-badge" :class="{ 'rank-top3': idx < 3 }">{{ idx + 1 }}</span>
-              
+              <span class="tf-rank-badge" :class="{ 'tf-rank-top3': idx < 3 }">{{ idx + 1 }}</span>
+
               <!-- 短链信息 -->
-              <div class="hoturl-info">
-                <div class="hoturl-header">
-                  <a :href="`${SHORT_BASE}/${url.shortCode}`" target="_blank" class="hoturl-code">
+              <div class="tf-hoturl-info">
+                <div class="tf-hoturl-header">
+                  <a :href="`${SHORT_BASE}/${url.shortCode}`" target="_blank" class="tf-hoturl-code">
                     {{ url.shortCode }}
                   </a>
-                  <span class="hoturl-clicks">{{ url.totalClicks }} 次</span>
+                  <span class="tf-hoturl-clicks">{{ url.totalClicks }} 次</span>
                 </div>
-                <div class="hoturl-url">{{ url.longUrl }}</div>
-                
+                <div class="tf-hoturl-url">{{ url.longUrl }}</div>
+
                 <!-- 可视化条形图 -->
-                <div class="hoturl-bar">
-                  <div class="hoturl-bar-bg">
-                    <div class="hoturl-bar-fill" :style="{ width: getHotUrlPercent(url.totalClicks, topUrls) + '%' }"></div>
+                <div class="tf-hoturl-bar">
+                  <div class="tf-hoturl-bar-bg">
+                    <div class="tf-hoturl-bar-fill" :style="{ width: getHotUrlPercent(url.totalClicks, topUrls) + '%' }"></div>
                   </div>
-                  <div class="hoturl-stats">
-                    <span class="stat-item">今日: {{ url.todayClicks || 0 }}</span>
-                    <span class="stat-divider">|</span>
-                    <router-link :to="'/stats/' + url.shortCode" class="stat-link">详情</router-link>
-                    <button @click="copyUrl(url.shortCode)" class="stat-link">
+                  <div class="tf-hoturl-stats">
+                    <span class="tf-stat-item">今日: {{ url.todayClicks || 0 }}</span>
+                    <span class="tf-stat-divider">|</span>
+                    <router-link :to="'/stats/' + url.shortCode" class="tf-stat-link">详情</router-link>
+                    <button @click="copyUrl(url.shortCode)" class="tf-stat-link">
                       {{ copyingCode === url.shortCode ? '已复制' : '复制' }}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-            
-            <div v-if="!topUrls.length" class="empty-state-enhanced">
-              <div class="empty-text">暂无热门短链</div>
-              <div class="empty-hint">创建短链并获得访问后，此处将显示热门排行</div>
+
+            <div v-if="!topUrls.length" class="tf-empty-state">
+              <div class="tf-empty-icon">🔥</div>
+              <div class="tf-empty-title">暂无热门短链</div>
+              <div class="tf-empty-description">创建短链并获得访问后，此处将显示热门排行</div>
             </div>
           </div>
         </div>
       </div>
-
       <!-- 所有短链列表 -->
-      <div class="card">
-        <div class="card-header flex items-center justify-between">
-          <span>所有短链</span>
-          <span class="text-sm text-gray-500">共 {{ totalElements }} 条</span>
+      <div class="tf-card">
+        <div class="tf-card-header tf-flex tf-justify-between tf-items-center">
+          <span class="tf-font-semibold">所有短链</span>
+          <span class="tf-text-sm tf-text-muted">共 {{ totalElements }} 条</span>
         </div>
-        <div class="card-body p-0">
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>短码</th>
-                  <th>原始链接</th>
-                  <th>总点击</th>
-                  <th>今日点击</th>
-                  <th>占比</th>
-                  <th>创建时间</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="url in filteredList" :key="url.shortCode">
-                  <td>
-                    <a :href="`${SHORT_BASE}/${url.shortCode}`" target="_blank" class="code-badge hover:underline" style="color: #3b82f6; text-decoration: none;">
-                      {{ url.shortCode }}
-                    </a>
-                  </td>
-                  <td class="truncate max-w-[300px]">{{ url.longUrl }}</td>
-                  <td class="font-semibold text-blue-600">{{ url.totalVisits ?? '-' }}</td>
-                  <td>{{ url.todayVisits === 0 ? '-' : url.todayVisits }}</td>
-                  <td>
-                    <div class="share-bar">
-                      <div class="share-fill" :style="{ width: getSharePercent(url) + '%' }"></div>
-                      <span class="share-text">{{ getSharePercent(url).toFixed(1) }}%</span>
-                    </div>
-                  </td>
-                  <td>{{ formatDate(url.createdAt) }}</td>
-                  <td>
-                    <div class="flex gap-2">
-                      <router-link :to="'/stats/' + url.shortCode" class="action-link">详情</router-link>
-                      <button @click="copyUrl(url.shortCode)" class="action-link">
-                        {{ copyingCode === url.shortCode ? '已复制' : '复制' }}
-                      </button>
-                      <button @click="deleteUrl(url.shortCode)" class="action-link text-red-500">删除</button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="loading">
-                  <td colspan="7" class="text-center py-4 text-gray-500">加载中...</td>
-                </tr>
-                <tr v-if="!loading && !filteredList.length">
-                  <td colspan="7" class="empty-state">暂无数据</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="tf-table-container">
+          <table class="tf-table">
+            <thead>
+              <tr>
+                <th>短码</th>
+                <th>原始链接</th>
+                <th>总点击</th>
+                <th>今日点击</th>
+                <th>占比</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="url in filteredList" :key="url.shortCode">
+                <td>
+                  <a :href="`${SHORT_BASE}/${url.shortCode}`" target="_blank" class="tf-code-badge">
+                    {{ url.shortCode }}
+                  </a>
+                </td>
+                <td class="tf-truncate">{{ url.longUrl }}</td>
+                <td class="tf-font-semibold" style="color: var(--tf-brand-primary);">{{ url.totalVisits ?? '-' }}</td>
+                <td>{{ url.todayVisits === 0 ? '-' : url.todayVisits }}</td>
+                <td>
+                  <div class="tf-share-bar">
+                    <div class="tf-share-fill" :style="{ width: getSharePercent(url) + '%' }"></div>
+                    <span class="tf-share-text">{{ getSharePercent(url).toFixed(1) }}%</span>
+                  </div>
+                </td>
+                <td>{{ formatDate(url.createdAt) }}</td>
+                <td>
+                  <div class="tf-flex tf-gap-2">
+                    <router-link :to="'/stats/' + url.shortCode" class="tf-action-link">详情</router-link>
+                    <button @click="copyUrl(url.shortCode)" class="tf-action-link">
+                      {{ copyingCode === url.shortCode ? '已复制' : '复制' }}
+                    </button>
+                    <button @click="deleteUrl(url.shortCode)" class="tf-action-link" style="color: var(--tf-gray-500);">删除</button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="loading">
+                <td colspan="7" class="tf-text-center tf-py-4 tf-text-muted">
+                  <div class="tf-loading">加载中...</div>
+                </td>
+              </tr>
+              <tr v-if="!loading && !filteredList.length">
+                <td colspan="7" class="tf-empty-state tf-text-center">
+                  <div class="tf-empty-icon">📄</div>
+                  <div class="tf-empty-title">暂无数据</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <!-- 分页 -->
-        <div class="card-footer">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-gray-500">第 {{ page }} 页 / 共 {{ totalPages }} 页</span>
-            <div class="flex gap-2">
-              <button class="btn btn-secondary btn-sm" @click="prevPage" :disabled="page <= 1">上一页</button>
-              <button class="btn btn-secondary btn-sm" @click="nextPage" :disabled="page >= totalPages">下一页</button>
-            </div>
+        <div class="tf-card-footer tf-flex tf-justify-between tf-items-center">
+          <span class="tf-text-sm tf-text-muted">第 {{ page }} 页 / 共 {{ totalPages }} 页</span>
+          <div class="tf-flex tf-gap-2">
+            <button class="action-btn-secondary tf-btn-sm" @click="prevPage" :disabled="page <= 1">上一页</button>
+            <button class="action-btn-secondary tf-btn-sm" @click="nextPage" :disabled="page >= totalPages">下一页</button>
           </div>
         </div>
       </div>
@@ -287,8 +384,12 @@ import axios from 'axios'
 import { API_BASE, SHORT_BASE } from '../composables/shortBase'
 import { copyToClipboard } from '../composables/useCopy'
 
-const TrendChart = defineAsyncComponent(() => import('../components/TrendChart.vue'))
-const PieDonut = defineAsyncComponent(() => import('../components/charts/PieDonut.vue'))
+// 新导入的组件
+import DataFilter from '../components/data/DataFilter.vue'
+import AdvancedTrendChart from '../components/charts/AdvancedTrendChart.vue'
+import BrowserOSChart from '../components/charts/BrowserOSChart.vue'
+
+// 保持原有组件导入
 const G2LineChart = defineAsyncComponent(() => import('../components/charts/G2LineChart.vue'))
 const G2PieChart = defineAsyncComponent(() => import('../components/charts/G2PieChart.vue'))
 const G2BarChart = defineAsyncComponent(() => import('../components/charts/G2BarChart.vue'))
@@ -309,6 +410,16 @@ const pageSize = 10
 const totalElements = ref(0)
 const totalPages = ref(1)
 const trendDays = ref(7)
+const showRealTime = ref(false)
+const allEvents = ref([])
+const realTimeStats = ref({
+  onlineUsers: 0,
+  last5MinPV: 0,
+  serverStatus: 'normal'
+})
+
+// 筛选状态
+const activeFilters = ref({})
 
 // 分布数据
 const deviceDistribution = ref([])
@@ -316,6 +427,35 @@ const cityTop10 = ref([])
 const sourceTop10 = ref([])
 const dailyTrendLabels = ref([])
 const dailyTrendValues = ref([])
+
+// PV/UV 比率计算
+const pvUvRatio = computed(() => {
+  const pv = globalStats.value?.totalClicks || 0
+  const uv = globalStats.value?.totalUniqueIps || 1
+  return pv / uv
+})
+
+// 地理分布洞察
+const geoInsight = computed(() => {
+  const cities = cityTop10.value
+  const sources = sourceTop10.value
+
+  if (!cities.length && !sources.length) return ''
+
+  let insight = ''
+
+  if (cities.length > 0) {
+    const topCity = cities[0]
+    insight += `主要访问来自 ${topCity.key}，占比 ${Math.round(topCity.count / deviceTotal.value * 100)}%`
+  }
+
+  if (sources.length > 0) {
+    const topSource = sources[0]
+    insight += `，主要来源为 ${topSource.key}`
+  }
+
+  return insight
+})
 
 // 计算属性
 const deviceTotal = computed(() => deviceDistribution.value.reduce((a, b) => a + b.count, 0))
@@ -356,12 +496,12 @@ const sourceChartData = computed(() => {
 const trendInsight = computed(() => {
   const values = dailyTrendValues.value
   if (!values || values.length < 2) return ''
-  
+
   const total = values.reduce((a, b) => a + b, 0)
   const avg = Math.round(total / values.length)
   const lastValue = values[values.length - 1]
   const prevValue = values[values.length - 2]
-  
+
   if (lastValue > prevValue) {
     const growth = Math.round((lastValue - prevValue) / Math.max(prevValue, 1) * 100)
     return `近${trendDays.value}天平均每天 ${avg} 次访问，最近一天增长 ${growth}%`
@@ -376,17 +516,17 @@ const trendInsight = computed(() => {
 const deviceSummary = computed(() => {
   const devices = deviceDistribution.value
   if (!devices || devices.length === 0) return ''
-  
+
   const total = devices.reduce((a, b) => a + b.count, 0)
   const topDevice = devices.reduce((max, item) => item.count > max.count ? item : max, devices[0])
   const percent = Math.round(topDevice.count / total * 100)
-  
+
   const deviceName = {
     'desktop': '桌面设备',
     'mobile': '移动设备',
     'tablet': '平板设备'
   }[topDevice.key] || topDevice.key
-  
+
   return `${deviceName}访问占比最高，达 ${percent}%`
 })
 
@@ -394,8 +534,8 @@ const filteredList = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   const list = urlList.value || []
   if (!q) return list
-  return list.filter(u => 
-    (u.shortCode || '').toLowerCase().includes(q) || 
+  return list.filter(u =>
+    (u.shortCode || '').toLowerCase().includes(q) ||
     (u.longUrl || '').toLowerCase().includes(q)
   )
 })
@@ -403,6 +543,36 @@ const filteredList = computed(() => {
 const totalClicks = computed(() => {
   return (urlList.value || []).reduce((sum, u) => sum + Number(u.totalVisits || 0), 0) || 1
 })
+
+// 新增方法
+function handleFilterChange(filters) {
+  activeFilters.value = filters
+  // 应用筛选条件重新获取数据
+  fetchDataWithFilters()
+}
+
+function fetchDataWithFilters() {
+  // 根据筛选条件重新获取数据
+  refreshAll()
+}
+
+function toggleDataMode() {
+  showRealTime.value = !showRealTime.value
+  if (showRealTime.value) {
+    startRealTimeMonitoring()
+  } else {
+    stopRealTimeMonitoring()
+  }
+}
+
+function startRealTimeMonitoring() {
+  // 启动实时监控
+  // 这里可以集成WebSocket或轮询
+}
+
+function stopRealTimeMonitoring() {
+  // 停止实时监控
+}
 
 // 工具函数
 function formatDate(ts) {
@@ -457,21 +627,39 @@ async function fetchGlobalStats() {
     const now = new Date()
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
     const end = now.toISOString().split('T')[0]
-    const res = await axios.get(`${API_BASE}/api/stats/global?start=${start}&end=${end}`)
+
+    // 应用筛选条件
+    const params = new URLSearchParams()
+    params.set('start', start)
+    params.set('end', end)
+
+    if (activeFilters.value.startDate) params.set('start', activeFilters.value.startDate)
+    if (activeFilters.value.endDate) params.set('end', activeFilters.value.endDate)
+    if (activeFilters.value.devices?.length) params.set('devices', activeFilters.value.devices.join(','))
+    if (activeFilters.value.os) params.set('os', activeFilters.value.os)
+    if (activeFilters.value.browser) params.set('browser', activeFilters.value.browser)
+    if (activeFilters.value.region) params.set('region', activeFilters.value.region)
+
+    const res = await axios.get(`${API_BASE}/api/stats/global?${params}`)
     globalStats.value = res.data
-    
+
     // 解析分布数据
     deviceDistribution.value = (res.data.deviceDistribution || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
     cityTop10.value = (res.data.cityTop10 || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
     sourceTop10.value = (res.data.sourceTop10 || []).map(i => ({ key: i.key || i.label, count: Number(i.count || i.value || 0) }))
     topUrls.value = res.data.topUrls || []
-    
+
+    // 获取所有事件数据用于浏览器OS分析
+    if (res.data.recentEvents) {
+      allEvents.value = res.data.recentEvents
+    }
+
     // 趋势数据
     const trend = res.data.dailyTrend || []
     dailyTrendLabels.value = trend.map(i => i.key || i.label)
     dailyTrendValues.value = trend.map(i => Number(i.count || i.value || 0))
-  } catch (e) { 
-    console.error('fetchGlobalStats error:', e) 
+  } catch (e) {
+    console.error('fetchGlobalStats error:', e)
   }
 }
 
@@ -550,604 +738,266 @@ onMounted(refreshAll)
 </script>
 
 <style scoped>
-.dashboard-page {
-  background: #f8fafc;
-  min-height: 100vh;
-}
-
-/* 搜索框 */
-.search-input {
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 14px;
-  width: 200px;
-  background: white;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #2563eb;
-}
-
-/* 按钮 */
-.btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 13px;
-}
-
-.btn-primary {
-  background: #2563eb;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #1d4ed8;
-}
-
-.btn-secondary {
-  background: white;
-  color: #334155;
-  border: 1px solid #e2e8f0;
-}
-
-.btn-secondary:hover {
-  background: #f1f5f9;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-tab {
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 500;
-  background: #f1f5f9;
-  color: #64748b;
-  border: none;
-  cursor: pointer;
-}
-
-.btn-tab.active {
-  background: #2563eb;
-  color: white;
-}
-
-/* 卡片 */
-.card {
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
-}
-
-.card-header {
-  padding: 16px 20px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1e293b;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.card-body {
-  padding: 20px;
-}
-
-.card-footer {
-  padding: 12px 20px;
-  border-top: 1px solid #f1f5f9;
-  background: #fafbfc;
-}
-
-/* 指标卡片 */
-.metric-card {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.metric-label {
-  font-size: 12px;
-  color: #64748b;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-
-.metric-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-/* 图表 */
-.chart-container {
-  height: 280px;
-  background: #fafbfc;
-  border: 1px dashed #e2e8f0;
-  border-radius: 6px;
-}
-
-.chart-placeholder {
-  height: 280px;
-}
-
-/* 分布列表 */
-.distribution-list {
+@import '../style/dashboard-optimized.css';
+/* 热门短链列表样式 */
+.tf-hoturl-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--tf-space-4);
 }
 
-.dist-item {
+.tf-hoturl-item {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: var(--tf-space-3);
+  padding: var(--tf-space-4);
+  background: var(--tf-gray-50);
+  border: 1px solid var(--tf-border-light);
+  border-radius: var(--tf-radius-md);
+  transition: all var(--tf-duration-normal) var(--tf-ease-in-out);
 }
 
-.dist-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.tf-hoturl-item:hover {
+  border-color: var(--tf-gray-500);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
 
-.dist-name {
-  flex: 1;
-  font-size: 14px;
-  color: #334155;
-}
-
-.dist-count {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.dist-percent {
-  font-size: 13px;
-  color: #64748b;
-  min-width: 45px;
-  text-align: right;
-}
-
-.dist-bar {
-  height: 6px;
-  background: #f1f5f9;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.dist-fill {
-  height: 100%;
-  background: #2563eb;
-  border-radius: 3px;
-}
-
-/* 排行 */
-.rank-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rank-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.rank-item:last-child {
-  border-bottom: none;
-}
-
-.rank-num {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #2563eb;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 50%;
-}
-
-.rank-item:nth-child(n+4) .rank-num {
-  background: #94a3b8;
-}
-
-.rank-name {
-  flex: 1;
-  font-size: 14px;
-  color: #334155;
-}
-
-.rank-count {
-  font-size: 14px;
-  font-weight: 600;
-  color: #2563eb;
-}
-
-.rank-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: #2563eb;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 50%;
-}
-
-tr:nth-child(n+4) .rank-badge {
-  background: #94a3b8;
-}
-
-/* 表格 */
-.table-container {
-  overflow-x: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th,
-.data-table td {
-  padding: 12px 16px;
-  text-align: left;
-  font-size: 13px;
-}
-
-.data-table th {
-  background: #f8fafc;
-  font-weight: 600;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.data-table td {
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
-}
-
-.data-table tr:hover td {
-  background: #fafbfc;
-}
-
-.code-badge {
-  font-family: monospace;
-  background: #f1f5f9;
-  padding: 4px 8px;
-  border-radius: 4px;
-  color: #2563eb;
-  font-size: 13px;
-}
-
-.action-link {
-  color: #2563eb;
-  font-size: 13px;
-  text-decoration: none;
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: 0;
-}
-
-.action-link:hover {
-  text-decoration: underline;
-}
-
-/* 占比条 */
-.share-bar {
-  position: relative;
-  height: 20px;
-  background: #f1f5f9;
-  border-radius: 4px;
-  overflow: hidden;
-  min-width: 100px;
-}
-
-.share-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: #2563eb;
-  border-radius: 4px;
-}
-
-.share-text {
-  position: relative;
-  z-index: 1;
-  font-size: 12px;
-  color: #334155;
-  padding: 0 8px;
-  line-height: 20px;
-}
-
-.empty-state {
-  padding: 40px 20px;
-  text-align: center;
-  color: #94a3b8;
-  font-size: 14px;
-}
-
-.truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ========== 新增：增强视觉样式 ========== */
-
-/* 指标卡片增强 */
-.metric-card.highlight {
-  border-color: #3b82f6;
-  background: #eff6ff;
-}
-
-.metric-trend {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.metric-trend.positive {
-  color: #16a34a;
-}
-
-.trend-icon {
-  font-size: 14px;
-}
-
-/* 图表容器增强 */
-.chart-container-enhanced {
-  min-height: 320px;
-  position: relative;
-}
-
-.chart-placeholder {
-  height: 280px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-  font-size: 14px;
-  background: #f8fafc;
-  border: 1px dashed #e2e8f0;
-  border-radius: 6px;
-}
-
-/* 图表洞察提示 */
-.chart-insight {
-  margin-top: 12px;
-  padding: 12px 16px;
-  background: #f0f9ff;
-  border-left: 3px solid #3b82f6;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #1e40af;
-}
-
-.insight-text {
-  line-height: 1.5;
-}
-
-/* 排名列表增强 */
-.rank-list-enhanced {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 200px;
-}
-
-.rank-item-enhanced {
-  display: grid;
-  grid-template-columns: 32px 1fr 100px 60px;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.rank-item-enhanced:last-child {
-  border-bottom: none;
-}
-
-.rank-badge {
+.tf-rank-badge {
   width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #cbd5e1;
+  background: var(--tf-gray-400);
   color: white;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 50%;
+  font-size: var(--tf-text-sm);
+  font-weight: var(--tf-font-semibold);
+  border-radius: var(--tf-radius-full);
   flex-shrink: 0;
 }
 
-.rank-badge.rank-top3 {
-  background: #3b82f6;
+.tf-rank-badge.tf-rank-top3 {
+  background: var(--tf-gray-600);
 }
 
-.rank-bar {
-  height: 8px;
-  background: #f1f5f9;
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
-}
-
-.rank-bar-fill {
-  height: 100%;
-  background: #3b82f6;
-  border-radius: 4px;
-  transition: width 0.5s ease;
-}
-
-/* 空状态增强 */
-.empty-state-enhanced {
-  padding: 60px 20px;
-  text-align: center;
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.empty-text {
-  font-size: 16px;
-  font-weight: 500;
-  color: #64748b;
-  margin-bottom: 8px;
-}
-
-.empty-hint {
-  font-size: 13px;
-  color: #94a3b8;
-  max-width: 300px;
-  line-height: 1.6;
-}
-
-/* 热门短链可视化列表 */
-.hoturl-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.hoturl-item {
-  display: flex;
-  gap: 12px;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
-}
-
-.hoturl-item:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
-}
-
-.hoturl-info {
+.tf-hoturl-info {
   flex: 1;
   min-width: 0;
 }
 
-.hoturl-header {
+.tf-hoturl-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  gap: var(--tf-space-3);
+  margin-bottom: var(--tf-space-2);
 }
 
-.hoturl-code {
-  font-size: 16px;
-  font-weight: 600;
-  color: #3b82f6;
+.tf-hoturl-code {
+  font-size: var(--tf-text-base);
+  font-weight: var(--tf-font-semibold);
+  color: var(--tf-gray-700);
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color var(--tf-duration-fast) var(--tf-ease-in-out);
 }
 
-.hoturl-code:hover {
-  color: #2563eb;
+.tf-hoturl-code:hover {
+  color: var(--tf-gray-900);
   text-decoration: underline;
 }
 
-.hoturl-clicks {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1e293b;
+.tf-hoturl-clicks {
+  font-size: var(--tf-text-base);
+  font-weight: var(--tf-font-semibold);
+  color: var(--tf-gray-800);
 }
 
-.hoturl-url {
-  font-size: 13px;
-  color: #64748b;
-  margin-bottom: 10px;
+.tf-hoturl-url {
+  font-size: var(--tf-text-sm);
+  color: var(--tf-gray-600);
+  margin-bottom: var(--tf-space-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.hoturl-bar {
+.tf-hoturl-bar {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--tf-space-2);
 }
 
-.hoturl-bar-bg {
+.tf-hoturl-bar-bg {
   height: 8px;
-  background: #e2e8f0;
-  border-radius: 4px;
+  background: var(--tf-gray-200);
+  border-radius: var(--tf-radius-full);
   overflow: hidden;
   position: relative;
 }
 
-.hoturl-bar-fill {
+.tf-hoturl-bar-fill {
   height: 100%;
-  background: #3b82f6;
-  border-radius: 4px;
-  transition: width 0.6s ease;
+  background: var(--tf-gray-600);
+  border-radius: var(--tf-radius-full);
+  transition: width var(--tf-duration-slow) var(--tf-ease-out);
 }
 
-.hoturl-stats {
+.tf-hoturl-stats {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: var(--tf-space-2);
+  font-size: var(--tf-text-xs);
 }
 
-.stat-item {
-  color: #64748b;
+.tf-stat-item {
+  color: var(--tf-gray-600);
 }
 
-.stat-divider {
-  color: #cbd5e1;
+.tf-stat-divider {
+  color: var(--tf-gray-300);
 }
 
-.stat-link {
-  color: #3b82f6;
+.tf-stat-link {
+  color: var(--tf-gray-600);
   text-decoration: none;
   cursor: pointer;
   border: none;
   background: none;
   padding: 0;
-  font-size: 12px;
-  transition: color 0.2s ease;
+  font-size: var(--tf-text-xs);
+  transition: color var(--tf-duration-fast) var(--tf-ease-in-out);
 }
 
-.stat-link:hover {
-  color: #2563eb;
+.tf-stat-link:hover {
+  color: var(--tf-gray-800);
   text-decoration: underline;
+}
+
+/* 表格相关样式 */
+.tf-code-badge {
+  font-family: monospace;
+  background: var(--tf-gray-100);
+  padding: var(--tf-space-1) var(--tf-space-2);
+  border-radius: var(--tf-radius-sm);
+  color: var(--tf-gray-700);
+  font-size: var(--tf-text-xs);
+  text-decoration: none;
+  transition: all var(--tf-duration-fast) var(--tf-ease-in-out);
+}
+
+.tf-code-badge:hover {
+  background: var(--tf-gray-200);
+  color: var(--tf-gray-900);
+  text-decoration: underline;
+}
+
+.tf-share-bar {
+  position: relative;
+  height: 20px;
+  background: var(--tf-gray-100);
+  border-radius: var(--tf-radius-sm);
+  overflow: hidden;
+  min-width: 100px;
+}
+
+.tf-share-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--tf-gray-600);
+  border-radius: var(--tf-radius-sm);
+  transition: width var(--tf-duration-slow) var(--tf-ease-out);
+}
+
+.tf-share-text {
+  position: relative;
+  z-index: 1;
+  font-size: var(--tf-text-xs);
+  color: var(--tf-gray-800);
+  padding: 0 var(--tf-space-2);
+  line-height: 20px;
+  font-weight: var(--tf-font-semibold);
+}
+
+/* 单色按钮样式 */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--tf-space-3) var(--tf-space-4);
+  border: 1px solid var(--tf-gray-500);
+  border-radius: var(--tf-radius);
+  background: white;
+  color: var(--tf-gray-700);
+  font-size: var(--tf-text-sm);
+  font-weight: var(--tf-font-medium);
+  cursor: pointer;
+  transition: all var(--tf-duration-normal) var(--tf-ease-in-out);
+  text-decoration: none;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: var(--tf-gray-100);
+  border-color: var(--tf-gray-600);
+  color: var(--tf-gray-800);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--tf-space-2) var(--tf-space-3);
+  border: 1px solid var(--tf-gray-300);
+  border-radius: var(--tf-radius);
+  background: white;
+  color: var(--tf-gray-600);
+  font-size: var(--tf-text-sm);
+  font-weight: var(--tf-font-medium);
+  cursor: pointer;
+  transition: all var(--tf-duration-normal) var(--tf-ease-in-out);
+}
+
+.action-btn-secondary:hover:not(:disabled) {
+  background: var(--tf-gray-100);
+  border-color: var(--tf-gray-400);
+  color: var(--tf-gray-700);
+}
+
+.action-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn-sm {
+  padding: var(--tf-space-1) var(--tf-space-2);
+  font-size: var(--tf-text-xs);
+}
+
+.tf-action-link {
+  color: var(--tf-gray-600);
+  font-size: var(--tf-text-xs);
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: color var(--tf-duration-fast) var(--tf-ease-in-out);
+}
+
+.tf-action-link:hover {
+  color: var(--tf-gray-800);
+  text-decoration: underline;
+}
+
+/* 兼容性保留样式，可逐渐移除 */
+.dashboard-page {
+  background: var(--tf-gray-50);
+  min-height: 100vh;
 }
 </style>
