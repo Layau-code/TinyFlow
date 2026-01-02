@@ -94,14 +94,32 @@
       <div class="card-header">
         <h3 class="card-title">访问趋势</h3>
         <div class="card-actions">
+          <div class="chart-type-switcher">
+            <button 
+              v-for="type in chartTypes" 
+              :key="type"
+              :class="['chart-type-btn', { active: selectedChartType === type }]"
+              @click="selectedChartType = type; renderTrendChart()">
+              <svg v-if="type === 'line'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              <svg v-else-if="type === 'bar'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="18"/>
+                <rect x="14" y="8" width="7" height="13"/>
+              </svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4M17 9l-5 5-5-5M12 12.8V2.5"/>
+              </svg>
+            </button>
+          </div>
           <button 
-            :class="['time-filter-btn', { active: trendDays === 7 }]" 
-            @click="changeTrendDays(7)">
+            :class="['time-filter-btn', { active: selectedPeriod === '7days' }]" 
+            @click="changePeriod('7days')">
             近7天
           </button>
           <button 
-            :class="['time-filter-btn', { active: trendDays === 30 }]" 
-            @click="changeTrendDays(30)">
+            :class="['time-filter-btn', { active: selectedPeriod === '30days' }]" 
+            @click="changePeriod('30days')">
             近30天
           </button>
         </div>
@@ -114,6 +132,66 @@
             <path d="M12 16v-4M12 8h.01"/>
           </svg>
           <span>{{ trendInsight }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据分析双栏布局 -->
+    <div class="dual-charts-row">
+      <!-- 设备分析 -->
+      <div class="chart-card half-width">
+        <div class="card-header">
+          <h3 class="card-title">设备分析</h3>
+          <div class="card-badge">实时</div>
+        </div>
+        <div class="card-body">
+          <div class="device-chart-container" ref="deviceChart"></div>
+          <div class="device-stats-grid">
+            <div class="device-stat-item" v-for="(item, idx) in deviceData" :key="idx">
+              <div class="device-icon" :class="`device-${item.type}`">
+                <svg v-if="item.type === 'mobile'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                  <line x1="12" y1="18" x2="12.01" y2="18"/>
+                </svg>
+                <svg v-else-if="item.type === 'desktop'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="4" y="2" width="16" height="20" rx="2" ry="2" transform="rotate(90 12 12)"/>
+                </svg>
+              </div>
+              <div class="device-info">
+                <span class="device-name">{{ item.name }}</span>
+                <span class="device-count">{{ formatNumber(item.count) }}</span>
+              </div>
+              <div class="device-percent">{{ item.percent }}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 地理分布 -->
+      <div class="chart-card half-width">
+        <div class="card-header">
+          <h3 class="card-title">地理分布</h3>
+          <div class="card-badge">TOP 10</div>
+        </div>
+        <div class="card-body">
+          <div class="geo-chart-container" ref="geoChart"></div>
+          <div class="geo-list">
+            <div class="geo-item" v-for="(item, idx) in geoData" :key="idx">
+              <div class="geo-rank">{{ idx + 1 }}</div>
+              <div class="geo-info">
+                <span class="geo-name">{{ item.region }}</span>
+                <div class="geo-bar">
+                  <div class="geo-bar-fill" :style="{ width: item.percent + '%' }"></div>
+                </div>
+              </div>
+              <span class="geo-count">{{ formatNumber(item.count) }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -223,7 +301,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import * as echarts from 'echarts'
@@ -231,15 +309,36 @@ import * as echarts from 'echarts'
 const router = useRouter()
 
 // 数据状态
+const loading = ref(false)
 const globalStats = ref({})
 const allUrls = ref([])
 const trendData = ref([])
+const deviceData = ref([])
+const geoData = ref([])
 const searchQuery = ref('')
-const trendDays = ref(7)
 const currentPage = ref(1)
 const pageSize = 20
 const trendChart = ref(null)
+const deviceChart = ref(null)
+const geoChart = ref(null)
 let chartInstance = null
+let deviceChartInstance = null
+let geoChartInstance = null
+
+// 时间维度配置
+const timePeriods = [
+  { label: '今日', value: 'today' },
+  { label: '本周', value: 'week' },
+  { label: '本月', value: 'month' },
+  { label: '近7天', value: '7days' },
+  { label: '近30天', value: '30days' }
+]
+const selectedPeriod = ref('7days')
+const lastUpdateTime = ref('')
+
+// 图表类型切换
+const chartTypes = ['line', 'bar', 'area']
+const selectedChartType = ref('line')
 
 // 计算属性
 const filteredUrls = computed(() => {
@@ -342,6 +441,55 @@ const renderTrendChart = () => {
   const dates = trendData.value.map(d => d.date)
   const visits = trendData.value.map(d => d.visits || 0)
 
+  let series = {}
+  
+  // 根据选中的图表类型渲染不同样式
+  if (selectedChartType.value === 'bar') {
+    series = {
+      data: visits,
+      type: 'bar',
+      barWidth: '50%',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#5B8EFF' },
+          { offset: 1, color: '#3370FF' }
+        ]),
+        borderRadius: [6, 6, 0, 0]
+      }
+    }
+  } else if (selectedChartType.value === 'area') {
+    series = {
+      data: visits,
+      type: 'line',
+      smooth: true,
+      symbol: 'none',
+      lineStyle: { color: '#3370FF', width: 0 },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(51, 112, 255, 0.5)' },
+          { offset: 1, color: 'rgba(51, 112, 255, 0.05)' }
+        ])
+      }
+    }
+  } else {
+    // line
+    series = {
+      data: visits,
+      type: 'line',
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: { color: '#3370FF', width: 3 },
+      itemStyle: { color: '#3370FF' },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(51, 112, 255, 0.3)' },
+          { offset: 1, color: 'rgba(51, 112, 255, 0.05)' }
+        ])
+      }
+    }
+  }
+
   const option = {
     grid: { left: '3%', right: '3%', bottom: '10%', top: '10%', containLabel: true },
     xAxis: {
@@ -357,21 +505,7 @@ const renderTrendChart = () => {
       splitLine: { lineStyle: { color: '#F1F5F9' } },
       axisLabel: { color: '#64748B', fontSize: 12 }
     },
-    series: [{
-      data: visits,
-      type: 'line',
-      smooth: true,
-      symbol: 'circle',
-      symbolSize: 6,
-      lineStyle: { color: '#3370FF', width: 3 },
-      itemStyle: { color: '#3370FF' },
-      areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(51, 112, 255, 0.3)' },
-          { offset: 1, color: 'rgba(51, 112, 255, 0.05)' }
-        ])
-      }
-    }],
+    series: [series],
     tooltip: {
       trigger: 'axis',
       backgroundColor: '#fff',
@@ -385,20 +519,159 @@ const renderTrendChart = () => {
     }
   }
 
-  chartInstance.setOption(option)
+  chartInstance.setOption(option, true)
 }
 
 const changeTrendDays = (days) => {
-  trendDays.value = days
   fetchTrendData(days)
 }
 
+const renderDeviceChart = () => {
+  if (!deviceChart.value || deviceData.value.length === 0) return
+  
+  if (!deviceChartInstance) {
+    deviceChartInstance = echarts.init(deviceChart.value)
+  }
+
+  const option = {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c} ({d}%)'
+    },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['50%', '50%'],
+      avoidLabelOverlap: false,
+      label: { show: false },
+      labelLine: { show: false },
+      data: deviceData.value.map((item, idx) => ({
+        name: item.name,
+        value: item.count,
+        itemStyle: {
+          color: ['#3370FF', '#14B8A6', '#F59E0B'][idx] || '#94A3B8'
+        }
+      }))
+    }]
+  }
+
+  deviceChartInstance.setOption(option, true)
+}
+
+const renderGeoChart = () => {
+  if (!geoChart.value || geoData.value.length === 0) return
+  
+  if (!geoChartInstance) {
+    geoChartInstance = echarts.init(geoChart.value)
+  }
+
+  const option = {
+    grid: { left: '5%', right: '5%', bottom: '5%', top: '5%', containLabel: true },
+    xAxis: {
+      type: 'value',
+      show: false
+    },
+    yAxis: {
+      type: 'category',
+      data: geoData.value.map(d => d.region).reverse(),
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#64748B', fontSize: 12 }
+    },
+    series: [{
+      type: 'bar',
+      data: geoData.value.map(d => d.count).reverse(),
+      barWidth: '60%',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: '#3370FF' },
+          { offset: 1, color: '#5B8EFF' }
+        ]),
+        borderRadius: [0, 4, 4, 0]
+      },
+      label: {
+        show: true,
+        position: 'right',
+        color: '#64748B',
+        fontSize: 11,
+        formatter: '{c}'
+      }
+    }]
+  }
+
+  geoChartInstance.setOption(option, true)
+}
+
+// 生成模拟设备数据
+const generateMockDeviceData = () => {
+  const total = (globalStats.value?.totalClicks || 1000)
+  const mobile = Math.floor(total * 0.65)
+  const desktop = Math.floor(total * 0.28)
+  const tablet = total - mobile - desktop
+  
+  deviceData.value = [
+    { type: 'mobile', name: '移动设备', count: mobile, percent: 65 },
+    { type: 'desktop', name: '桌面设备', count: desktop, percent: 28 },
+    { type: 'tablet', name: '平板设备', count: tablet, percent: 7 }
+  ]
+  
+  nextTick(() => renderDeviceChart())
+}
+
+// 生成模拟地理数据
+const generateMockGeoData = () => {
+  const regions = ['北京', '上海', '广州', '深圳', '杭州', '成都', '武汉', '西安', '南京', '重庆']
+  const total = globalStats.value?.totalClicks || 1000
+  let remaining = total
+  
+  geoData.value = regions.map((region, idx) => {
+    const ratio = [0.22, 0.18, 0.12, 0.10, 0.09, 0.08, 0.07, 0.06, 0.05, 0.03][idx]
+    const count = idx === 9 ? remaining : Math.floor(total * ratio)
+    remaining -= count
+    return {
+      region,
+      count,
+      percent: Math.round(ratio * 100)
+    }
+  })
+  
+  nextTick(() => renderGeoChart())
+}
+
+const changePeriod = (period) => {
+  selectedPeriod.value = period
+  const daysMap = {
+    'today': 1,
+    'week': 7,
+    'month': 30,
+    '7days': 7,
+    '30days': 30
+  }
+  fetchTrendData(daysMap[period] || 7)
+}
+
+const updateTime = () => {
+  const now = new Date()
+  lastUpdateTime.value = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
 const refreshAll = async () => {
-  await Promise.all([
-    fetchGlobalStats(),
-    fetchAllUrls(),
-    fetchTrendData(trendDays.value)
-  ])
+  loading.value = true
+  try {
+    await Promise.all([
+      fetchGlobalStats(),
+      fetchAllUrls(),
+      fetchTrendData(selectedPeriod.value === 'today' ? 1 : selectedPeriod.value === 'week' ? 7 : selectedPeriod.value === 'month' ? 30 : 7)
+    ])
+    // 生成模拟数据
+    generateMockDeviceData()
+    generateMockGeoData()
+    updateTime()
+  } finally {
+    setTimeout(() => {
+      loading.value = false
+    }, 500)
+  }
 }
 
 const exportCSV = () => {
@@ -438,8 +711,21 @@ const nextPage = () => {
 
 onMounted(() => {
   refreshAll()
-  window.addEventListener('resize', () => {
+  
+  const handleResize = () => {
     chartInstance?.resize()
+    deviceChartInstance?.resize()
+    geoChartInstance?.resize()
+  }
+  
+  window.addEventListener('resize', handleResize)
+  
+  // 清理函数
+  onUnmounted(() => {
+    window.removeEventListener('resize', handleResize)
+    chartInstance?.dispose()
+    deviceChartInstance?.dispose()
+    geoChartInstance?.dispose()
   })
 })
 </script>
@@ -475,6 +761,70 @@ onMounted(() => {
 .header-actions {
   display: flex;
   gap: 12px;
+  align-items: center;
+}
+
+/* 时间选择器 */
+.time-selector {
+  display: flex;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.time-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #64748B;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.time-btn:hover {
+  background: #F8FAFC;
+  color: #3370FF;
+}
+
+.time-btn.active {
+  background: #3370FF;
+  color: white;
+  box-shadow: 0 2px 4px rgba(51, 112, 255, 0.2);
+}
+
+/* 图标按钮 */
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #64748B;
+}
+
+.btn-icon:hover {
+  border-color: #3370FF;
+  color: #3370FF;
+  background: #F8FAFC;
+}
+
+.btn-icon.rotating svg {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .btn-secondary {
@@ -600,6 +950,50 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* 图表类型切换器 */
+.chart-type-switcher {
+  display: flex;
+  background: #F8FAFC;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+  margin-right: 8px;
+}
+
+.chart-type-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #64748B;
+}
+
+.chart-type-btn:hover {
+  background: white;
+  color: #3370FF;
+}
+
+.chart-type-btn.active {
+  background: white;
+  color: #3370FF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-badge {
+  padding: 4px 10px;
+  background: #EFF6FF;
+  color: #3B82F6;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .time-filter-btn {
@@ -887,6 +1281,170 @@ onMounted(() => {
   font-size: 14px;
 }
 
+/* 双栏布局 */
+.dual-charts-row {
+  max-width: 1400px;
+  margin: 0 auto 24px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.chart-card.half-width {
+  margin: 0;
+}
+
+/* 设备分析 */
+.device-chart-container {
+  height: 200px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.device-stats-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.device-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.device-stat-item:hover {
+  background: #EFF6FF;
+  transform: translateX(4px);
+}
+
+.device-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.device-icon.device-mobile {
+  background: #EFF6FF;
+  color: #3B82F6;
+}
+
+.device-icon.device-desktop {
+  background: #ECFDF5;
+  color: #10B981;
+}
+
+.device-icon.device-tablet {
+  background: #FEF3C7;
+  color: #F59E0B;
+}
+
+.device-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.device-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1E293B;
+}
+
+.device-count {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.device-percent {
+  font-size: 18px;
+  font-weight: 600;
+  color: #3370FF;
+}
+
+/* 地理分布 */
+.geo-chart-container {
+  height: 200px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.geo-list {
+  display: grid;
+  gap: 10px;
+}
+
+.geo-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #F8FAFC;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.geo-item:hover {
+  background: #EFF6FF;
+}
+
+.geo-rank {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #E2E8F0;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.geo-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.geo-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1E293B;
+}
+
+.geo-bar {
+  height: 4px;
+  background: #E2E8F0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.geo-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3370FF 0%, #5B8EFF 100%);
+  transition: width 0.3s ease;
+}
+
+.geo-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #3370FF;
+  min-width: 50px;
+  text-align: right;
+}
+
 @media (max-width: 768px) {
   .dashboard-container {
     padding: 80px 16px 24px;
@@ -896,13 +1454,32 @@ onMounted(() => {
     flex-direction: column;
     gap: 16px;
   }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .time-selector {
+    width: 100%;
+  }
   
   .metrics-section {
+    grid-template-columns: 1fr;
+  }
+
+  .dual-charts-row {
     grid-template-columns: 1fr;
   }
   
   .top-link-item {
     flex-wrap: wrap;
+  }
+
+  .chart-type-switcher {
+    order: 3;
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>
