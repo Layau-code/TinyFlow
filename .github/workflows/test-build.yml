@@ -29,7 +29,19 @@ jobs:
           cd web
           npm ci --production=false
 
-      # 4. 构建前端
+      # 4. 验证配置文件（修复ES模块兼容性问题）
+      - name: Verify Config Files
+        run: |
+          cd web
+          echo "验证配置文件..."
+          ls -la | grep postcss.config
+          # 确保postcss配置使用正确的扩展名
+          if [ ! -f "postcss.config.cjs" ]; then
+            echo "postcss.config.cjs文件缺失，CI构建可能失败"
+            exit 1
+          fi
+
+      # 5. 构建前端
       - name: Build Frontend
         run: |
           cd web
@@ -38,7 +50,7 @@ jobs:
           VITE_SHORT_BASE: "https://example.com"
           VITE_API_BASE: "https://api.example.com"
 
-      # 5. 设置 Java 环境
+      # 6. 设置 Java 环境
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -46,7 +58,7 @@ jobs:
           java-version: '17'
           cache: 'maven'
 
-      # 6. 运行后端测试
+      # 7. 运行后端测试
       - name: Run Backend Tests
         run: mvn clean test
         env:
@@ -55,7 +67,7 @@ jobs:
           JWT_SECRET: "test-secret"
           REDIS_PASSWORD: "test-redis"
 
-      # 7. 简单编译检查（不实际打包）
+      # 8. 简单编译检查（不实际打包）
       - name: Compile Backend
         run: mvn compile -q
         env:
@@ -64,7 +76,7 @@ jobs:
           JWT_SECRET: "test-secret"
           REDIS_PASSWORD: "test-redis"
 
-      # 8. 验证构建产物
+      # 9. 验证构建产物
       - name: Verify Build Output
         run: |
           echo "✅ 前端构建验证"
