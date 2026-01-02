@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen stats-detail pt-24 md:pt-28">
+  <div class="min-h-screen stats-detail pt-24 md:pt-28" style="background-color: #F8FAFC;">
     <div class="max-w-5xl mx-auto p-6 space-y-6">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -139,10 +139,84 @@ onMounted(()=>{ refresh() })
 </script>
 
 <style scoped>
-/* reuse styles from StatsPage where possible; keep simple */
-.card { background: white; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
-.card-header { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid #f1f5f9; }
-.card-body { padding: 16px; }
-.form-input { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 6px }
-.btn { padding: 8px 12px; border-radius: 6px }
+/* 强制使用白色背景，避免暗色模式影响 */
+.stats-detail {
+  background: #F8FAFC !important;
+  color: #1E293B;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 12px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid #f1f5f9;
+  background: white;
+  color: #1E293B;
+}
+
+.card-body {
+  padding: 16px;
+  background: white;
+}
+
+.form-input {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #1E293B;
+}
+
+.btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: white;
+  color: #1E293B;
+  border: 1px solid #e2e8f0;
+}
+
+.btn:hover {
+  background: #F1F5F9;
+}
+
+/* 表格样式 */
+.events-table-container {
+  background: white;
+}
+
+.events-table {
+  width: 100%;
+  background: white;
+}
+
+.events-table th {
+  background: #F8FAFC;
+  color: #64748B;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.events-table td {
+  padding: 12px;
+  color: #1E293B;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.events-table tr:hover td {
+  background: #F8FAFC;
+}
+
+.empty-state {
+  padding: 40px;
+  text-align: center;
+  color: #64748B;
+}
 </style>
