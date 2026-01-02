@@ -937,7 +937,7 @@ export default {
   width: 128px;
   height: 48px;
   border-radius: 10px;
-  background: linear-gradient(-45deg, #2563EB 0%, #38BDF8 100%);
+  background: #3370FF;
   z-index: -10;
   pointer-events: none;
   transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -947,7 +947,7 @@ export default {
   z-index: -1;
   position: absolute;
   inset: 0;
-  background: linear-gradient(-45deg, #2563EB 0%, #38BDF8 100%);
+  background: #3370FF;
   transform: translate3d(0, 0, 0) scale(0.95);
   filter: blur(20px);
 }
@@ -964,12 +964,7 @@ export default {
 /* Brand text gradient + hover animation */
 .tf-brand-text {
   display: inline-block;
-  background-image: linear-gradient(135deg, #2563EB 0%, #1D4ED8 45%, #38BDF8 100%);
-  background-size: 200% 200%;
-  background-position: 0% 50%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #3370FF;
   transition: transform 180ms ease, letter-spacing 180ms ease;
 }
 .tf-brand-button:hover .tf-brand-text {
@@ -995,11 +990,7 @@ export default {
 }
 .tf-letter {
   display: inline-block;
-  background-image: linear-gradient(135deg, #2563EB 0%, #1D4ED8 45%, #38BDF8 100%);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #3370FF;
   transform-origin: bottom;
   will-change: transform, background-position;
   backface-visibility: hidden;
@@ -1129,14 +1120,14 @@ export default {
   pointer-events: none;
   transition: opacity .25s ease, transform .25s ease;
 }
-.tf-del-btn:hover { background: linear-gradient(135deg, #2563EB 0%, #38BDF8 100%); border-color: transparent; box-shadow: 0 6px 20px rgba(37,99,235,0.3); }
+.tf-del-btn:hover { background: #3370FF; border-color: transparent; box-shadow: 0 6px 20px rgba(51, 112, 255, 0.3); }
 .tf-del-btn:hover .tf-del-icon path { fill: #ffffff; }
 .tf-del-btn:hover .tf-del-icon { transform: translateY(1px) scale(1.05); }
 .tf-del-btn:hover::after { opacity: .95; transform: translateX(-50%) translateY(26px); }
 
 /* 禁用态 */
 .tf-del-btn.is-loading,
-.tf-del-btn:disabled { background: linear-gradient(135deg, #93C5FD 0%, #BFDBFE 100%); cursor: not-allowed; box-shadow: none; }
+.tf-del-btn:disabled { background: #BFDBFE; cursor: not-allowed; box-shadow: none; }
 .tf-del-btn.is-loading .tf-del-icon,
 .tf-del-btn:disabled .tf-del-icon { opacity: .6; }
 

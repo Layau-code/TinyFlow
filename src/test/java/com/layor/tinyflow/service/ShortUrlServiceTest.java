@@ -201,6 +201,7 @@ class ShortUrlServiceTest {
         // When
         ShortUrlDTO result = shortUrlService.createShortUrl(TEST_LONG_URL, null);
 
+        
         // Then
         assertNotNull(result);
         assertEquals(TEST_SHORT_CODE, result.getShortCode());

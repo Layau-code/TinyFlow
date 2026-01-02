@@ -102,21 +102,21 @@ html, body {
 }
 
 .fs-input {
-  background: var(--tf-bg-card);
-  border: 1px solid var(--tf-border);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 14px;
-  color: var(--tf-text-body);
+  color: #1E293B;
   transition: all 0.2s ease;
 }
 .fs-input:focus {
   outline: none;
-  border-color: var(--tf-brand-primary);
-  box-shadow: 0 0 0 3px var(--tf-brand-light);
+  border-color: #3370FF;
+  box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.1);
 }
 .fs-input::placeholder {
-  color: var(--tf-text-disabled);
+  color: #94A3B8;
 }
 
 /* Brand gradient helpers */
