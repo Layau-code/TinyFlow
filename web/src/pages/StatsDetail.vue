@@ -7,7 +7,18 @@
           <h2 class="text-lg font-semibold" style="color:#1E293B">短链详情：{{ shortCode }}</h2>
         </div>
         <div class="flex items-center gap-3">
-          <button class="btn btn-secondary" @click="exportCsv">导出CSV</button>
+          <button class="btn btn-secondary" :disabled="!hasAnyData" @click="exportCsv">导出CSV</button>
+        </div>
+      </div>
+
+      <!-- 无数据提示条 -->
+      <div v-if="noDataBanner" class="card" style="background:#FFFFFF !important">
+        <div class="card-body flex items-center gap-3" style="background:#FFFFFF !important">
+          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full" style="background:#E6F0FF; color:#2563EB">i</span>
+          <div>
+            <div class="font-semibold" style="color:#1E293B">暂无点击数据</div>
+            <div class="text-sm" style="color: var(--tf-text-muted)">所选日期内没有记录，您可以更换日期或查看趋势概览。</div>
+          </div>
         </div>
       </div>
 
@@ -23,7 +34,12 @@
         <div class="card-header" style="background:#FFFFFF !important;color:#1E293B">当天趋势（小范围）</div>
         <div class="card-body" style="background:#FFFFFF !important">
           <Suspense>
-            <TrendChart v-if="trendLabels.length" :labels="trendLabels" :values="trendValues" :height="220" />
+            <template v-if="trendLabels.length">
+              <TrendChart :labels="trendLabels" :values="trendValues" :height="220" />
+            </template>
+            <template v-else>
+              <div class="chart-placeholder">该时间段暂无趋势数据</div>
+            </template>
             <template #fallback><div class="chart-placeholder">加载中...</div></template>
           </Suspense>
         </div>
@@ -67,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { API_BASE } from '../composables/shortBase'
@@ -84,6 +100,20 @@ const selectedDate = ref(route.query.date || '')
 const eventsList = ref([])
 const trendLabels = ref([])
 const trendValues = ref([])
+
+// 是否有任何数据（用于控制导出按钮等）
+const hasAnyData = computed(() => {
+  const eventsHas = Array.isArray(eventsList.value) && eventsList.value.length > 0
+  const trendHas = Array.isArray(trendValues.value) && trendValues.value.some(v => Number(v) > 0)
+  return eventsHas || trendHas
+})
+
+// 顶部无数据提示：当两侧都为空或为0时显示
+const noDataBanner = computed(() => {
+  const eventsEmpty = !eventsList.value || eventsList.value.length === 0
+  const trendEmptyOrZero = !trendValues.value || trendValues.value.length === 0 || trendValues.value.every(v => Number(v) === 0)
+  return eventsEmpty && trendEmptyOrZero
+})
 
 function formatDate(ts){ if (!ts) return '-'; try { return new Date(ts).toLocaleString('zh-CN') } catch { return String(ts) } }
 
@@ -149,6 +179,7 @@ onMounted(()=>{ refresh() })
 .form-input { padding: 8px 10px; border: 1px solid var(--tf-border); border-radius: 8px; background: #FFFFFF !important; color: var(--tf-text-body) !important; }
 
 .btn { padding: 8px 12px; border-radius: 8px; background: #FFFFFF !important; color: var(--tf-text-body) !important; border: 1px solid var(--tf-border); }
+.btn[disabled] { opacity: 0.6; cursor: not-allowed; }
 .btn:hover { background: var(--tf-bg-hover) !important; }
 .btn-primary { background: var(--tf-brand-primary) !important; color: #FFFFFF !important; border: none; }
 .btn-primary:hover { background: var(--tf-brand-primary-hover) !important; }
