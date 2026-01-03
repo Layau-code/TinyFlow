@@ -289,7 +289,7 @@ export default {
     },
     githubBtnStyle() {
       return {
-        background: 'linear-gradient(135deg, #1D9BF0 0%, #2B6BFF 50%, #37B4FF 100%)'
+        background: 'linear-gradient(135deg, var(--tf-brand-primary) 0%, #2B6BFF 50%, #37B4FF 100%)'
       }
     },
     isLoginPage() {
@@ -337,8 +337,8 @@ export default {
   methods: {
     inputStyle(active) {
       return {
-        borderColor: active ? '#2563EB' : '#E5E7EB',
-        boxShadow: active ? '0 0 0 4px rgba(37,99,235,0.14)' : 'none',
+        borderColor: active ? 'var(--tf-brand-primary)' : 'var(--tf-border)',
+        boxShadow: active ? '0 0 0 4px rgba(51, 112, 255, 0.14)' : 'none',
       }
     },
     async refreshClickStats() {
