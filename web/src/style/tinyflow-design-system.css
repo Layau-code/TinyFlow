@@ -1,10 +1,10 @@
 /* TinyFlow Design System - 统一视觉规范 */
 :root {
-  /* 品牌颜色 (飞书蓝基调) */
-  --tf-brand-primary: #1D9BF0;
-  --tf-brand-primary-hover: #1A7FE0;
-  --tf-brand-primary-pressed: #1554C0;
-  --tf-brand-primary-light: #E6F3FF;
+  /* 品牌颜色 (蓝白配色 #3370FF) */
+  --tf-brand-primary: #3370FF;
+  --tf-brand-primary-hover: #2B5FE6;
+  --tf-brand-primary-pressed: #1F4AD1;
+  --tf-brand-primary-light: #EFF6FF;
   --tf-brand-primary-lighter: #F2F7FF;
 
   /* 扩展品牌色系 */
