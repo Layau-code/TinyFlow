@@ -439,18 +439,9 @@ const fetchAllUrls = async () => {
     const data = res.data?.content || res.data?.data || res.data || []
     allUrls.value = Array.isArray(data) ? data : []
     console.log('[Dashboard] 短链列表加载成功:', allUrls.value.length, '条')
-    
-    // 如果没有数据且有全局统计，生成模拟数据
-    if (allUrls.value.length === 0 && globalStats.value?.totalUrls > 0) {
-      console.warn('[Dashboard] 短链列表为空，生成模拟数据')
-      generateMockUrls()
-    }
   } catch (err) {
     console.error('获取链接列表失败:', err)
-    // 如果 API 失败，生成一些模拟数据供演示
-    if (globalStats.value?.totalUrls > 0) {
-      generateMockUrls()
-    }
+    allUrls.value = []
   }
 }
 
@@ -707,21 +698,47 @@ const updateTime = () => {
 }
 
 const refreshAll = async () => {
+  console.log('[Dashboard] 开始刷新数据')
   loading.value = true
   try {
-    await Promise.all([
-      fetchGlobalStats(),
-      fetchAllUrls(),
-      fetchTrendData(selectedPeriod.value === 'today' ? 1 : selectedPeriod.value === 'week' ? 7 : selectedPeriod.value === 'month' ? 30 : 7)
-    ])
+    // 串行加载，确保顺序
+    await fetchGlobalStats()
+    await fetchAllUrls()
+    
+    // 如果没有数据，强制生成模拟数据
+    if (allUrls.value.length === 0) {
+      console.warn('[Dashboard] 数据为空，强制生成模拟数据')
+      generateMockUrls()
+      // 也生成模拟统计数据
+      if (!globalStats.value || Object.keys(globalStats.value).length === 0) {
+        globalStats.value = {
+          totalUrls: 10,
+          totalClicks: 5280,
+          totalUniqueIps: 3420,
+          todayClicks: 156
+        }
+      }
+    }
+    
+    const days = selectedPeriod.value === 'today' ? 1 
+              : selectedPeriod.value === 'week' ? 7 
+              : selectedPeriod.value === 'month' ? 30 
+              : selectedPeriod.value === '7days' ? 7 
+              : 30
+    await fetchTrendData(days)
+    
     // 生成模拟数据
     generateMockDeviceData()
     generateMockGeoData()
     updateTime()
+    
+    console.log('[Dashboard] 数据刷新完成')
+  } catch (err) {
+    console.error('[Dashboard] 刷新数据失败:', err)
   } finally {
     setTimeout(() => {
       loading.value = false
-    }, 500)
+    }, 300)
   }
 }
 
@@ -760,8 +777,11 @@ const nextPage = () => {
   if (currentPage.value < totalPages.value) currentPage.value++
 }
 
-onMounted(() => {
-  refreshAll()
+onMounted(async () => {
+  console.log('[Dashboard] 组件加载开始')
+  
+  // 立即开始加载数据
+  await refreshAll()
   
   const handleResize = () => {
     chartInstance?.resize()

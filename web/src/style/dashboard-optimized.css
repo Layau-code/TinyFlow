@@ -439,7 +439,8 @@
   to { opacity: 1; }
 }
 
-/* 暗色模式支持 */
+/* 暗色模式已禁用，统一使用蓝白配色 */
+/* 
 @media (prefers-color-scheme: dark) {
   .dashboard-page {
     background: var(--tf-gray-900);
@@ -486,6 +487,7 @@
     color: var(--tf-gray-100);
   }
 }
+*/
 
 /* 无障碍支持 */
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,5 @@
 <template>
-  <main class="min-h-screen pt-14" style="background-color:var(--tf-bg-page)">
+  <main class="min-h-screen pt-14" style="background-color:#F8FAFC !important;color:#1E293B">
     <section class="hero pt-24 pb-16">
       <div class="hero-inner max-w-5xl mx-auto px-6 flex flex-col items-center text-center gap-8">
         <!-- 标题区 -->
@@ -13,7 +13,7 @@
         </div>
 
         <!-- 表单卡片（飞书风格）-->
-        <div class="w-full max-w-3xl fs-card p-6 md:p-8">
+        <div class="w-full max-w-3xl fs-card p-6 md:p-8" style="background:#FFFFFF !important">
           <div class="flex flex-col gap-4">
             <!-- 主输入区 -->
             <div class="flex items-stretch gap-3">
@@ -42,7 +42,7 @@
         </div>
 
         <!-- 结果卡片 -->
-        <div v-if="shortUrl" class="w-full max-w-3xl fs-card p-6 md:p-8">
+        <div v-if="shortUrl" class="w-full max-w-3xl fs-card p-6 md:p-8" style="background:#FFFFFF !important">
           <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div class="min-w-0 flex-1 text-left">
               <div class="text-sm mb-2" style="color:var(--tf-text-muted)">{{ $t('result.created') }}</div>
@@ -88,7 +88,7 @@
         <div v-if="filteredHistory.length === 0" class="text-[14px]" style="color:var(--tf-text-muted)">{{ $t('history.empty') }}</div>
         <div v-else class="space-y-3">
           <!-- 历史记录项 -->
-          <div v-for="item in filteredHistory" :key="item.id || extractCode(item) || item.shortUrl" class="fs-card p-4">
+          <div v-for="item in filteredHistory" :key="item.id || extractCode(item) || item.shortUrl" class="fs-card p-4" style="background:#FFFFFF !important">
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-3 min-w-0">
                 <Favicon :long-url="normalizeUrl(resolveLongUrl(item)) || (location.origin + (item.shortUrl || ''))" />
@@ -134,15 +134,15 @@
     <!-- 特性展示 -->
     <section class="py-16 px-6">
       <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="fs-card p-6">
+        <div class="fs-card p-6" style="background:#FFFFFF !important">
           <div class="font-semibold mb-2 text-[16px]" style="color:var(--tf-text-title)">自定义别名</div>
           <div class="text-[14px]" style="color:var(--tf-text-body)">可自定义短链后缀，增强品牌一致性</div>
         </div>
-        <div class="fs-card p-6">
+        <div class="fs-card p-6" style="background:#FFFFFF !important">
           <div class="font-semibold mb-2 text-[16px]" style="color:var(--tf-text-title)">访问统计</div>
           <div class="text-[14px]" style="color:var(--tf-text-body)">统计点击与来源，数据驱动优化分享</div>
         </div>
-        <div class="fs-card p-6">
+        <div class="fs-card p-6" style="background:#FFFFFF !important">
           <div class="font-semibold mb-2 text-[16px]" style="color:var(--tf-text-title)">实时同步</div>
           <div class="text-[14px]" style="color:var(--tf-text-body)">通过 API 刷新/删除历史记录，轻松管理与访问</div>
         </div>

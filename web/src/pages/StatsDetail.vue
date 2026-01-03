@@ -1,27 +1,27 @@
 <template>
-  <div class="min-h-screen stats-detail pt-24 md:pt-28" style="background-color: #F8FAFC;">
+  <div class="min-h-screen stats-detail pt-24 md:pt-28" style="background-color:#F8FAFC !important;color:#1E293B">
     <div class="max-w-5xl mx-auto p-6 space-y-6">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <button class="btn btn-secondary" @click="goBack">返回</button>
-          <h2 class="text-lg font-semibold">短链详情：{{ shortCode }}</h2>
+          <h2 class="text-lg font-semibold" style="color:#1E293B">短链详情：{{ shortCode }}</h2>
         </div>
         <div class="flex items-center gap-3">
           <button class="btn btn-secondary" @click="exportCsv">导出CSV</button>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-header">选择时间</div>
-        <div class="card-body flex items-center gap-4">
+      <div class="card" style="background:#FFFFFF !important">
+        <div class="card-header" style="background:#FFFFFF !important;color:#1E293B">选择时间</div>
+        <div class="card-body flex items-center gap-4" style="background:#FFFFFF !important">
           <input type="date" v-model="selectedDate" class="form-input" />
           <button class="btn btn-primary" @click="applyDate">应用</button>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-header">当天趋势（小范围）</div>
-        <div class="card-body">
+      <div class="card" style="background:#FFFFFF !important">
+        <div class="card-header" style="background:#FFFFFF !important;color:#1E293B">当天趋势（小范围）</div>
+        <div class="card-body" style="background:#FFFFFF !important">
           <Suspense>
             <TrendChart v-if="trendLabels.length" :labels="trendLabels" :values="trendValues" :height="220" />
             <template #fallback><div class="chart-placeholder">加载中...</div></template>
@@ -29,11 +29,11 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-header">访问事件（共 {{ eventsList.length }} 条）</div>
-        <div class="card-body p-0">
-          <div class="events-table-container">
-            <table class="events-table">
+      <div class="card" style="background:#FFFFFF !important">
+        <div class="card-header" style="background:#FFFFFF !important;color:#1E293B">访问事件（共 {{ eventsList.length }} 条）</div>
+        <div class="card-body p-0" style="background:#FFFFFF !important">
+          <div class="events-table-container" style="background:#FFFFFF !important">
+            <table class="events-table" style="background:#FFFFFF !important">
               <thead>
                 <tr>
                   <th>时间</th>
@@ -142,11 +142,11 @@ onMounted(()=>{ refresh() })
 /* 强制使用白色背景，避免暗色模式影响 */
 .stats-detail {
   background: #F8FAFC !important;
-  color: #1E293B;
+  color: #1E293B !important;
 }
 
 .card {
-  background: white;
+  background: #FFFFFF !important;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   overflow: hidden;
@@ -156,67 +156,88 @@ onMounted(()=>{ refresh() })
   padding: 12px 16px;
   font-weight: 600;
   border-bottom: 1px solid #f1f5f9;
-  background: white;
-  color: #1E293B;
+  background: #FFFFFF !important;
+  color: #1E293B !important;
 }
 
 .card-body {
   padding: 16px;
-  background: white;
+  background: #FFFFFF !important;
+  color: #1E293B !important;
 }
 
 .form-input {
   padding: 8px 10px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  background: white;
-  color: #1E293B;
+  background: #FFFFFF !important;
+  color: #1E293B !important;
 }
 
 .btn {
   padding: 8px 12px;
   border-radius: 6px;
-  background: white;
-  color: #1E293B;
+  background: #FFFFFF !important;
+  color: #1E293B !important;
   border: 1px solid #e2e8f0;
 }
 
 .btn:hover {
-  background: #F1F5F9;
+  background: #F1F5F9 !important;
+}
+
+.btn-primary {
+  background: #3370FF !important;
+  color: #FFFFFF !important;
+  border: none;
+}
+
+.btn-primary:hover {
+  background: #2B5FE6 !important;
 }
 
 /* 表格样式 */
 .events-table-container {
-  background: white;
+  background: #FFFFFF !important;
 }
 
 .events-table {
   width: 100%;
-  background: white;
+  background: #FFFFFF !important;
+  color: #1E293B !important;
 }
 
 .events-table th {
-  background: #F8FAFC;
-  color: #64748B;
+  background: #F8FAFC !important;
+  color: #64748B !important;
   padding: 12px;
   text-align: left;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 13px;
   border-bottom: 1px solid #e2e8f0;
 }
 
 .events-table td {
   padding: 12px;
-  color: #1E293B;
   border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+  color: #1E293B !important;
+  background: #FFFFFF !important;
 }
 
-.events-table tr:hover td {
-  background: #F8FAFC;
+.events-table tbody tr:hover {
+  background: #F8FAFC !important;
 }
 
 .empty-state {
-  padding: 40px;
   text-align: center;
-  color: #64748B;
+  padding: 24px;
+  color: #94A3B8 !important;
+}
+
+.chart-placeholder {
+  text-align: center;
+  padding: 40px;
+  color: #94A3B8;
 }
 </style>
