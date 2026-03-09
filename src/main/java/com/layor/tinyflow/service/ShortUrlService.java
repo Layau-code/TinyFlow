@@ -1,13 +1,19 @@
 package com.layor.tinyflow.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.layor.tinyflow.Strategy.HashidsStrategy;
 import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.hashids.Hashids;
+import org.redisson.api.RBloomFilter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -26,9 +32,21 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
+@Slf4j
 public class ShortUrlService {
     // 短码长度
     private static final int CODE_LENGTH = 6;
+    
+    @Autowired
+    @Qualifier("localUrlCache")
+    private Cache<String, String> localCache;
+    
+    @Value("${cache.warmup.enabled:true}")
+    private boolean warmupEnabled;
+    
+    @Value("${cache.warmup.size:1000}")
+    private int warmupSize;
+    
     @Autowired
     private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     @Autowired
@@ -41,6 +59,9 @@ public class ShortUrlService {
     private SegmentIdGenerator idGenerator;
     @Autowired
     HashidsStrategy codeStrategy;
+    @Autowired(required = false)
+    @Qualifier("shorturlBloomFilter")
+    private RBloomFilter<String> shorturlBloomFilter;
     // 基础短链域名
     private static final String BASE_URL = "https://localhost:8080";
 
@@ -81,6 +102,13 @@ public class ShortUrlService {
 
         // 3. 存入数据库
         shortUrlRepository.save(shortUrl);
+        
+        // 3.5 添加到布隆过滤器（防止后续缓存穿透）
+        if (shorturlBloomFilter != null) {
+            shorturlBloomFilter.add(shortCode);
+            log.debug("Short code {} added to BloomFilter", shortCode);
+        }
+        
         // 4. 构造返回结果
         ShortUrlDTO dto = ShortUrlDTO.builder()
                 .shortCode(shortCode)
@@ -111,13 +139,31 @@ public class ShortUrlService {
         }
     }
 
-
-    private static final java.util.concurrent.ConcurrentHashMap<String, CacheEntry> localCache = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final long LOCAL_TTL_MS = 60_000;
-
-    private static class CacheEntry {
-        final String v; final long exp;
-        CacheEntry(String v, long exp){ this.v=v; this.exp=exp; }
+    /**
+     * 启动时预热缓存：加载热点短链到本地 Caffeine 缓存
+     */
+    @PostConstruct
+    public void warmupCache() {
+        if (!warmupEnabled) {
+            log.info("Cache warmup disabled");
+            return;
+        }
+        
+        try {
+            log.info("Starting cache warmup, loading top {} hot URLs...", warmupSize);
+            Pageable topN = PageRequest.of(0, warmupSize);
+            Page<ShortUrl> hotUrls = shortUrlRepository.findAll(topN);
+            
+            int loaded = 0;
+            for (ShortUrl url : hotUrls.getContent()) {
+                localCache.put(url.getShortCode(), url.getLongUrl());
+                loaded++;
+            }
+            
+            log.info("Cache warmup completed: {} URLs loaded to L1 cache", loaded);
+        } catch (Exception e) {
+            log.error("Cache warmup failed: {}", e.getMessage(), e);
+        }
     }
 
 
@@ -186,28 +232,74 @@ public class ShortUrlService {
         return new PageImpl<>(urlListResponseDTO, pageable, shortUrlPage.getTotalElements());
     
     }
-    public String getLongUrlByShortCode(String shortCode) {
-        CacheEntry ce = localCache.get(shortCode);
-        if (ce != null && ce.exp > System.currentTimeMillis()) return ce.v;
-        String cachedLongUrl = null;
-        try { cachedLongUrl = redisTemplate.opsForValue().get("short_url:" + shortCode); } catch (Exception ignored) {}
-        if (cachedLongUrl != null) {
-            localCache.put(shortCode, new CacheEntry(cachedLongUrl, System.currentTimeMillis()+LOCAL_TTL_MS));
-            return cachedLongUrl;
+    @io.github.resilience4j.ratelimiter.annotation.RateLimiter(name = "redirectLimit")
+    public void redirectCode(String code, HttpServletRequest request, HttpServletResponse response) {
+        String longUrl = getLongUrlByShortCode(code);
+        if (longUrl == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
         }
+        recordClick(code);
+        try { recordClickEvent(code, request); } catch (Exception ignored) {}
+        response.setStatus(HttpServletResponse.SC_FOUND);
+        response.setHeader("Location", longUrl);
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    }
 
-        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
-        if (shortUrl == null) {
-            //数据库没有，返回null
+    @io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker(name = "redisBreaker", fallbackMethod = "redisFallback")
+    public String getLongUrlByShortCode(String shortCode) {
+        // 布隆过滤器检查：快速拦截无效短码，防止缓存穿透
+        if (shorturlBloomFilter != null && !shorturlBloomFilter.contains(shortCode)) {
+            // 短码不在布隆过滤器中 → 肯定不存在 → 无需查询缓存和数据库
+            log.debug("Short code {} filtered by BloomFilter (cache penetration prevented)", shortCode);
             return null;
         }
-        //更新缓存
+        
+        // L1: 本地 Caffeine 缓存
+        String cachedUrl = localCache.getIfPresent(shortCode);
+        if (cachedUrl != null) {
+            return cachedUrl;
+        }
+        
+        // L2: Redis 缓存
+        String redisUrl = null;
+        try { 
+            redisUrl = redisTemplate.opsForValue().get("short_url:" + shortCode); 
+        } catch (Exception e) {
+            log.warn("Redis query failed for {}: {}", shortCode, e.getMessage());
+        }
+        
+        if (redisUrl != null) {
+            // 回填 L1
+            localCache.put(shortCode, redisUrl);
+            return redisUrl;
+        }
+
+        // L3: 数据库回源
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
+        if (shortUrl == null) {
+            return null;
+        }
+        
+        String longUrl = shortUrl.getLongUrl();
+        
+        // 回填 Redis (L2)
         try {
-            redisTemplate.opsForValue().set("short_url:" + shortCode, shortUrl.getLongUrl(), java.time.Duration.ofHours(24));
-        } catch (Exception ignored) {}
-        localCache.put(shortCode, new CacheEntry(shortUrl.getLongUrl(), System.currentTimeMillis()+LOCAL_TTL_MS));
-        //返回长链接
-        return shortUrl.getLongUrl();
+            redisTemplate.opsForValue().set("short_url:" + shortCode, longUrl, java.time.Duration.ofHours(24));
+        } catch (Exception e) {
+            log.warn("Redis set failed for {}: {}", shortCode, e.getMessage());
+        }
+        
+        // 回填本地缓存 (L1)
+        localCache.put(shortCode, longUrl);
+        
+        return longUrl;
+    }
+
+    public String redisFallback(String shortCode, Throwable t) {
+        // 降级逻辑：Redis 挂了直接查数据库
+        ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
+        return shortUrl != null ? shortUrl.getLongUrl() : null;
     }
     public ShortUrlOverviewDTO getOverviewByShortCode(String shortCode) {
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
@@ -407,26 +499,18 @@ public class ShortUrlService {
         dailyClickRepo.save(dailyClick);}
 
 
-        // 更新缓存
-        redisTemplate.delete("short_url:" + shortCode);
-        redisTemplate.opsForValue().set(
-                "short_url:" + customAlias,
-                shortUrl.getLongUrl(),
-                Duration.ofHours(24)
-        );
-
-    }
-//短链跳转
-    public void redirectCode(String code, HttpServletRequest request, HttpServletResponse response) {
-        String longUrl = getLongUrlByShortCode(code);
-        if (longUrl == null) {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            return;
+        // 清理缓存
+        localCache.invalidate(shortCode);
+        try {
+            redisTemplate.delete("short_url:" + shortCode);
+            redisTemplate.opsForValue().set(
+                    "short_url:" + customAlias,
+                    shortUrl.getLongUrl(),
+                    Duration.ofHours(24)
+            );
+        } catch (Exception e) {
+            log.warn("Cache update failed: {}", e.getMessage());
         }
-        recordClick(code);
-        try { recordClickEvent(code, request); } catch (Exception ignored) {}
-        response.setStatus(HttpServletResponse.SC_FOUND);
-        response.setHeader("Location", longUrl);
-        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+
     }
 }
