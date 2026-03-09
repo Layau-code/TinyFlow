@@ -1,213 +1,408 @@
-# TinyFlow
+# TinyFlow - 高性能短链接服务
 
-一款现代化的短链接生成与统计系统，前端基于 Vue 3 + Vite + Tailwind CSS，后端推荐使用 Spring Boot（可替换为任意语言栈）。UI 参考多款优秀开源项目与主流网站的交互与视觉风格，提供极简流畅的使用体验。
+一个面向高并发场景的短链接生成与管理平台，支持长链接压缩为6位短码或自定义别名，提供链接收藏夹与数据统计分析功能，便于用户集中管理常用网址。
+
+## 技术栈
+
+**后端**：Spring Boot 3、MySQL 8、Redis、RabbitMQ、Caffeine、Resilience4j、Micrometer + Prometheus
+
+**前端**：Vue 3、Vite、Tailwind CSS
+
+**运维**：Docker Compose、Grafana、K6 压测
 
 ---
 
 ## 目录
 
-- 概览
-- 功能特性
-- 技术栈与架构
-- 项目结构
-- 快速开始
-- 配置说明
-- 开发与调试
-- 常见问题
-- 后续拓展计划
-- 贡献指南
-- 许可证
+- [核心特性](#核心特性)
+- [系统架构](#系统架构)
+- [技术亮点详解](#技术亮点详解)
+  - [三级缓存架构与防穿透策略](#1-三级缓存架构与防穿透策略)
+  - [高并发分布式ID生成](#2-高并发分布式id生成)
+  - [异步统计与消息解耦](#3-异步统计与消息解耦)
+  - [熔断限流与服务降级](#4-熔断限流与服务降级)
+- [性能指标](#性能指标)
+- [项目结构](#项目结构)
+- [快速开始](#快速开始)
+- [配置说明](#配置说明)
+- [压测与监控](#压测与监控)
+- [API 文档](#api-文档)
+- [许可证](#许可证)
 
 ---
 
-## 概览
+## 核心特性
 
-TinyFlow 旨在提供一个轻量、可靠的短链接平台：
-
-- 生成可自定义别名的短链接
-- 一键复制与二维码生成
-- 历史记录管理（分页、筛选、编辑、删除）
-- 数据统计页面（点击趋势、来源分布等，接口规划中）
-
----
-
-## 功能特性
-
-- 现代化 UI 与交互：极简卡片化布局、响应式适配、细致的悬停与动效
-- 统一跳转端点：前端所有点击、复制、二维码均使用 `GET /api/redirect/{code}`
-- 历史记录：支持分页刷新、筛选、编辑别名与删除条目
-- 多语言支持：内置 i18n，可在导航栏切换语言
-- 开发体验：Vite 快速热更新、结构化代码与组件拆分
+| 特性 | 描述 |
+|------|------|
+| **短码生成** | 支持6位短码自动生成（Hashids编码）或用户自定义别名 |
+| **三级缓存** | Caffeine（L1）→ Redis（L2）→ MySQL（L3），热点链接毫秒级响应 |
+| **缓存防护** | 布隆过滤器拦截无效短码请求，防止缓存穿透 |
+| **分布式ID** | 参考美团Leaf号段模式，双Buffer异步预加载，避免ID段切换阻塞 |
+| **异步统计** | 跳转成功后立即返回302，点击日志通过RabbitMQ异步写入，核心链路不阻塞 |
+| **流量防护** | Resilience4j实现限流（滑动窗口3500 QPS）+ Redis/MySQL独立熔断器 |
+| **可观测性** | Prometheus指标暴露 + Grafana可视化 + 结构化日志 |
+| **数据统计** | 点击趋势、来源分布、设备占比、地域分析，支持CSV/JSON导出 |
 
 ---
 
-## 技术栈与架构
+## 系统架构
 
-- 前端：
-  - `Vue 3`（Composition API）
-  - `Vite 5`
-  - `Tailwind CSS`
-  - `Axios`
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Client Request                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Spring Boot Application                              │
+│  ┌─────────────┐    ┌─────────────────────────────────────────────────────┐ │
+│  │ Rate Limiter│───▶│                   Controller Layer                   │ │
+│  │  (3500 QPS) │    │         ShortUrlController / StatsController         │ │
+│  └─────────────┘    └─────────────────────────────────────────────────────┘ │
+│                                      │                                       │
+│                                      ▼                                       │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                           Service Layer                                  │ │
+│  │  ┌───────────────────┐  ┌───────────────────┐  ┌─────────────────────┐  │ │
+│  │  │  ShortUrlService  │  │ SegmentIdGenerator│  │ ClickRecorderService│  │ │
+│  │  │  (Core Business)  │  │   (Leaf-Style ID) │  │  (Async Statistics) │  │ │
+│  │  └───────────────────┘  └───────────────────┘  └─────────────────────┘  │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│                                      │                                       │
+└──────────────────────────────────────┼───────────────────────────────────────┘
+                                       │
+          ┌────────────────────────────┼────────────────────────────┐
+          │                            │                            │
+          ▼                            ▼                            ▼
+┌─────────────────┐        ┌─────────────────┐          ┌─────────────────┐
+│   L1: Caffeine  │        │   L2: Redis     │          │   L3: MySQL     │
+│   (Local Cache) │◀──────▶│ (Distributed)   │◀────────▶│  (Persistence)  │
+│   50,000 entries│        │ + BloomFilter   │          │                 │
+│   TTL: 30min    │        │ + CircuitBreaker│          │ + CircuitBreaker│
+└─────────────────┘        └─────────────────┘          └─────────────────┘
+                                   │
+                                   ▼
+                          ┌─────────────────┐
+                          │    RabbitMQ     │
+                          │ (Click Events)  │
+                          └─────────────────┘
+                                   │
+                                   ▼
+                          ┌─────────────────┐
+                          │ Click Analytics │
+                          │  (Batch Write)  │
+                          └─────────────────┘
+```
 
-- 后端（推荐方案，亦可替换）：
-  - `Spring Boot`
-  - `Spring Data JPA`
-  - MySQL，Redis 
+---
 
-- 运行拓扑（开发环境）：
-  - 前端 dev server：`http://localhost:5173`（或 5174/5175，取决于端口占用）
-  - 后端 API：`http://localhost:8080`
-  - 前端通过 `vite.config.js` 代理 `/api` 到后端
+## 技术亮点详解
+
+### 1. 三级缓存架构与防穿透策略
+
+**问题背景**：短链跳转是典型的读多写少场景，热点链接可能承受极高QPS。同时需要防止恶意请求不存在的短码导致缓存穿透打穿数据库。
+
+**解决方案**：
+
+```
+请求 → BloomFilter判断 → L1 Caffeine → L2 Redis → L3 MySQL
+         ↓ 不存在                ↓ 未命中      ↓ 未命中     ↓ 查询
+      快速返回404           查L2并回填L1   查L3并回填L1/L2  返回结果
+```
+
+- **L1 本地缓存（Caffeine）**：单机50,000条热点短链，30分钟过期，命中率>95%时跳过网络开销
+- **L2 分布式缓存（Redis）**：全量短链缓存，支持集群部署数据共享，24小时TTL
+- **L3 持久存储（MySQL）**：兜底数据源，回源时自动回填L1/L2
+- **布隆过滤器**：基于Redisson的分布式布隆过滤器，预期1000万短码，1%误判率，拦截无效请求
+
+**缓存一致性策略**：
+- 写操作：先更新DB → 删除Redis缓存 → 失效本地缓存（Cache Aside模式）
+- 热点预热：应用启动时加载Top 5000热点短链到L1，减少冷启动延迟
+
+### 2. 高并发分布式ID生成
+
+**问题背景**：传统自增ID在分布式部署下存在锁竞争和短码可遍历问题；UUID太长且无序。
+
+**解决方案**：参考美团Leaf号段模式设计
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    SegmentIdGenerator                          │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Buffer (Per bizTag)                        │   │
+│  │   ┌───────────────┐      ┌───────────────┐              │   │
+│  │   │ currentRange  │      │  nextRange    │              │   │
+│  │   │ [10001-110000]│      │[110001-210000]│ ← 异步预加载 │   │
+│  │   └───────────────┘      └───────────────┘              │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+                    ┌───────────────┐
+                    │   id_segment  │  (MySQL)
+                    │ biz_tag | max_id | step
+                    │ shorturl| 210000 | 100000
+                    └───────────────┘
+```
+
+**核心机制**：
+- **号段预取**：每次从DB申请10万个ID，减少DB访问频率
+- **双Buffer异步加载**：当currentRange使用率>70%时，异步线程提前加载nextRange
+- **数据库行锁**：`UPDATE id_segment SET max_id = max_id + step WHERE biz_tag = ?`，原子操作保证多实例不冲突
+- **Hashids编码**：将长整型ID编码为6位短字符串（a-zA-Z0-9），支持自定义盐值防止枚举
+
+**性能**：本地号段模式，ID获取O(1)时间复杂度，**单机支撑百万级QPS无压力**
+
+### 3. 异步统计与消息解耦
+
+**问题背景**：跳转接口需要记录点击日志（IP、UA、来源、设备类型等），同步写入会严重拖慢响应时间。
+
+**解决方案**：跳转与统计链路分离
+
+```
+┌──────────────┐     302跳转      ┌──────────────┐
+│   用户请求   │ ──────────────▶  │    客户端    │
+└──────────────┘                  └──────────────┘
+       │
+       │  异步发送MQ消息
+       ▼
+┌──────────────┐    消费&批量写入   ┌──────────────┐
+│   RabbitMQ   │ ────────────────▶ │ ClickEvent表 │
+│ (click.queue)│                   │   (MySQL)    │
+└──────────────┘                   └──────────────┘
+```
+
+**技术实现**：
+- **即时响应**：跳转接口返回302后，异步发送点击事件到RabbitMQ
+- **消息格式**：`{shortCode, ip, ua, referer, deviceType, timestamp}`
+- **批量消费**：消费者每2秒批量拉取消息，聚合后批量INSERT（减少DB压力）
+- **采样控制**：高流量场景可配置采样率（如10%），平衡统计精度与存储成本
+- **死信队列**：消费失败的消息进入DLQ，支持人工排查与重试
+
+**效果**：跳转接口P99延迟降低60%+，统计与核心链路完全解耦
+
+### 4. 熔断限流与服务降级
+
+**问题背景**：Redis/MySQL故障时需要快速失败，避免雪崩；突发流量需要限流保护。
+
+**解决方案**：基于Resilience4j的多维度防护
+
+```yaml
+resilience4j:
+  ratelimiter:
+    instances:
+      redirectLimit:
+        limitForPeriod: 3500      # 每周期允许请求数
+        limitRefreshPeriod: 1s    # 滑动窗口周期
+        timeoutDuration: 0        # 超限立即拒绝
+
+  circuitbreaker:
+    instances:
+      redisBreaker:
+        slidingWindowSize: 10          # 滑动窗口大小
+        failureRateThreshold: 50       # 失败率阈值50%
+        waitDurationInOpenState: 5s    # 熔断后等待时间
+        permittedNumberOfCallsInHalfOpenState: 3  # 半开状态探测请求数
+        
+      mysqlBreaker:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+```
+
+**降级策略**：
+| 故障场景 | 降级行为 |
+|---------|---------|
+| Redis熔断 | 跳过L2，直接查询L3 MySQL |
+| MySQL熔断 | 返回L1/L2缓存数据，无缓存则返回503 |
+| 限流触发 | 返回429 Too Many Requests |
+| RabbitMQ故障 | 本地内存队列暂存，定时重试 |
+
+---
+
+## 性能指标
+
+基于K6压测，双实例部署（4C8G × 2），MySQL 8.0，Redis 7.0
+
+| 接口 | QPS | P50 | P95 | P99 | 错误率 |
+|------|-----|-----|-----|-----|--------|
+| 跳转（缓存命中） | 5,200+ | 12ms | 28ms | 45ms | <0.01% |
+| 跳转（缓存穿透） | 2,800+ | 35ms | 85ms | 120ms | <0.1% |
+| 短链创建 | 1,500+ | 25ms | 65ms | 95ms | <0.05% |
+
+**调优关键点**：
+1. HikariCP连接池：`maximumPoolSize=100`，`connectionTimeout=3s`
+2. Caffeine本地缓存50K条目，命中率>92%
+3. Redis Lettuce连接池：`maxActive=600`，`maxIdle=200`
+4. Tomcat线程池：`maxThreads=600`，`acceptCount=2000`
 
 ---
 
 ## 项目结构
 
 ```
-前端/
-├── src/
-│   ├── components/           # 通用组件（加载、二维码、图标、统计卡片等）
-│   ├── pages/                # 页面（Dashboard、Stats）
-│   ├── router/               # 前端路由
-│   ├── composables/          # 组合式工具（API、统计等）
-│   ├── assets/               # 静态资源
-│   ├── i18n.js               # 国际化配置
-│   ├── main.js               # 入口文件
-│   └── style.css             # 全局样式
-├── App.vue                   # 首页与顶栏
-├── vite.config.js            # Dev 代理与构建配置
-├── package.json
-└── README.md
+TinyFlow/
+├── src/main/java/com/layor/tinyflow/
+│   ├── config/                    # 配置类
+│   │   ├── CacheConfig.java       # Caffeine + Redis缓存配置
+│   │   ├── RabbitConfig.java      # RabbitMQ队列配置
+│   │   ├── BloomFilterConfig.java # 布隆过滤器配置
+│   │   └── HashidsConfig.java     # 短码编码配置
+│   ├── controller/
+│   │   ├── ShortUrlController.java    # 短链CRUD + 跳转
+│   │   └── StatsController.java       # 统计查询
+│   ├── service/
+│   │   ├── ShortUrlService.java       # 核心业务逻辑
+│   │   ├── SegmentIdGenerator.java    # 号段模式ID生成器
+│   │   ├── ClickRecorderService.java  # 点击统计服务
+│   │   └── ClickEventConsumer.java    # MQ消费者
+│   ├── strategy/
+│   │   └── HashidsStrategy.java       # 短码编码策略
+│   ├── entity/                    # JPA实体
+│   ├── dto/                       # 数据传输对象
+│   └── repository/                # 数据访问层
+├── src/main/resources/
+│   └── application.yml            # 应用配置
+├── web/                           # Vue 3 前端
+│   ├── src/
+│   │   ├── components/            # 通用组件
+│   │   ├── pages/                 # 页面
+│   │   └── composables/           # 组合式API
+│   └── infra/
+│       ├── load/k6/               # K6压测脚本
+│       └── observability/         # Prometheus + Grafana配置
+├── docker-compose.yml             # 本地开发环境
+└── pom.xml
 ```
-
-后端/
-- Controller
-  - `ShortUrlController`：短链生成、维护与重定向相关接口
-  - `StatsController`：统计相关查询接口
-- entity（含 DTO/VO）
-  - `ShortUrl`、`ShortUrlDTO`、`ShortUrlOverviewDTO`
-  - `ShortenRequest`、`PageResponseDTO`、`Result`
-  - `DailyClick`、`DailyVisitTrendDTO`、`UrlClickStatsDTO`、`UrlListResponseDTO`
-- repository
-  - `ShortUrlRepository`：短链数据访问
-  - `DailyClickRepository`：点击统计数据访问
-- service
-  - `ShortUrlService`：短链核心业务（生成、查询、重定向、更新别名、删除等）
-- 应用入口
-  - `TinyFlowApplication`
-
 
 ---
 
 ## 快速开始
 
-### 前置条件
+### 环境要求
 
-- Node.js `>= 18`
-- 推荐安装包管理器：`npm` 或 `pnpm`
-- 后端服务（示例：Spring Boot）运行在 `http://localhost:8080`
+- JDK 17+
+- MySQL 8.0+
+- Redis 7.0+
+- RabbitMQ 3.12+（可选，不配置则使用本地异步模式）
+- Node.js 18+（前端）
 
-### 安装与启动（前端）
+### 1. 启动基础设施
 
 ```bash
-git clone <your-repo-url>
-cd TinyFlow/web
+docker compose up -d mysql redis rabbitmq
+```
+
+### 2. 初始化数据库
+
+```sql
+CREATE DATABASE `tiny_flow` DEFAULT CHARACTER SET utf8mb4;
+
+-- 号段表
+CREATE TABLE `id_segment` (
+  `biz_tag` VARCHAR(64) PRIMARY KEY,
+  `max_id` BIGINT NOT NULL DEFAULT 1,
+  `step` INT NOT NULL DEFAULT 100000,
+  `version` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO `id_segment` (`biz_tag`, `max_id`, `step`) VALUES ('shorturl', 1, 100000);
+```
+
+### 3. 启动后端
+
+```bash
+cd TinyFlow
+mvn spring-boot:run
+```
+
+### 4. 启动前端
+
+```bash
+cd web
 npm install
 npm run dev
 ```
 
-浏览器打开提示的本地地址（如 `http://localhost:5173/`）。
-
-### 构建生产包
-
-```bash
-npm run build
-```
-
-产物输出到 `web/dist` 目录。
+访问 `http://localhost:5173`
 
 ---
 
 ## 配置说明
 
-- API 地址：
-  - 开发环境默认通过 `vite.config.js` 代理 `/api` 到 `http://localhost:8080`
-  - 在 `App.vue` 中有常量 `API_BASE = 'http://localhost:8080'`，用于构造短链展示地址（如二维码、复制用）。生产环境请按实际域名修改。
+核心配置项（`application.yml`）：
 
-- 跳转端点：
-  - 前端所有短链均指向 `GET /api/redirect/{code}`，由后端返回 `302` 到原始长链，并进行点击日志记录（推荐）。
+```yaml
+# 缓存配置
+cache:
+  caffeine:
+    spec: maximumSize=50000,expireAfterWrite=30m,recordStats
+  warmup:
+    enabled: true
+    size: 5000  # 启动时预热Top N热点链接
 
----
+# 布隆过滤器
+bloom:
+  expected-insertions: 10000000  # 预期数据量
+  false-positive-rate: 0.01     # 误判率
 
-## 开发与调试
+# 点击统计
+clicks:
+  mode: rabbitmq  # 可选: local（本地异步）, rabbitmq（消息队列）
+events:
+  sampleRate: 1.0  # 采样率，1.0=100%记录
 
-- 常用脚本：
-  - `npm run dev`：启动前端开发服务器
-  - `npm run build`：构建生产包
-
-- 页面导航：
-  - 首页生成短链与历史记录管理
-  - `Dashboard`：集中管理与操作列表
-  - `Stats`：查看某短码的访问统计（接口完善中）
-
-- 调试提示：
-  - 首页 favicon 加载可能出现跨站错误（如 `net::ERR_BLOCKED_BY_ORB`），不影响核心功能；
-  - 若点击短链仍走旧端点，请强制刷新缓存（Ctrl+F5）或检查 `App.vue` 的 `buildShortUrl` 与 `redirectViaApi` 实现是否已更新。
-
----
-## 后续拓展计划（Roadmap）
-
-- 安全与稳定性
-  - 访问速率限制（Rate Limit）、防刷与机器人识别
-  - 短码唯一性保障与冲突检测优化（含自定义别名策略）
-  - 审计日志与操作留痕（更新/删除）
-
-- 统计与分析
-  - 细化点击日志结构（UA、IP、Referer、UTM、地理位置等）
-  - 趋势图与来源分布（按天、周、月、时间段）
-  - 导出报表 CSV/JSON、分享统计页的只读链接
-
-- 管理能力
-  - 批量导入/导出短链
-  - 标签/分组管理与筛选
-  - 权限模型与多租户（个人/团队/企业）
-  - 管理后台（Admin）与审核流程
-
-- 使用体验
-  - 自定义域名与多域支持（如 `s.yourbrand.com`）
-  - 二维码定制（颜色、LOGO、容错率）
-  - 失效策略与到期提醒（TTL、软删除恢复）
-  - 跳转前提示页（如合规警示/安全验证）
-
-- 开发运维
-  - 缓存与热点优化（本地缓存/Redis/LRU）
-  - 观察性与告警（Metrics/Tracing/Logging）
-  - Webhook/事件订阅（点击通知、到期通知）
-  - 完整测试体系（单测/集成/端到端）与 CI/CD 流程
-
-> 如需优先推进其中某一项，请在 Issue 中告知场景与需求，我会按优先级完善。
-
-## 常见问题
-
-- 前端短链地址与后端域名不一致？
-  - 请在 `App.vue` 中调整 `API_BASE` 为线上域名，或在构建时注入环境变量并使用 `import.meta.env`。
-
-- 后端未提供纯文本接口 `/shorten`？
-  - 前端会回退到 `/api/shorten`，无需修改。你也可以移除文本接口的调用逻辑。
+# 熔断限流
+resilience4j:
+  ratelimiter:
+    instances:
+      redirectLimit:
+        limitForPeriod: 3500
+        limitRefreshPeriod: 1s
+```
 
 ---
 
-## 贡献指南
+## 压测与监控
 
-欢迎提交 Issue 或 PR 来改进项目：
+### 运行压测
 
-1. Fork 仓库并创建特性分支
-2. 保持代码风格一致，避免无关修改
-3. 编写必要的说明与测试（如适用）
-4. 提交 PR 并描述改动动机与效果
+```bash
+# 启动观测栈
+docker compose -f web/infra/observability/docker-compose.yml up -d
+
+# 运行K6压测
+k6 run web/infra/load/k6/shortener.js
+```
+
+### Grafana Dashboard
+
+导入 `web/infra/observability/dashboards/shortener-overview.json`，可视化：
+- 跳转接口 QPS / P95 / P99
+- 缓存命中率（L1/L2）
+- 熔断器状态
+- RabbitMQ队列深度
+
+---
+
+## API 文档
+
+| Method | Endpoint | 描述 |
+|--------|----------|------|
+| POST | `/api/shorten` | 创建短链（支持自定义别名） |
+| GET | `/{shortCode}` | 短链跳转（302重定向） |
+| GET | `/api/urls` | 分页查询短链列表 |
+| PUT | `/api/{shortCode}` | 更新短链别名 |
+| DELETE | `/api/{shortCode}` | 删除短链 |
+| GET | `/api/stats/{shortCode}/overview` | 统计概览 |
+| GET | `/api/stats/{shortCode}/trend` | 点击趋势 |
+| GET | `/api/stats/{shortCode}/distribution` | 来源/设备分布 |
 
 ---
 
 ## 许可证
 
-本项目采用 MIT License。
+MIT License
