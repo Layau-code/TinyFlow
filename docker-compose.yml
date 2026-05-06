@@ -1,23 +1,54 @@
 services:
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: tinyflow-redis
-    command: ["redis-server","--appendonly","yes"]
+    command: ["redis-server","--appendonly","yes","--requirepass","123456"]
     ports:
-      - "6379:6379"
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "123456", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
   mysql:
-    image: mysql:8.0
+    image: docker.m.daocloud.io/mysql/mysql-server:8.0
     container_name: tinyflow-mysql
     environment:
       - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_ROOT_HOST=%
       - MYSQL_DATABASE=tiny-flow
     command: --default-authentication-plugin=mysql_native_password
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: tinyflow-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   app:
@@ -26,21 +57,52 @@ services:
       dockerfile: Dockerfile.app
     container_name: tinyflow-app
     depends_on:
-      - redis
-      - mysql
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
+      - DB_PASSWORD=123456
+      - REDIS_PASSWORD=123456
+      - APP_DOMAIN=http://localhost:8080
+      - JWT_SECRET=tinyflow-local-development-secret-key-at-least-256-bits
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/tiny-flow?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=123456
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      - SPRING_REDIS_TIMEOUT=100ms
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWORD=123456
+      - SPRING_DATA_REDIS_TIMEOUT=2s
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=admin
+      - SPRING_RABBITMQ_PASSWORD=rabbit
+      - MANAGEMENT_HEALTH_RABBIT_ENABLED=false
       - SERVER_PORT=8080
     ports:
       - "8080:8080"
     restart: unless-stopped
 
+  web:
+    image: node:20-alpine3.22
+    container_name: tinyflow-web
+    working_dir: /app
+    depends_on:
+      - app
+    environment:
+      - VITE_API_PROXY_TARGET=http://app:8080
+    command: sh -lc "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web:/app
+      - web_node_modules:/app/node_modules
+    restart: unless-stopped
+
 volumes:
   mysql_data:
-
-
+  redis_data:
+  rabbitmq_data:
+  web_node_modules:
