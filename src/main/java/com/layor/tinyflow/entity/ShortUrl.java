@@ -11,7 +11,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Builder
-@Table(name = "short_url")
+@Table(name = "short_url", indexes = {
+    @Index(name = "idx_user_id", columnList = "user_id"),
+    @Index(name = "idx_short_code", columnList = "short_code")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,6 +29,12 @@ public class ShortUrl {
 
     @Column(name = "short_code", unique = true, nullable = false)
     private String shortCode;
+    
+    /**
+     * 关联用户ID（创建者）
+     */
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

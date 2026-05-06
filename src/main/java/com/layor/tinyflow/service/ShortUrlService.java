@@ -5,12 +5,12 @@ import com.layor.tinyflow.Strategy.HashidsStrategy;
 import com.layor.tinyflow.entity.*;
 import com.layor.tinyflow.repository.DailyClickRepository;
 import com.layor.tinyflow.repository.ShortUrlRepository;
+import com.layor.tinyflow.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.hashids.Hashids;
-import org.redisson.api.RBloomFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,8 +20,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.google.common.hash.BloomFilter;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -54,33 +56,60 @@ public class ShortUrlService {
     @Autowired
     private ShortUrlRepository shortUrlRepository;
     @Autowired
+    private UserRepository userRepository;
+    @Autowired
     private com.layor.tinyflow.repository.ClickEventRepository clickEventRepository;
     @Autowired
     private SegmentIdGenerator idGenerator;
     @Autowired
     HashidsStrategy codeStrategy;
+    @Autowired
+    private AuthService authService; // 注入认证服务
     @Autowired(required = false)
-    @Qualifier("shorturlBloomFilter")
-    private RBloomFilter<String> shorturlBloomFilter;
-    // 基础短链域名
-    private static final String BASE_URL = "https://localhost:8080";
-
-
-
-
+    private RabbitTemplate rabbitTemplate;
+    
+    @Autowired
+    private BloomFilter<String> shortCodeBloomFilter;
+    
+    @Value("${shorturl.async.enabled:false}")
+    private boolean asyncWriteEnabled;
+    
+    // 缓存默认用户ID，避免重复查询
+    private Long cachedDefaultUserId = null;
+    
+    @Value("${APP_DOMAIN:http://localhost:8080}")
+    private String baseUrl;
+    
     public ShortUrlDTO createShortUrl(String longUrl, String customAlias) throws Exception {
         // 1. 校验长链接
         if (!isValidUrl(longUrl)) {
             throw new Exception("长链接格式不正确");
         }
-        //1.1如果长链接已经存在，直接返回对应的短链
-        if (shortUrlRepository.existsByLongUrl(longUrl)) {
-            ShortUrl shortUrl = shortUrlRepository.findByLongUrl(longUrl);
+        
+        // 获取当前登录用户ID（如果未登录则为null）
+        Long userId = authService.getCurrentUserId();
+        
+        // 如果未登录，使用默认用户 "user" 的ID
+        if (userId == null) {
+            userId = getDefaultUserId();
+        }
+        
+        //1.1如果长链接已经存在且属于当前用户，直接返回对应的短链
+        ShortUrl existingUrl = null;
+        if (userId != null) {
+            // 已登录或使用默认用户：查询当前用户的短链
+            existingUrl = shortUrlRepository.findByUserIdAndLongUrl(userId, longUrl);
+        } else {
+            // 匿名用户：查询匿名短链
+            existingUrl = shortUrlRepository.findByUserIdIsNullAndLongUrl(longUrl);
+        }
+        
+        if (existingUrl != null) {
             return ShortUrlDTO.builder()
-                    .shortCode(shortUrl.getShortCode())
-                    .shortUrl(BASE_URL + "/" + shortUrl.getShortCode())
-                    .longUrl(shortUrl.getLongUrl())
-                    .createdAt(shortUrl.getCreatedAt())
+                    .shortCode(existingUrl.getShortCode())
+                    .shortUrl(baseUrl + "/" + existingUrl.getShortCode())
+                    .longUrl(existingUrl.getLongUrl())
+                    .createdAt(existingUrl.getCreatedAt())
                     .build();
         }
 
@@ -90,34 +119,116 @@ public class ShortUrlService {
             // 自动生成随机码
             shortCode = generateRandomCode();
         } else {
-            //用户自定义了别名
-            shortUrlRepository.existsByShortCode(shortCode);
+            //用户自定义了别名，检查是否已存在
+            if (shortUrlRepository.existsByShortCode(shortCode)) {
+                throw new Exception("自定义别名已存在");
+            }
         }
 
         ShortUrl shortUrl = ShortUrl.builder()
                 .longUrl(longUrl)
                 .shortCode(shortCode)
+                .userId(userId) // 设置创建者ID（可能为默认用户ID或登录用户ID）
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        // 3. 存入数据库
-        shortUrlRepository.save(shortUrl);
-        
-        // 3.5 添加到布隆过滤器（防止后续缓存穿透）
-        if (shorturlBloomFilter != null) {
-            shorturlBloomFilter.add(shortCode);
-            log.debug("Short code {} added to BloomFilter", shortCode);
+        // 3. 存入数据库（根据配置选择同步/异步）
+        if (asyncWriteEnabled) {
+            // 异步模式：先写Caffeine和Redis，再异步写DB
+            saveShortUrlAsync(shortUrl);
+            log.info("用户 {} 创建短链（异步）: {} -> {}", userId, shortCode, longUrl);
+        } else {
+            // 同步模式：直接写DB
+            shortUrlRepository.save(shortUrl);
+            
+            // 同步模式也需要添加到布隆过滤器
+            shortCodeBloomFilter.put(shortCode);
+            log.info("用户 {} 创建短链: {} -> {}", userId, shortCode, longUrl);
         }
         
         // 4. 构造返回结果
         ShortUrlDTO dto = ShortUrlDTO.builder()
                 .shortCode(shortCode)
-                .shortUrl(BASE_URL + "/" + shortCode)
+                .shortUrl(baseUrl + "/" + shortCode)
                 .longUrl(longUrl)
                 .createdAt(LocalDateTime.now())
                 .build();
 
         return dto;
+    }
+    
+    /**
+     * 获取默认用户ID（带缓存）
+     */
+    private Long getDefaultUserId() {
+        if (cachedDefaultUserId != null) {
+            return cachedDefaultUserId;
+        }
+        
+        User defaultUser = userRepository.findByUsername("user").orElse(null);
+        if (defaultUser != null) {
+            cachedDefaultUserId = defaultUser.getId();
+            log.info("缓存默认用户ID: {}", cachedDefaultUserId);
+        }
+        return cachedDefaultUserId;
+    }
+    
+    /**
+     * 异步保存短链：先写Caffeine和Redis，再通过MQ异步写DB
+     * 
+     * 工作流程：
+     * 1. Caffeine本地缓存（立即可用）
+     * 2. Redis缓存（多实例共享）
+     * 3. MQ异步持久化到DB
+     * 4. 布隆过滤器（防穿透）
+     */
+    private void saveShortUrlAsync(ShortUrl shortUrl) {
+        try {
+            String shortCode = shortUrl.getShortCode();
+            String longUrl = shortUrl.getLongUrl();
+            
+            // 1. 立即写入Caffeine本地缓存（极速）
+            localCache.put(shortCode, longUrl);
+            log.debug("[L1] Caffeine缓存已更新: {}", shortCode);
+            
+            // 2. 写入Redis（多实例共享）
+            redisTemplate.opsForValue().set(
+                "short_url:" + shortCode, 
+                longUrl, 
+                java.time.Duration.ofHours(72)  // 72小时过期，给DB充足时间
+            );
+            log.debug("[L2] Redis缓存已更新: {}", shortCode);
+            
+            // 3. 布隆过滤器（防穿透）
+            shortCodeBloomFilter.put(shortCode);
+            log.debug("[BLOOM] 布隆过滤器已更新: {}", shortCode);
+            
+            // 4. 发送MQ消息异步持久化
+            if (rabbitTemplate != null) {
+                ShortUrlMessage message = ShortUrlMessage.builder()
+                        .shortCode(shortCode)
+                        .longUrl(longUrl)
+                        .userId(shortUrl.getUserId())
+                        .createdAt(shortUrl.getCreatedAt())
+                        .retryCount(0)
+                        .build();
+                
+                rabbitTemplate.convertAndSend(
+                    "tinyflow.shorturl.exchange", 
+                    "shorturl.persist", 
+                    message
+                );
+                log.info("[MQ] 短链 {} 已发送到MQ异步持久化", shortCode);
+            } else {
+                // 降级：MQ不可用时直接同步写
+                log.warn("[FALLBACK] MQ不可用，降级为同步写入DB: {}", shortCode);
+                shortUrlRepository.save(shortUrl);
+            }
+        } catch (Exception e) {
+            log.error("[ERROR] 异步写入失败，降级为同步: {}", e.getMessage());
+            // 异常时降级为同步写入
+            shortUrlRepository.save(shortUrl);
+        }
     }
 
     private String generateRandomCode() {
@@ -154,13 +265,34 @@ public class ShortUrlService {
             Pageable topN = PageRequest.of(0, warmupSize);
             Page<ShortUrl> hotUrls = shortUrlRepository.findAll(topN);
             
-            int loaded = 0;
+            int l1Loaded = 0, l2Loaded = 0, bloomLoaded = 0;
             for (ShortUrl url : hotUrls.getContent()) {
-                localCache.put(url.getShortCode(), url.getLongUrl());
-                loaded++;
+                String shortCode = url.getShortCode();
+                String longUrl = url.getLongUrl();
+                
+                // 填充L1本地缓存
+                localCache.put(shortCode, longUrl);
+                l1Loaded++;
+                
+                // 同时填充L2 Redis缓存
+                try {
+                    redisTemplate.opsForValue().set(
+                        "short_url:" + shortCode, 
+                        longUrl, 
+                        java.time.Duration.ofHours(24)
+                    );
+                    l2Loaded++;
+                } catch (Exception e) {
+                    log.warn("Redis warmup failed for {}: {}", shortCode, e.getMessage());
+                }
+                
+                // 预热布隆过滤器
+                shortCodeBloomFilter.put(shortCode);
+                bloomLoaded++;
             }
             
-            log.info("Cache warmup completed: {} URLs loaded to L1 cache", loaded);
+            log.info("Cache warmup completed: L1(本地)={}条, L2(Redis)={}条, BloomFilter={}条", 
+                l1Loaded, l2Loaded, bloomLoaded);
         } catch (Exception e) {
             log.error("Cache warmup failed: {}", e.getMessage(), e);
         }
@@ -209,10 +341,26 @@ public class ShortUrlService {
     }
     // UrlService.java
     public Page<UrlListResponseDTO> getAllUrls(int page, int size) {
+        // 获取当前登录用户ID（如果未登录则为null）
+        Long userId = authService.getCurrentUserId();
+        
         Pageable pageable = PageRequest.of(page, size);
 
-        // 1. 先分页查出 ShortUrl 列表
-        Page<ShortUrl> shortUrlPage = shortUrlRepository.findAll(pageable);
+        // 1. 如果用户已登录，只查询当前用户的短链接；否则查询所有匿名短链
+        Page<ShortUrl> shortUrlPage;
+        if (userId != null) {
+            // 已登录：查询自己的短链
+            shortUrlPage = shortUrlRepository.findByUserId(userId, pageable);
+        } else {
+            // 未登录：查询默认用户"user"的短链
+            User defaultUser = userRepository.findByUsername("user").orElse(null);
+            if (defaultUser != null) {
+                shortUrlPage = shortUrlRepository.findByUserId(defaultUser.getId(), pageable);
+            } else {
+                // 如果"user"不存在，返回空列表
+                shortUrlPage = shortUrlRepository.findByUserIdIsNull(pageable);
+            }
+        }
         List<ShortUrl> shortUrls = shortUrlPage.getContent();
 
 
@@ -220,14 +368,18 @@ public class ShortUrlService {
             return new PageImpl<>(Collections.emptyList(), pageable, 0);
         }
 
-        List<UrlListResponseDTO> urlListResponseDTO= shortUrls.stream()
+        List<String> codes = shortUrls.stream().map(ShortUrl::getShortCode).toList();
+        Map<String, Integer> todayMap = dailyClickRepo.findTodayClicksByShortCodes(codes).stream()
+                .collect(Collectors.toMap(r -> (String) r[0], r -> ((Number) r[1]).intValue()));
+        List<UrlListResponseDTO> urlListResponseDTO = shortUrls.stream()
                 .map(shortUrl -> UrlListResponseDTO.builder()
                         .shortCode(shortUrl.getShortCode())
                         .longUrl(shortUrl.getLongUrl())
                         .totalVisits(Long.valueOf(shortUrl.getClickCount()))
-                        .todayVisits(dailyClickRepo.getTodayClicksByShortCode(shortUrl.getShortCode()))
+                        .todayVisits(todayMap.getOrDefault(shortUrl.getShortCode(), 0))
                         .createdAt(shortUrl.getCreatedAt())
-                        .build()).toList();
+                        .build())
+                .toList();
 
         return new PageImpl<>(urlListResponseDTO, pageable, shortUrlPage.getTotalElements());
     
@@ -240,33 +392,39 @@ public class ShortUrlService {
             return;
         }
         recordClick(code);
-        try { recordClickEvent(code, request); } catch (Exception ignored) {}
+        recordClickEvent(code, request);
         response.setStatus(HttpServletResponse.SC_FOUND);
         response.setHeader("Location", longUrl);
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     }
 
     @io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker(name = "redisBreaker", fallbackMethod = "redisFallback")
+    @io.github.resilience4j.retry.annotation.Retry(name = "redisRetry")
     public String getLongUrlByShortCode(String shortCode) {
-        // 布隆过滤器检查：快速拦截无效短码，防止缓存穿透
-        if (shorturlBloomFilter != null && !shorturlBloomFilter.contains(shortCode)) {
-            // 短码不在布隆过滤器中 → 肯定不存在 → 无需查询缓存和数据库
-            log.debug("Short code {} filtered by BloomFilter (cache penetration prevented)", shortCode);
-            return null;
+        long startTime = System.currentTimeMillis();
+        
+        // 布隆过滤器：快速判断短链是否可能存在（防缓存穿透）
+        if (!shortCodeBloomFilter.mightContain(shortCode)) {
+            log.warn("[BLOOM FILTER] shortCode={} 不存在（布隆过滤器拦截）", shortCode);
+            return null;  // 确定不存在，直接返回，防止缓存穿透
         }
         
         // L1: 本地 Caffeine 缓存
         String cachedUrl = localCache.getIfPresent(shortCode);
         if (cachedUrl != null) {
+            log.debug("[L1 HIT] shortCode={}, duration={}ms", shortCode, System.currentTimeMillis() - startTime);
             return cachedUrl;
         }
         
         // L2: Redis 缓存
         String redisUrl = null;
         try { 
-            redisUrl = redisTemplate.opsForValue().get("short_url:" + shortCode); 
+            redisUrl = redisTemplate.opsForValue().get("short_url:" + shortCode);
+            log.debug("[L2 QUERY] shortCode={}, hit={}, duration={}ms", 
+                shortCode, redisUrl != null, System.currentTimeMillis() - startTime);
         } catch (Exception e) {
-            log.warn("Redis query failed for {}: {}", shortCode, e.getMessage());
+            log.warn("[L2 ERROR] Redis query failed for {}: {}", shortCode, e.getMessage());
+            throw e; // 抛出异常触发熔断器
         }
         
         if (redisUrl != null) {
@@ -276,8 +434,10 @@ public class ShortUrlService {
         }
 
         // L3: 数据库回源
+        log.info("[L3 QUERY] Database fallback for shortCode={}", shortCode);
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
         if (shortUrl == null) {
+            log.warn("[NOT FOUND] shortCode={}", shortCode);
             return null;
         }
         
@@ -287,19 +447,27 @@ public class ShortUrlService {
         try {
             redisTemplate.opsForValue().set("short_url:" + shortCode, longUrl, java.time.Duration.ofHours(24));
         } catch (Exception e) {
-            log.warn("Redis set failed for {}: {}", shortCode, e.getMessage());
+            log.warn("[L2 ERROR] Redis set failed for {}: {}", shortCode, e.getMessage());
         }
         
         // 回填本地缓存 (L1)
         localCache.put(shortCode, longUrl);
         
+        log.info("[DB HIT] shortCode={}, totalDuration={}ms", shortCode, System.currentTimeMillis() - startTime);
         return longUrl;
     }
 
     public String redisFallback(String shortCode, Throwable t) {
+        log.error("[FALLBACK] Redis circuit breaker triggered for shortCode={}, reason={}", 
+            shortCode, t.getMessage());
         // 降级逻辑：Redis 挂了直接查数据库
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
-        return shortUrl != null ? shortUrl.getLongUrl() : null;
+        if (shortUrl != null) {
+            // 回填本地缓存
+            localCache.put(shortCode, shortUrl.getLongUrl());
+            return shortUrl.getLongUrl();
+        }
+        return null;
     }
     public ShortUrlOverviewDTO getOverviewByShortCode(String shortCode) {
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
@@ -446,13 +614,25 @@ public class ShortUrlService {
     private String escapeJson(String s) { return s.replace("\\", "\\\\").replace("\"", "\\\""); }
     @Transactional
     public void deleteByShortCode(String shortCode) {
+        // 获取当前登录用户ID（如果未登录则为null）
+        Long userId = authService.getCurrentUserId();
+        
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
         if (shortUrl == null) {
             throw new NoSuchElementException("Short URL not found");
         }
+        
+        // 权限检查：只能删除自己的短链（匿名用户只能删除匿名短链）
+        if (userId != null && shortUrl.getUserId() != null && !shortUrl.getUserId().equals(userId)) {
+            throw new SecurityException("无权删除此短链接");
+        }
+        if (userId == null && shortUrl.getUserId() != null) {
+            throw new SecurityException("无权删除此短链接");
+        }
+        
         shortUrlRepository.deleteByShortCode(shortCode);
-
         dailyClickRepo.deleteByShortCode(shortCode);
+        log.info("用户 {} 删除短链: {}", userId, shortCode);
     }
 
     public List<UrlClickStatsDTO> getUrlClickStats() {
@@ -473,14 +653,211 @@ public class ShortUrlService {
                 ));
     }
 
+    /**
+     * 获取详细统计数据
+     */
+    public DetailedStatsDTO getDetailedStats(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        
+        // 基础指标
+        long pv = clickEventRepository.countTotal(shortCode, start, end);
+        long uv = clickEventRepository.countUniqueIp(shortCode, start, end);
+        double pvUvRatio = uv > 0 ? (double) pv / uv : 0;
+        
+        // 时间分布
+        List<KeyCountDTO> hourDist = clickEventRepository.countByHour(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(formatHour(n(o[0])), n(o[1]))).toList();
+        List<KeyCountDTO> weekdayDist = clickEventRepository.countByDayOfWeek(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(formatWeekday((int)n(o[0])), n(o[1]))).toList();
+        
+        // 地理分布
+        List<KeyCountDTO> countryDist = clickEventRepository.countByCountry(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+        List<KeyCountDTO> cityDist = clickEventRepository.countByCity(shortCode, start, end, null)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+        
+        // 技术分布
+        List<KeyCountDTO> deviceDist = clickEventRepository.countByDevice(shortCode, start, end, null)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
+        List<KeyCountDTO> browserDist = clickEventRepository.countByUa(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(parseBrowser(s(o[0])), n(o[1]))).limit(10).toList();
+        
+        // 来源分布
+        List<KeyCountDTO> sourceDist = clickEventRepository.countBySource(shortCode, start, end, null)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+        List<KeyCountDTO> refererDist = clickEventRepository.countByReferer(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+        
+        // 时间信息
+        LocalDateTime firstClick = clickEventRepository.findFirstClickTime(shortCode);
+        LocalDateTime lastClick = clickEventRepository.findLastClickTime(shortCode);
+        
+        return new DetailedStatsDTO(pv, uv, pvUvRatio, hourDist, weekdayDist, 
+                countryDist, cityDist, deviceDist, browserDist, sourceDist, refererDist, 
+                firstClick, lastClick);
+    }
+
+    /**
+     * 获取全局统计数据
+     */
+    public GlobalStatsDTO getGlobalStats(String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        
+        // 基础汇总
+        long totalUrls = shortUrlRepository.count();
+        long totalClicks = clickEventRepository.countAllTotal(start, end);
+        long totalUv = clickEventRepository.countAllUniqueIp(start, end);
+        
+        // 今日数据
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime todayEnd = LocalDate.now().atTime(23, 59, 59);
+        long todayClicks = clickEventRepository.countAllTotal(todayStart, todayEnd);
+        
+        // 活跃短链
+        List<String> todayActiveCodes = dailyClickRepo.findTodayActiveCodes();
+        long activeUrls = todayActiveCodes != null ? todayActiveCodes.size() : 0;
+        
+        // 日趋势
+        List<KeyCountDTO> dailyTrend = clickEventRepository.countAllByDate(start, end)
+                .stream().map(o -> new KeyCountDTO(String.valueOf(o[0]), n(o[1]))).toList();
+        
+        // 分布数据
+        List<KeyCountDTO> deviceDist = clickEventRepository.countAllByDevice(start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).toList();
+        List<KeyCountDTO> cityTop10 = clickEventRepository.countAllByCity(start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(10).toList();
+        List<KeyCountDTO> sourceTop10 = clickEventRepository.countAllBySource(start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(10).toList();
+        
+        // 热门短链 TOP10
+        List<UrlRankDTO> topUrls = shortUrlRepository.findAll(PageRequest.of(0, 10, 
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "clickCount")))
+                .stream()
+                .map(url -> {
+                    Integer urlTodayClicks = dailyClickRepo.getTodayClicksByShortCode(url.getShortCode());
+                    int today = urlTodayClicks != null ? urlTodayClicks : 0;
+                    return new UrlRankDTO(url.getShortCode(), url.getLongUrl(), url.getClickCount(), today);
+                })
+                .toList();
+        
+        return new GlobalStatsDTO(totalUrls, totalClicks, totalUv, todayClicks, activeUrls,
+                dailyTrend, deviceDist, cityTop10, sourceTop10, topUrls);
+    }
+
+    /**
+     * 获取小时分布数据
+     */
+    public List<KeyCountDTO> getHourDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        return clickEventRepository.countByHour(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(formatHour(n(o[0])), n(o[1]))).toList();
+    }
+
+    /**
+     * 获取星期分布数据
+     */
+    public List<KeyCountDTO> getWeekdayDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        return clickEventRepository.countByDayOfWeek(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(formatWeekday((int)n(o[0])), n(o[1]))).toList();
+    }
+
+    /**
+     * 获取浏览器分布数据
+     */
+    public List<KeyCountDTO> getBrowserDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        // 合并相同浏览器
+        Map<String, Long> browserMap = new HashMap<>();
+        clickEventRepository.countByUa(shortCode, start, end).forEach(o -> {
+            String browser = parseBrowser(s(o[0]));
+            browserMap.merge(browser, n(o[1]), Long::sum);
+        });
+        return browserMap.entrySet().stream()
+                .map(e -> new KeyCountDTO(e.getKey(), e.getValue()))
+                .sorted((a, b) -> Long.compare(b.getCount(), a.getCount()))
+                .limit(10).toList();
+    }
+
+    /**
+     * 获取国家分布数据
+     */
+    public List<KeyCountDTO> getCountryDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        return clickEventRepository.countByCountry(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(20).toList();
+    }
+
+    /**
+     * 获取Referer详细分布
+     */
+    public List<KeyCountDTO> getRefererDistribution(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        return clickEventRepository.countByReferer(shortCode, start, end)
+                .stream().map(o -> new KeyCountDTO(s(o[0]), n(o[1]))).limit(50).toList();
+    }
+
+    /**
+     * 获取PV/UV数据
+     */
+    public Map<String, Long> getPvUv(String shortCode, String startStr, String endStr) {
+        LocalDateTime end = parseEnd(endStr);
+        LocalDateTime start = parseStart(startStr, end);
+        long pv = clickEventRepository.countTotal(shortCode, start, end);
+        long uv = clickEventRepository.countUniqueIp(shortCode, start, end);
+        Map<String, Long> result = new HashMap<>();
+        result.put("pv", pv);
+        result.put("uv", uv);
+        return result;
+    }
+
+    private String formatHour(long hour) {
+        return String.format("%02d:00", hour);
+    }
+
+    private String formatWeekday(int dayOfWeek) {
+        String[] days = {"", "周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+        return dayOfWeek >= 1 && dayOfWeek <= 7 ? days[dayOfWeek] : "";
+    }
+
+    private String parseBrowser(String ua) {
+        if (ua == null || ua.isEmpty()) return "未知";
+        String s = ua.toLowerCase();
+        if (s.contains("edg")) return "Edge";
+        if (s.contains("chrome") && !s.contains("edg")) return "Chrome";
+        if (s.contains("safari") && !s.contains("chrome")) return "Safari";
+        if (s.contains("firefox")) return "Firefox";
+        if (s.contains("opera") || s.contains("opr")) return "Opera";
+        if (s.contains("msie") || s.contains("trident")) return "IE";
+        return "其他";
+    }
 
     @Transactional
     public void updateShortUrl(String shortCode,  String customAlias) {
+        // 获取当前登录用户ID（如果未登录则为null）
+        Long userId = authService.getCurrentUserId();
+        
         //1. 查询短链是否存在
         ShortUrl shortUrl = shortUrlRepository.findByShortCode(shortCode);
         if (shortUrl == null) {
             throw new RuntimeException("短链不存在");
         }
+        
+        // 权限检查：只能修改自己的短链（匿名用户只能修改匿名短链）
+        if (userId != null && shortUrl.getUserId() != null && !shortUrl.getUserId().equals(userId)) {
+            throw new SecurityException("无权修改此短链接");
+        }
+        if (userId == null && shortUrl.getUserId() != null) {
+            throw new SecurityException("无权修改此短链接");
+        }
+        
         if (customAlias != null && !customAlias.isEmpty()) {
             //2. 检查自定义别名是否已存在
             if (shortUrlRepository.existsByShortCode(customAlias)) {
@@ -511,6 +888,7 @@ public class ShortUrlService {
         } catch (Exception e) {
             log.warn("Cache update failed: {}", e.getMessage());
         }
-
+        
+        log.info("用户 {} 修改短链: {} -> {}", userId, shortCode, customAlias);
     }
 }

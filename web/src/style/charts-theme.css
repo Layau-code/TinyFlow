@@ -1,0 +1,28 @@
+:root{
+  --tf-bg-card: #0f1724; /* 深蓝灰 */
+  --tf-card-border: rgba(255,255,255,0.04);
+  --tf-primary: #2563eb;
+  --tf-accent: #1e293b;
+  --tf-text: #e6eef8;
+  --tf-muted: #94a3b8;
+}
+
+/* 卡片（企业冷静风） */
+.tf-card {
+  background: linear-gradient(180deg, #0b1220 0%, #0f1724 100%);
+  border: 1px solid var(--tf-card-border);
+  color: var(--tf-text);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(2,6,23,0.6);
+}
+
+.tf-card .card-header { background: transparent; color: var(--tf-text); }
+.tf-card .card-body { background: transparent; }
+
+/* 微交互 */
+.tf-hover-lift { transition: transform .18s ease, box-shadow .18s ease; }
+.tf-hover-lift:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(2,6,23,0.6); }
+
+/* ECharts 默认颜色 */
+.tf-echarts-color-palette { --echarts-color-0: #2563eb; --echarts-color-1: #60a5fa; --echarts-color-2: #7c3aed; --echarts-color-3: #06b6d4; --echarts-color-4: #f97316; }
+

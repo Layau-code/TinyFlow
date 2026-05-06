@@ -97,8 +97,8 @@ export default {
           x, y,
           vx: Math.cos(a) * speed,
           vy: Math.sin(a) * speed,
-          size: 0.8 + Math.random() * 1.5,
-          hue: 230 + Math.random() * 40, // 蓝紫色系
+          size: 1.2 + Math.random() * 2.0,
+          hue: 200 + Math.random() * 30, // 水滴蓝色系
           life: 0,
           arrived: false,
         })
@@ -110,8 +110,8 @@ export default {
       const ctx = this.ctx
       if (!ctx) return
       const W = this.canvas.width, H = this.canvas.height
-      // 背景淡淡拖影，暗科技感
-      ctx.fillStyle = 'rgba(4,6,10,0.08)'
+      // 背景：柔和流动的水面感
+      ctx.fillStyle = 'rgba(239, 246, 255, 0.9)'
       ctx.fillRect(0, 0, W, H)
       ctx.globalCompositeOperation = 'lighter'
 
@@ -142,14 +142,14 @@ export default {
         if (p.y < 0 || p.y > H) p.vy *= -0.9
         // 绘制发光粒子与轨迹
         const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 6 * this.dpr)
-        grad.addColorStop(0, `hsla(${p.hue}, 90%, 70%, 0.85)`)
-        grad.addColorStop(1, `hsla(${p.hue}, 90%, 50%, 0.0)`)
+        grad.addColorStop(0, `hsla(${p.hue}, 95%, 72%, 0.9)`)
+        grad.addColorStop(1, `hsla(${p.hue}, 95%, 55%, 0.0)`)
         ctx.fillStyle = grad
         ctx.beginPath()
         ctx.arc(p.x, p.y, (p.size + (this.phase === 'collapse' ? 0.6 : 0)) * this.dpr, 0, Math.PI * 2)
         ctx.fill()
         // 速度线（数据流感）
-        ctx.strokeStyle = `hsla(${p.hue}, 100%, 70%, 0.18)`
+        ctx.strokeStyle = `hsla(${p.hue}, 100%, 70%, 0.28)`
         ctx.lineWidth = 1 * this.dpr
         ctx.beginPath()
         ctx.moveTo(p.x, p.y)
@@ -159,11 +159,11 @@ export default {
 
       // 闪点效果
       if (this.flash.active) {
-        this.flash.alpha *= 0.92
-        const r = Math.max(W, H) * 0.25
+        this.flash.alpha *= 0.9
+        const r = Math.max(W, H) * 0.32
         const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-        g.addColorStop(0, `rgba(180,200,255,${0.25 * this.flash.alpha})`)
-        g.addColorStop(1, `rgba(180,200,255,0)`)
+        g.addColorStop(0, `rgba(191,219,254,${0.35 * this.flash.alpha})`)
+        g.addColorStop(1, `rgba(191,219,254,0)`)
         ctx.fillStyle = g
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill()
         if (this.flash.alpha < 0.02) this.flash.active = false
@@ -176,6 +176,6 @@ export default {
 </script>
 
 <style scoped>
-.tf-metaphor { background: radial-gradient(1200px 600px at 50% 50%, #0b0f18 0%, #070a12 40%, #05070d 100%); border-radius: 16px; overflow: hidden; }
-.tf-reveal-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: clamp(20px, 4vw, 28px); letter-spacing: 0.6px; color: #cfe3ff; text-shadow: 0 0 18px rgba(120,140,255,0.65), 0 0 6px rgba(120,140,255,0.45); filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
+.tf-metaphor { background: radial-gradient(1200px 600px at 50% 0%, #DBEAFE 0%, #EFF6FF 40%, #FFFFFF 100%); border-radius: 16px; overflow: hidden; }
+.tf-reveal-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: clamp(20px, 4vw, 28px); letter-spacing: 0.6px; color: #0F172A; text-shadow: 0 0 16px rgba(59,130,246,0.35), 0 0 4px rgba(59,130,246,0.25); }
 </style>

@@ -1,0 +1,85 @@
+name: Test Build
+
+on:
+  pull_request:
+    branches: [master, main, develop]
+  push:
+    branches: [feature/stats-ui-demo]
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 设置 Node.js 环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      # 3. 安装前端依赖
+      - name: Install Frontend Dependencies
+        run: |
+          cd web
+          npm ci --production=false
+
+      # 4. 验证配置文件（修复ES模块兼容性问题）
+      - name: Verify Config Files
+        run: |
+          cd web
+          echo "验证配置文件..."
+          ls -la | grep postcss.config
+          # 确保postcss配置使用正确的扩展名
+          if [ ! -f "postcss.config.cjs" ]; then
+            echo "postcss.config.cjs文件缺失，CI构建可能失败"
+            exit 1
+          fi
+
+      # 5. 构建前端
+      - name: Build Frontend
+        run: |
+          cd web
+          npm run build
+        env:
+          VITE_SHORT_BASE: "https://example.com"
+          VITE_API_BASE: "https://api.example.com"
+
+      # 6. 设置 Java 环境
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      # 7. 运行后端测试
+      - name: Run Backend Tests
+        run: mvn clean test
+        env:
+          APP_DOMAIN: "https://example.com"
+          DB_PASSWORD: "test"
+          JWT_SECRET: "test-secret"
+          REDIS_PASSWORD: "test-redis"
+
+      # 8. 简单编译检查（不实际打包）
+      - name: Compile Backend
+        run: mvn compile -q
+        env:
+          APP_DOMAIN: "https://example.com"
+          DB_PASSWORD: "test"
+          JWT_SECRET: "test-secret"
+          REDIS_PASSWORD: "test-redis"
+
+      # 9. 验证构建产物
+      - name: Verify Build Output
+        run: |
+          echo "✅ 前端构建验证"
+          ls -la web/dist/
+          echo "✅ 后端编译验证"
+          ls -la target/classes/

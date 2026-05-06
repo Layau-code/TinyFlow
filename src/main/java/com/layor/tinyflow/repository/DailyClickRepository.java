@@ -1,7 +1,7 @@
 package com.layor.tinyflow.repository;
 
 import com.layor.tinyflow.entity.DailyClick;
-import io.lettuce.core.dynamic.annotation.Param;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -24,6 +24,9 @@ public interface DailyClickRepository extends JpaRepository<DailyClick, Long> {
     @Query("SELECT d.clicks FROM DailyClick d WHERE d.shortCode = :shortCode AND d.date = CURRENT_DATE")
     Integer getTodayClicksByShortCode(String shortCode);
 
+    @Query("SELECT d.shortCode, d.clicks FROM DailyClick d WHERE d.date = CURRENT_DATE AND d.shortCode IN (:codes)")
+    List<Object[]> findTodayClicksByShortCodes(@Param("codes") List<String> codes);
+
     DailyClick findByShortCode(String shortCode);
 
     void deleteByShortCode(String shortCode);
@@ -42,4 +45,7 @@ public interface DailyClickRepository extends JpaRepository<DailyClick, Long> {
     ON DUPLICATE KEY UPDATE clicks = clicks + :delta
     """, nativeQuery = true)
     void incrementClickBy(@Param("shortCode") String shortCode, @Param("delta") long delta);
+
+    @Query("SELECT d.shortCode FROM DailyClick d WHERE d.date = CURRENT_DATE AND d.clicks > 0")
+    List<String> findTodayActiveCodes();
 }

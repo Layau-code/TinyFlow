@@ -21,17 +21,22 @@ public class IdSegment {
     private String bizTag;
 
     @Column(name = "max_id", nullable = false)
+    @Builder.Default
     private long maxId = 1L;
 
     @Column(name = "step", nullable = false)
+    @Builder.Default
     private int step = 100_000;
 
     @Column(name = "version", nullable = false)
+    @Builder.Default
     private int version = 0;
 
     @Column(name = "created_at", nullable = false)
+    @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(name = "updated_at", nullable = false)
+    @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 }

@@ -34,3 +34,25 @@ build/
 
 # Ignore k6 dashboard file if it can be regenerated
 web/k6/dashboard.json
+
+/logs/web/k6/results.json
+
+
+
+logs/
+
+# Backend local config (local-only, not committed)
+src/main/resources/application-local.yml
+src/main/resources/application-*-local.yml
+
+# Frontend build & deps
+web/node_modules/
+web/dist/
+
+# Frontend local env files
+web/.env.local
+web/.env.*.local
+
+# Frontend cache & coverage
+web/.vite/
+web/coverage/

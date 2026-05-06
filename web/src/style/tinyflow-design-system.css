@@ -1,0 +1,573 @@
+/* TinyFlow Design System - 统一视觉规范 */
+:root {
+  /* 品牌颜色 (蓝白配色 #3370FF) */
+  --tf-brand-primary: #3370FF;
+  --tf-brand-primary-hover: #2B5FE6;
+  --tf-brand-primary-pressed: #1F4AD1;
+  --tf-brand-primary-light: #EFF6FF;
+  --tf-brand-primary-lighter: #F2F7FF;
+
+  /* 扩展品牌色系 */
+  --tf-brand-green: #00C875;
+  --tf-brand-yellow: #FFAB00;
+  --tf-brand-red: #F54A45;
+  --tf-brand-purple: #7C3AED;
+  --tf-brand-cyan: #06B6D4;
+
+  /* 中性色阶 - 11步灰度 */
+  --tf-gray-50: #F8FAFC;
+  --tf-gray-100: #F1F5F9;
+  --tf-gray-200: #E2E8F0;
+  --tf-gray-300: #CBD5E1;
+  --tf-gray-400: #94A3B8;
+  --tf-gray-500: #64748B;
+  --tf-gray-600: #475569;
+  --tf-gray-700: #334155;
+  --tf-gray-800: #1E293B;
+  --tf-gray-900: #0F172A;
+
+  /* 语义颜色 */
+  --tf-text-primary: var(--tf-gray-800);
+  --tf-text-secondary: var(--tf-gray-600);
+  --tf-text-muted: var(--tf-gray-500);
+  --tf-text-disabled: var(--tf-gray-400);
+  --tf-text-on-primary: #FFFFFF;
+
+  --tf-bg-page: var(--tf-gray-50);
+  --tf-bg-card: #FFFFFF;
+  --tf-bg-hover: var(--tf-gray-100);
+  --tf-bg-selected: var(--tf-brand-primary-lighter);
+
+  --tf-border-light: var(--tf-gray-200);
+  --tf-border: var(--tf-gray-300);
+  --tf-border-dark: var(--tf-gray-400);
+
+  /* 语义状态颜色 */
+  --tf-success: var(--tf-brand-green);
+  --tf-success-light: #DCFCE7;
+  --tf-warning: var(--tf-brand-yellow);
+  --tf-warning-light: #FEF3C7;
+  --tf-error: var(--tf-brand-red);
+  --tf-error-light: #FEE2E2;
+  --tf-info: var(--tf-brand-primary);
+  --tf-info-light: var(--tf-brand-primary-light);
+
+  /* 阴影系统 */
+  --tf-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --tf-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --tf-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --tf-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --tf-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --tf-shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* 交互阴影 */
+  --tf-shadow-card: var(--tf-shadow);
+  --tf-shadow-card-hover: var(--tf-shadow-md);
+  --tf-shadow-modal: var(--tf-shadow-2xl);
+
+  /* 圆角系统 */
+  --tf-radius-sm: 4px;
+  --tf-radius: 6px;
+  --tf-radius-md: 8px;
+  --tf-radius-lg: 12px;
+  --tf-radius-xl: 16px;
+  --tf-radius-2xl: 20px;
+  --tf-radius-full: 9999px;
+
+  /* 间距系统 */
+  --tf-space-1: 4px;
+  --tf-space-2: 8px;
+  --tf-space-3: 12px;
+  --tf-space-4: 16px;
+  --tf-space-5: 20px;
+  --tf-space-6: 24px;
+  --tf-space-8: 32px;
+  --tf-space-10: 40px;
+  --tf-space-12: 48px;
+  --tf-space-16: 64px;
+
+  /* 字体大小 */
+  --tf-text-xs: 12px;
+  --tf-text-sm: 14px;
+  --tf-text-base: 16px;
+  --tf-text-lg: 18px;
+  --tf-text-xl: 20px;
+  --tf-text-2xl: 24px;
+  --tf-text-3xl: 30px;
+  --tf-text-4xl: 36px;
+
+  /* 字体字重 */
+  --tf-font-normal: 400;
+  --tf-font-medium: 500;
+  --tf-font-semibold: 600;
+  --tf-font-bold: 700;
+
+  /* 行高 */
+  --tf-leading-tight: 1.25;
+  --tf-leading-normal: 1.5;
+  --tf-leading-relaxed: 1.75;
+
+  /* 动画曲线 */
+  --tf-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --tf-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --tf-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* 动画时长 */
+  --tf-duration-fast: 150ms;
+  --tf-duration-normal: 200ms;
+  --tf-duration-slow: 300ms;
+}
+
+/* 响应式断点 */
+@media (max-width: 640px) {
+  :root {
+    --tf-container-padding: var(--tf-space-4);
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  :root {
+    --tf-container-padding: var(--tf-space-6);
+  }
+}
+
+@media (min-width: 1025px) {
+  :root {
+    --tf-container-padding: var(--tf-space-8);
+  }
+}
+
+/* 基础重置和全局样式 */
+.tf-root {
+  color: var(--tf-text-primary);
+  background-color: var(--tf-bg-page);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  line-height: var(--tf-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 布局系统 */
+.tf-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--tf-container-padding);
+}
+
+.tf-grid {
+  display: grid;
+  gap: var(--tf-space-6);
+}
+
+.tf-grid-1 { grid-template-columns: 1fr; }
+.tf-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.tf-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.tf-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.tf-grid-5 { grid-template-columns: repeat(5, 1fr); }
+
+@media (max-width: 1024px) {
+  .tf-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .tf-grid-4, .tf-grid-5 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .tf-grid-2, .tf-grid-3, .tf-grid-4, .tf-grid-5 { grid-template-columns: 1fr; }
+}
+
+/* 卡片组件 */
+.tf-card {
+  background: var(--tf-bg-card);
+  border: 1px solid var(--tf-border-light);
+  border-radius: var(--tf-radius-lg);
+  box-shadow: var(--tf-shadow-card);
+  transition: all var(--tf-duration-normal) var(--tf-ease-in-out);
+}
+
+.tf-card:hover:not(.tf-card-static) {
+  box-shadow: var(--tf-shadow-card-hover);
+  transform: translateY(-2px);
+  border-color: var(--tf-border);
+}
+
+.tf-card-header {
+  padding: var(--tf-space-5) var(--tf-space-5) var(--tf-space-4);
+  border-bottom: 1px solid var(--tf-border-light);
+}
+
+.tf-card-body {
+  padding: var(--tf-space-5);
+}
+
+.tf-card-footer {
+  padding: var(--tf-space-4) var(--tf-space-5);
+  border-top: 1px solid var(--tf-border-light);
+  background-color: var(--tf-gray-50);
+}
+
+/* 指标卡片 */
+.tf-metric-card {
+  background: var(--tf-bg-card);
+  border: 1px solid var(--tf-border-light);
+  border-radius: var(--tf-radius-lg);
+  padding: var(--tf-space-5);
+  text-align: center;
+  transition: all var(--tf-duration-normal) var(--tf-ease-in-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.tf-metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--tf-brand-primary), var(--tf-brand-purple));
+  opacity: 0;
+  transition: opacity var(--tf-duration-normal);
+}
+
+.tf-metric-card:hover {
+  box-shadow: var(--tf-shadow-md);
+  transform: translateY(-2px);
+}
+
+.tf-metric-card:hover::before {
+  opacity: 1;
+}
+
+.tf-metric-card.tf-metric-highlight {
+  border-color: var(--tf-brand-primary);
+  background: linear-gradient(135deg, var(--tf-brand-primary-lighter), #FFFFFF);
+}
+
+.tf-metric-card.tf-metric-highlight::before {
+  opacity: 1;
+}
+
+.tf-metric-label {
+  font-size: var(--tf-text-sm);
+  color: var(--tf-text-muted);
+  margin-bottom: var(--tf-space-2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--tf-font-medium);
+}
+
+.tf-metric-value {
+  font-size: var(--tf-text-3xl);
+  font-weight: var(--tf-font-bold);
+  color: var(--tf-text-primary);
+  margin-bottom: var(--tf-space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.tf-metric-trend {
+  font-size: var(--tf-text-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tf-space-1);
+  color: var(--tf-text-muted);
+}
+
+.tf-metric-trend.tf-trend-positive {
+  color: var(--tf-success);
+}
+
+.tf-metric-trend.tf-trend-negative {
+  color: var(--tf-error);
+}
+
+/* 按钮组件 */
+.tf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tf-space-2);
+  padding: var(--tf-space-3) var(--tf-space-4);
+  border-radius: var(--tf-radius);
+  font-size: var(--tf-text-sm);
+  font-weight: var(--tf-font-medium);
+  line-height: 1;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--tf-duration-fast) var(--tf-ease-in-out);
+  text-decoration: none;
+  user-select: none;
+}
+
+.tf-btn:focus-visible {
+  outline: 2px solid var(--tf-brand-primary);
+  outline-offset: 2px;
+}
+
+.tf-btn-primary {
+  background: var(--tf-brand-primary);
+  color: var(--tf-text-on-primary);
+  border-color: var(--tf-brand-primary);
+}
+
+.tf-btn-primary:hover {
+  background: var(--tf-brand-primary-hover);
+  border-color: var(--tf-brand-primary-hover);
+  transform: translateY(-1px);
+}
+
+.tf-btn-primary:active {
+  background: var(--tf-brand-primary-pressed);
+  transform: translateY(0);
+}
+
+.tf-btn-secondary {
+  background: var(--tf-bg-card);
+  color: var(--tf-text-secondary);
+  border-color: var(--tf-border);
+}
+
+.tf-btn-secondary:hover {
+  background: var(--tf-bg-hover);
+  border-color: var(--tf-border-dark);
+  transform: translateY(-1px);
+}
+
+.tf-btn-ghost {
+  background: transparent;
+  color: var(--tf-text-secondary);
+  border-color: transparent;
+}
+
+.tf-btn-ghost:hover {
+  background: var(--tf-bg-hover);
+  color: var(--tf-text-primary);
+}
+
+.tf-btn-sm {
+  padding: var(--tf-space-2) var(--tf-space-3);
+  font-size: var(--tf-text-xs);
+}
+
+.tf-btn-lg {
+  padding: var(--tf-space-4) var(--tf-space-6);
+  font-size: var(--tf-text-base);
+}
+
+/* 表单组件 */
+.tf-input {
+  width: 100%;
+  padding: var(--tf-space-3) var(--tf-space-4);
+  background: var(--tf-bg-card);
+  border: 1px solid var(--tf-border);
+  border-radius: var(--tf-radius);
+  font-size: var(--tf-text-sm);
+  color: var(--tf-text-primary);
+  transition: all var(--tf-duration-fast) var(--tf-ease-in-out);
+}
+
+.tf-input:focus {
+  outline: none;
+  border-color: var(--tf-brand-primary);
+  box-shadow: 0 0 0 3px var(--tf-brand-primary-light);
+}
+
+.tf-input::placeholder {
+  color: var(--tf-text-disabled);
+}
+
+/* 标签页 */
+.tf-tab {
+  padding: var(--tf-space-2) var(--tf-space-4);
+  background: var(--tf-bg-hover);
+  color: var(--tf-text-muted);
+  border: none;
+  border-radius: var(--tf-radius);
+  font-size: var(--tf-text-sm);
+  font-weight: var(--tf-font-medium);
+  cursor: pointer;
+  transition: all var(--tf-duration-fast) var(--tf-ease-in-out);
+}
+
+.tf-tab:hover {
+  background: var(--tf-gray-200);
+  color: var(--tf-text-secondary);
+}
+
+.tf-tab.tf-tab-active {
+  background: var(--tf-brand-primary);
+  color: var(--tf-text-on-primary);
+}
+
+/* 表格组件 */
+.tf-table-container {
+  overflow-x: auto;
+  border-radius: var(--tf-radius-lg);
+  border: 1px solid var(--tf-border-light);
+  background: var(--tf-bg-card);
+}
+
+.tf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--tf-text-sm);
+}
+
+.tf-table th {
+  background: var(--tf-gray-50);
+  font-weight: var(--tf-font-semibold);
+  color: var(--tf-text-secondary);
+  padding: var(--tf-space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--tf-border-light);
+  white-space: nowrap;
+}
+
+.tf-table td {
+  padding: var(--tf-space-4);
+  border-bottom: 1px solid var(--tf-border-light);
+  color: var(--tf-text-primary);
+}
+
+.tf-table tr:last-child td {
+  border-bottom: none;
+}
+
+.tf-table tr:hover td {
+  background: var(--tf-bg-hover);
+}
+
+/* 加载状态 */
+.tf-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tf-space-2);
+  color: var(--tf-text-muted);
+  font-size: var(--tf-text-sm);
+}
+
+.tf-loading::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--tf-border);
+  border-top: 2px solid var(--tf-brand-primary);
+  border-radius: 50%;
+  animation: tf-spin 1s linear infinite;
+}
+
+@keyframes tf-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 空状态 */
+.tf-empty-state {
+  text-align: center;
+  padding: var(--tf-space-8) var(--tf-space-5);
+  color: var(--tf-text-muted);
+}
+
+.tf-empty-icon {
+  margin-bottom: var(--tf-space-4);
+  opacity: 0.5;
+}
+
+.tf-empty-title {
+  font-size: var(--tf-text-lg);
+  font-weight: var(--tf-font-medium);
+  margin-bottom: var(--tf-space-2);
+  color: var(--tf-text-secondary);
+}
+
+.tf-empty-description {
+  font-size: var(--tf-text-sm);
+  max-width: 300px;
+  margin: 0 auto;
+  line-height: var(--tf-leading-relaxed);
+}
+
+/* 图表容器 */
+.tf-chart-container {
+  min-height: 320px;
+  background: var(--tf-bg-card);
+  border-radius: var(--tf-radius-lg);
+  position: relative;
+}
+
+.tf-chart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 280px;
+  color: var(--tf-text-disabled);
+  font-size: var(--tf-text-sm);
+  background: var(--tf-gray-50);
+  border: 1px dashed var(--tf-border);
+  border-radius: var(--tf-radius);
+}
+
+.tf-chart-insight {
+  margin-top: var(--tf-space-4);
+  padding: var(--tf-space-3) var(--tf-space-4);
+  background: var(--tf-info-light);
+  border-left: 3px solid var(--tf-info);
+  border-radius: var(--tf-radius-sm);
+  font-size: var(--tf-text-sm);
+  color: var(--tf-text-secondary);
+}
+
+/* 工具类 */
+.tf-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tf-text-center { text-align: center; }
+.tf-text-left { text-align: left; }
+.tf-text-right { text-align: right; }
+
+.tf-font-normal { font-weight: var(--tf-font-normal); }
+.tf-font-medium { font-weight: var(--tf-font-medium); }
+.tf-font-semibold { font-weight: var(--tf-font-semibold); }
+.tf-font-bold { font-weight: var(--tf-font-bold); }
+
+.tf-flex { display: flex; }
+.tf-inline-flex { display: inline-flex; }
+.tf-flex-col { flex-direction: column; }
+.tf-items-center { align-items: center; }
+.tf-justify-center { justify-content: center; }
+.tf-justify-between { justify-content: space-between; }
+.tf-gap-2 { gap: var(--tf-space-2); }
+.tf-gap-3 { gap: var(--tf-space-3); }
+.tf-gap-4 { gap: var(--tf-space-4); }
+.tf-gap-6 { gap: var(--tf-space-6); }
+
+.tf-p-4 { padding: var(--tf-space-4); }
+.tf-p-5 { padding: var(--tf-space-5); }
+.tf-px-4 { padding-left: var(--tf-space-4); padding-right: var(--tf-space-4); }
+.tf-py-3 { padding-top: var(--tf-space-3); padding-bottom: var(--tf-space-3); }
+.tf-py-4 { padding-top: var(--tf-space-4); padding-bottom: var(--tf-space-4); }
+
+.tf-m-0 { margin: 0; }
+.tf-mb-2 { margin-bottom: var(--tf-space-2); }
+.tf-mb-4 { margin-bottom: var(--tf-space-4); }
+.tf-mt-4 { margin-top: var(--tf-space-4); }
+
+/* 响应式工具类 */
+@media (max-width: 768px) {
+  .tf-mobile\:grid-1 { grid-template-columns: 1fr !important; }
+  .tf-mobile\:flex-col { flex-direction: column !important; }
+  .tf-mobile\:text-center { text-align: center !important; }
+}
+
+/* 动画工具 */
+.tf-fade-in {
+  animation: tf-fade-in var(--tf-duration-normal) var(--tf-ease-out);
+}
+
+@keyframes tf-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

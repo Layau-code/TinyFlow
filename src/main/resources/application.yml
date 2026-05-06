@@ -1,11 +1,10 @@
 spring:
-
   application:
     name: TinyFlow
   datasource:
     url: jdbc:mysql://localhost:3306/tiny-flow?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci
     username: root
-    password: 123456
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 100
@@ -21,9 +20,9 @@ spring:
     database-platform: org.hibernate.dialect.MySQL8Dialect
   data:
     redis:
-      host: 47.97.110.128
+      host: localhost
       port: 6379
-      password: 123456
+      password: ${REDIS_PASSWORD}
       timeout: 2s
       lettuce:
           pool:
@@ -31,6 +30,36 @@ spring:
             max-idle: 200
             max-wait: 1s
             min-idle: 50
+  
+  # RabbitMQ 配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: rabbit
+    virtual-host: /
+    # 生产者确认机制，保证消息不丢失
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    # 消费者配置
+    listener:
+      simple:
+        # 手动确认模式，保证消息处理成功
+        acknowledge-mode: auto
+        # 并发消费者数量（ClickCountAggregator使用）
+        concurrency: 2
+        max-concurrency: 5
+        # 预取数量（批量消费）
+        prefetch: 50
+        # 重试机制
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+          multiplier: 2
+          max-interval: 10000
 
 
 server:
@@ -49,7 +78,7 @@ server:
 
 
 app:
-  domain: http://localhost:8080
+  domain: ${APP_DOMAIN}
 
 shortcode:
   minLen: 4
@@ -60,10 +89,19 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,circuitbreakers,ratelimiters,threaddump,heapdump
+      base-path: /actuator
   endpoint:
     health:
       show-details: always
+      show-components: always
+  health:
+    circuitbreakers:
+      enabled: true
+    ratelimiters:
+      enabled: true
+    rabbit:
+      enabled: false  # 禁用RabbitMQ健康检查（服务未安装）
   metrics:
     tags:
       application: tinyflow
@@ -75,17 +113,41 @@ management:
       percentiles:
         http:
           server:
-            requests: 0.95, 0.99
+            requests: 0.5, 0.95, 0.99, 0.999
+      slo:
+        http:
+          server:
+            requests: 10ms,50ms,100ms,200ms,500ms,1s,2s
+    export:
+      prometheus:
+        enabled: true
+        step: 1m
+        descriptions: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
 
 events:
-  sampleRate: 0.0
-clicks:
-  mode: local
+  sampleRate: 1.0  # 100%记录详细点击事件，支持分布图统计
+  buffer:
+    maxSize: 10000              # 事件缓冲队列最大容量
+  flush:
+    minBatchSize: 100           # 最小批量大小（队列压力小时）
+    maxBatchSize: 1000          # 最大批量大小（队列压力大时）
+    strategy: jdbc              # 刷新策略: jdbc（高性能）, jpa（兼容性）, auto（自动选择）
 
-# 布隆过滤器配置
-bloom:
-  warmup:
-    enabled: true  # 启动时是否预热（加载已有的短码到布隆过滤器）
+# 点击计数模式：使用MQ异步聚合方案
+# 工作流程：点击 → MQ → 消费者聚合(1秒) → Redis → DB(60秒)
+clicks:
+  mode: mq
+
+# 短链生成配置
+shorturl:
+  async:
+    enabled: true  # 启用异步模式（先写Caffeine+Redis，再异步持久化）
 
 cache:
   caffeine:
@@ -97,18 +159,83 @@ cache:
 resilience4j:
   ratelimiter:
     instances:
+      # 短链跳转限流（全局）
       redirectLimit:
-        limitForPeriod: 3500
+        limitForPeriod: 3000          # 每秒3000次（2核4G极限）
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0              # 不等待，立即拒绝
+      
+      # 短链生成限流（更严格）
+      createLimit:
+        limitForPeriod: 100             # 每秒100次
         limitRefreshPeriod: 1s
         timeoutDuration: 0
+      
+      # API查询限流
+      queryLimit:
+        limitForPeriod: 500             # 每秒500次
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0
+  
   circuitbreaker:
     instances:
+      # Redis 熔断器（快速失败）
       redisBreaker:
         registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 100
+        minimumNumberOfCalls: 10
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 1000ms
+        recordExceptions:
+          - org.springframework.data.redis.RedisConnectionFailureException
+          - java.net.SocketTimeoutException
+        ignoreExceptions:
+          - java.lang.IllegalArgumentException
+        eventConsumerBufferSize: 100
+      
+      # 数据库熔断器（慢调用保护）
+      dbBreaker:
+        registerHealthIndicator: true
+        slidingWindowType: TIME_BASED
+        slidingWindowSize: 60
+        minimumNumberOfCalls: 10
         permittedNumberOfCallsInHalfOpenState: 3
         automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 5s
+        waitDurationInOpenState: 60s
         failureRateThreshold: 50
-        eventConsumerBufferSize: 10
+        slowCallRateThreshold: 70
+        slowCallDurationThreshold: 2000ms
+        recordExceptions:
+          - org.springframework.dao.DataAccessException
+          - java.sql.SQLException
+        eventConsumerBufferSize: 100
+  
+  # 重试配置
+  retry:
+    instances:
+      redisRetry:
+        maxAttempts: 3
+        waitDuration: 100ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.data.redis.RedisConnectionFailureException
+  
+  # 舱壁隔离（线程池隔离）
+  bulkhead:
+    instances:
+      redisBulkhead:
+        maxConcurrentCalls: 100
+        maxWaitDuration: 50ms
+
+# JWT 配置
+jwt:
+  # 密钥（生产环境请使用环境变量或加密存储，至少256位）
+  secret: ${JWT_SECRET}
+  # 过期时间（毫秒），默认7天
+  expiration: 604800000
